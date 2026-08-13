@@ -31,6 +31,12 @@
     padding:14px;margin-bottom:12px;}
   .card h2{font-size:.98rem;color:var(--verde);margin:0 0 10px;padding-bottom:7px;
     border-bottom:1px solid var(--verde-borda);}
+  .card h2.clicavel{cursor:pointer;display:flex;align-items:center;user-select:none;}
+  .card h2.clicavel .seta{margin-left:auto;font-size:.8rem;color:var(--suave);transition:transform .15s;}
+  .card h2.clicavel .seta.aberta{transform:rotate(180deg);}
+  .previa.clicavel{cursor:pointer;}
+  .previa.clicavel:active{opacity:.85;}
+  .previa .dica-alterar{display:block;margin-top:4px;font-size:.72rem;color:var(--suave);font-style:italic;}
   label{display:block;font-size:.8rem;color:var(--suave);margin:9px 0 4px;}
   input,textarea{width:100%;padding:10px 11px;border:1px solid #d3d9d5;border-radius:8px;
     font-size:.95rem;background:#fff;color:var(--texto);font-family:inherit;}
@@ -75,11 +81,41 @@
 <body>
 
 <header>
-  <h1>Gerador de Documentos — Corpus</h1>
-  <p>Proposta e Aceite em .docx, gerados no seu aparelho. Nenhum dado sai do celular.</p>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+    <div>
+      <h1>Gerador de Documentos — Corpus</h1>
+      <p>Proposta e Aceite em .docx, gerados no seu aparelho. Nenhum dado sai do celular.</p>
+    </div>
+    <button class="btn-mini" style="background:rgba(255,255,255,.18);color:#fff;flex:0 0 auto;white-space:nowrap" onclick="novaProposta()">↺ Nova proposta</button>
+  </div>
 </header>
 
 <div class="wrap">
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleClientes()">Meus clientes <span class="badge" id="badgeClientes">–</span><span class="seta" id="setaClientes">▾</span></h2>
+    <div id="clientesCorpo" class="oculto">
+      <div id="cofreBloqueado">
+        <label>Senha do cofre</label>
+        <div class="row2">
+          <input type="password" id="senhaCofre" inputmode="text" placeholder="sua senha">
+          <button class="btn-sec" onclick="abrirCofre()">Abrir</button>
+        </div>
+        <div class="sub" id="avisoCofre">Primeira vez? Digite uma senha nova e toque em Abrir para criar o cofre.</div>
+      </div>
+      <div id="cofreAberto" class="oculto">
+        <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
+        <div class="chips" id="listaClientes" style="margin-top:8px"></div>
+        <button class="btn-sec btn-full" onclick="salvarClienteAtual()">Salvar o cliente do formulário no cofre</button>
+        <div class="row2" style="margin-top:8px">
+          <button class="btn-sec" onclick="document.getElementById('arqClientes').click()">Importar lista</button>
+          <button class="btn-sec" onclick="exportarClientes()">Exportar lista</button>
+        </div>
+        <input type="file" id="arqClientes" accept="application/json" class="oculto" onchange="importarClientes(this)">
+        <div class="sub">Guardado só neste aparelho, criptografado com sua senha. O cofre nasce vazio — traga sua lista pelo botão Importar.</div>
+      </div>
+    </div>
+  </div>
 
   <div class="card">
     <h2>Colar dados do cliente</h2>
@@ -88,34 +124,11 @@
     <div class="sub" id="resumoExtracao"></div>
   </div>
 
-
-  <div class="card">
-    <h2>Meus clientes <span class="badge" id="badgeClientes">–</span></h2>
-    <div id="cofreBloqueado">
-      <label>Senha do cofre</label>
-      <div class="row2">
-        <input type="password" id="senhaCofre" inputmode="text" placeholder="sua senha">
-        <button class="btn-sec" onclick="abrirCofre()">Abrir</button>
-      </div>
-      <div class="sub" id="avisoCofre">Primeira vez? Digite uma senha nova e toque em Abrir para criar o cofre.</div>
-    </div>
-    <div id="cofreAberto" class="oculto">
-      <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
-      <div class="chips" id="listaClientes" style="margin-top:8px"></div>
-      <button class="btn-sec btn-full" onclick="salvarClienteAtual()">Salvar o cliente do formulário no cofre</button>
-      <div class="row2" style="margin-top:8px">
-        <button class="btn-sec" onclick="document.getElementById('arqClientes').click()">Importar lista</button>
-        <button class="btn-sec" onclick="exportarClientes()">Exportar lista</button>
-      </div>
-      <input type="file" id="arqClientes" accept="application/json" class="oculto" onchange="importarClientes(this)">
-      <div class="sub">Guardado só neste aparelho, criptografado com sua senha. O cofre nasce vazio — traga sua lista pelo botão Importar.</div>
-    </div>
-  </div>
-
   <div class="card">
     <h2>Dados do cliente</h2>
     <label>Razão Social</label>
-    <input type="text" id="razaoSocial" style="text-transform:uppercase">
+    <input type="text" id="razaoSocial" style="text-transform:uppercase" oninput="conferirRazaoSocial()">
+    <div class="sub" id="avisoRazaoSocial"></div>
     <div class="row2">
       <div><label>CNPJ</label><input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this)"></div>
       <div><label>Inscrição Estadual</label><input type="text" id="ie" inputmode="numeric"></div>
@@ -126,11 +139,13 @@
     </div>
     <button class="btn-sec btn-full" onclick="buscarCNPJ()">Buscar dados pelo CNPJ</button>
     <div class="sub" id="statusCNPJ"></div>
+    <p class="sub" style="margin-top:10px">Preferível usar o botão acima — os campos de endereço abaixo vêm certos e
+      já separados da Receita. Só preencha à mão se a busca não funcionar, e sempre confira contra o Cartão CNPJ.</p>
     <label>E-mail</label>
     <input type="text" id="email" inputmode="email">
-    <label>Endereço completo</label>
-    <input type="text" id="enderecoUnico" oninput="quebrarEndereco()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
-    <div class="sub">Conferir a quebra (usada no Aceite):</div>
+    <label>Endereço completo (preenchimento manual)</label>
+    <input type="text" id="enderecoUnico" onblur="quebrarEndereco()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
+    <div class="sub">A quebra acontece quando você sai do campo — confira os campos abaixo antes de gerar (são eles que valem no documento):</div>
     <div class="row4">
       <input type="text" id="logradouro" placeholder="Logradouro">
       <input type="text" id="bairro" placeholder="Bairro">
@@ -145,7 +160,7 @@
     <div class="chips" id="chipsColeta"></div>
     <div id="blocoColeta" class="oculto">
       <label>Endereço de coleta</label>
-      <input type="text" id="enderecoColetaUnico" oninput="quebrarEnderecoColeta()">
+      <input type="text" id="enderecoColetaUnico" onblur="quebrarEnderecoColeta()">
       <div class="row4" style="margin-top:7px">
         <input type="text" id="logradouroColeta" placeholder="Logradouro">
         <input type="text" id="bairroColeta" placeholder="Bairro">
@@ -163,12 +178,14 @@
       <div><label>Data</label><input type="date" id="dataProposta"></div>
     </div>
     <label>Objeto</label>
-    <div class="chips" id="chipsObjeto"></div>
-    <div id="blocoSubObjeto" class="oculto">
-      <div class="etapa-titulo" style="margin-top:8px">Subcategoria</div>
-      <div class="chips" id="chipsSubObjeto"></div>
+    <div id="objetoEdicao">
+      <div class="chips" id="chipsObjeto"></div>
+      <div id="blocoSubObjeto" class="oculto">
+        <div class="etapa-titulo" style="margin-top:8px">Subcategoria</div>
+        <div class="chips" id="chipsSubObjeto"></div>
+      </div>
     </div>
-    <div class="previa" id="previaObjeto" style="margin-top:9px"></div>
+    <div class="previa clicavel" id="previaObjeto" style="margin-top:9px" onclick="toggleObjeto()"></div>
     <div class="aviso">PO sugerido pelo padrão 10+mês+sequência. Confira no seu controle antes de enviar.</div>
   </div>
 
@@ -199,6 +216,21 @@
   </div>
 
   <div class="card">
+    <h2>Envio e downloads</h2>
+    <label>Seu WhatsApp (pra abrir a conversa já pronta)</label>
+    <input type="text" id="meuWhats" inputmode="tel" placeholder="27 99999-9999" oninput="mascaraTelefone(this);salvarMeuWhats();">
+    <div class="sub">Cada pessoa configura o próprio número aqui, uma vez só — fica salvo neste navegador.</div>
+
+    <label style="margin-top:14px">Pasta de destino dos arquivos</label>
+    <div class="row2">
+      <div class="sub" id="pastaAtual" style="align-self:center">Downloads do navegador (padrão)</div>
+      <button class="btn-sec" id="btnEscolherPasta" onclick="escolherPasta()">Escolher pasta</button>
+    </div>
+    <div class="sub" id="avisoPasta">Cada um escolhe a própria pasta uma vez; os próximos arquivos gerados vão direto pra lá. Recurso do Chrome/Edge — no Firefox e Safari os arquivos caem nos Downloads normalmente.</div>
+    <button class="btn-mini" id="btnLimparPasta" onclick="limparPasta()" style="margin-top:8px;display:none">Voltar para Downloads padrão</button>
+  </div>
+
+  <div class="card">
     <h2>Sobre o app</h2>
     <div class="sub">Roda offline depois de instalado. Nada é enviado para servidor —
       só a busca por CNPJ, quando você toca no botão, sai do aparelho.</div>
@@ -217,7 +249,7 @@
       <button class="btn-sec" onclick="gerarAceite()">Só Aceite</button>
       <button class="btn-principal" onclick="gerarAmbos()">Gerar os dois</button>
     </div>
-    <button class="btn-sec btn-full oculto" id="btnCompartilhar" onclick="compartilharUltimos()">Compartilhar no WhatsApp</button>
+    <button class="btn-sec btn-full oculto" id="btnWhats" onclick="enviarWhatsApp()">Abrir no WhatsApp</button>
     <div class="status" id="statusGeracao"></div>
   </div>
 </div>
@@ -274,6 +306,7 @@ const OBJETOS=[
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
 let itens=[], sel={}, objetoSel=null, subObjetoSel=null, mesmoEnd=true, editandoIdx=null;
+let objetoAberto=true, clientesAberto=false;
 
 /* ============ CHIPS ============ */
 function chips(cont,opcoes,ativo,onPick){
@@ -323,14 +356,27 @@ function partirEndereco(txt){
   let t=txt.trim();
   const mCep=t.match(/(\d{5})[-.\s]?(\d{3})/);
   if(mCep){r.cep=mCep[1]+"-"+mCep[2];t=t.replace(mCep[0],"");}
-  const mUf=t.match(/[-,\/\s]\s*([A-Z]{2})\b\s*[.,]?\s*$/);
-  if(mUf){r.uf=mUf[1];t=t.replace(mUf[0],"");}
+  const mUf=t.match(/[-,\/\s]\s*([A-Z]{2})\b\s*[.,]?\s*$/i);
+  if(mUf){r.uf=mUf[1].toUpperCase();t=t.replace(mUf[0],"");}
+  // Só separa com segurança quando há vírgulas de verdade — nomes de rua com
+  // número embutido ("Rua 31 de Outubro") tornam qualquer heurística sem vírgula
+  // um chute. Sem vírgula, o texto inteiro fica em logradouro pra revisão manual,
+  // em vez de arriscar jogar pedaço certo no campo errado.
   const partes=t.split(",").map(s=>s.trim()).filter(Boolean);
   if(partes.length>=4){r.logradouro=partes[0]+", "+partes[1];r.bairro=partes[2];r.cidade=partes[3];}
   else if(partes.length===3){r.logradouro=partes[0];r.bairro=partes[1];r.cidade=partes[2];}
   else if(partes.length===2){r.logradouro=partes[0];r.cidade=partes[1];}
   else r.logradouro=partes[0]||"";
   return r;
+}
+// Aviso simples: razão social sem LTDA/ME/EIRELI/S.A./etc costuma estar
+// incompleta — confira sempre contra o Cartão CNPJ antes de gerar o documento.
+function conferirRazaoSocial(){
+  const v=document.getElementById("razaoSocial").value.trim();
+  const el=document.getElementById("avisoRazaoSocial");
+  if(!v){el.textContent="";return;}
+  const temSufixo=/\b(LTDA|ME|EIRELI|S\/?A|EPP|MEI|SS)\.?\s*$/i.test(v);
+  el.textContent=temSufixo?"":"Confira se falta LTDA, ME, S.A. ou outro sufixo — confronte com o Cartão CNPJ.";
 }
 function quebrarEndereco(){
   const r=partirEndereco(document.getElementById("enderecoUnico").value);
@@ -341,6 +387,12 @@ function quebrarEnderecoColeta(){
   const r=partirEndereco(document.getElementById("enderecoColetaUnico").value);
   ["logradouro","bairro","cidade","uf","cep"].forEach(k=>{
     if(r[k]) document.getElementById(k+"Coleta").value=r[k];});
+}
+/* ============ MEUS CLIENTES (recolhido por padrão) ============ */
+function toggleClientes(){
+  clientesAberto=!clientesAberto;
+  document.getElementById("clientesCorpo").classList.toggle("oculto",!clientesAberto);
+  document.getElementById("setaClientes").classList.toggle("aberta",clientesAberto);
 }
 function montarChipsColeta(){
   chips("chipsColeta",["Mesmo endereço do cliente","Endereço diferente"],
@@ -377,6 +429,7 @@ function extrairDoTexto(){
   });
   const rs=document.getElementById("razaoSocial");
   rs.value=rs.value.toUpperCase();
+  conferirRazaoSocial();
   quebrarEndereco();
   document.getElementById("resumoExtracao").textContent =
     achados.length?("Reconhecido: "+[...new Set(achados)].join(", ")+". Confira o resto."):"Nada reconhecido — preencha à mão.";
@@ -384,19 +437,37 @@ function extrairDoTexto(){
 }
 
 /* ============ OBJETO ============ */
+function objetoCompleto(){
+  if(!objetoSel)return false;
+  const o=OBJETOS.find(x=>x.n===objetoSel);
+  return o.sub?!!subObjetoSel:true;
+}
 function montarObjeto(){
   chips("chipsObjeto",OBJETOS.map(o=>o.n),objetoSel,op=>{
     objetoSel=op;subObjetoSel=null;
     const o=OBJETOS.find(x=>x.n===op);
     document.getElementById("blocoSubObjeto").classList.toggle("oculto",!o.sub);
-    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;montarObjeto();});
+    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;objetoAberto=false;montarObjeto();});
     montarObjeto();
   });
   if(objetoSel){
     const o=OBJETOS.find(x=>x.n===objetoSel);
-    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;montarObjeto();});
+    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;objetoAberto=false;montarObjeto();});
   }
-  document.getElementById("previaObjeto").innerHTML="<b>Objeto:</b> "+objetoTexto();
+  // Só recolhe quando a escolha está completa — enquanto falta a subcategoria,
+  // as opções continuam visíveis mesmo com objetoAberto=false.
+  const recolhido=!objetoAberto&&objetoCompleto();
+  document.getElementById("objetoEdicao").classList.toggle("oculto",recolhido);
+  const previaEl=document.getElementById("previaObjeto");
+  previaEl.classList.toggle("oculto",!objetoSel);
+  previaEl.innerHTML=objetoSel
+    ?`<b>Objeto:</b> ${objetoTexto()}`+(recolhido?'<span class="dica-alterar">toque para alterar</span>':'')
+    :"";
+}
+function toggleObjeto(){
+  if(!objetoSel)return;
+  objetoAberto=!objetoAberto;
+  montarObjeto();
 }
 function objetoTexto(){
   if(!objetoSel)return "(selecione)";
@@ -424,7 +495,9 @@ function fluxo(){
       const v=VEICULOS.find(x=>x.n===sel.veic);
       const cl=sel.classe==="CLASSE I"?"CLASSE I":"CLASSE II";
       const obs=(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:v.c;
-      previa(`${c} ${cl} - ${sel.mod} - ${sel.veic}`,"-",UNI_MOD[sel.mod]||"",obs);
+      // Quebra fixa entre a classificação e o veículo — sem depender da largura
+      // da coluna no Word pra decidir onde o texto cai pra segunda linha.
+      previa(`${c} ${cl} - ${sel.mod} -\n${sel.veic}`,"-",UNI_MOD[sel.mod]||"",obs);
     }
   } else if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
     mostrarEtapa(2,"Classe",["CLASSE II","CLASSE I"],sel.classe,v=>{sel.classe=v;esconderEtapas(3);fluxo();});
@@ -456,7 +529,7 @@ function fluxo(){
 }
 function previa(desc,res,uni,obs){
   const b=document.getElementById("previaItem");
-  b.innerHTML=`<b>Descrição:</b> ${desc}<br><b>Resíduo:</b> ${res}<br><b>Unidade:</b> ${uni||"(preencher)"}`;
+  b.innerHTML=`<b>Descrição:</b> ${desc.replace(/\n/g,"<br>")}<br><b>Resíduo:</b> ${res}<br><b>Unidade:</b> ${uni||"(preencher)"}`;
   b.classList.remove("oculto");
   b.dataset.desc=desc;b.dataset.res=res;
   document.getElementById("itemUnidade").value=uni;
@@ -492,7 +565,7 @@ function render(){
   const c=document.getElementById("corpoItens");
   document.getElementById("tabelaItens").classList.toggle("oculto",!itens.length);
   document.getElementById("listaVazia").classList.toggle("oculto",!!itens.length);
-  c.innerHTML=itens.map((it,i)=>`<tr><td><b>${it.descricao}</b><br>
+  c.innerHTML=itens.map((it,i)=>`<tr><td><b>${it.descricao.replace(/\n/g," ")}</b><br>
     <span style="color:#5b6961">${it.residuo} • ${it.unidade} • R$ ${it.valor||"—"}</span></td>
     <td class="acao"><button class="btn-mini" onclick="duplicarItem(${i})">duplicar</button>
     <button class="btn-rem" onclick="removerItem(${i})">remover</button></td></tr>`).join("");
@@ -507,8 +580,43 @@ function render(){
   montarCategorias();montarObjeto();montarChipsColeta();render();
 })();
 
+/* ============ NOVA PROPOSTA ============ */
+// Zera o formulário sem recarregar a página — recarregar funcionaria também,
+// mas aí o cofre de clientes fecha de novo e pede a senha à toa.
+function novaProposta(){
+  const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
+  if(temAlgo&&!confirm("Começar uma proposta nova? O que estiver preenchido e não foi gerado se perde."))return;
+
+  itens=[];sel={};objetoSel=null;subObjetoSel=null;objetoAberto=true;editandoIdx=null;
+  mesmoEnd=true;ultimaGeracao=null;
+
+  ["razaoSocial","cnpj","ie","solicitante","telefone","email","enderecoUnico",
+   "logradouro","bairro","uf","cep","cidade",
+   "enderecoColetaUnico","logradouroColeta","bairroColeta","ufColeta","cepColeta","cidadeColeta"]
+    .forEach(id=>{document.getElementById(id).value="";});
+  document.getElementById("statusCNPJ").textContent="";
+  document.getElementById("resumoExtracao").textContent="";
+  document.getElementById("avisoRazaoSocial").textContent="";
+  document.getElementById("blocoColeta").classList.add("oculto");
+  document.getElementById("statusGeracao").textContent="";
+  document.getElementById("btnWhats").classList.add("oculto");
+
+  const h=new Date();
+  document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
+  const mm=String(h.getMonth()+1).padStart(2,"0");
+  document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
+
+  esconderEtapas(2);
+  montarCategorias();montarObjeto();montarChipsColeta();render();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
 /* ============ GERAÇÃO ============ */
 function escXml(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+// Igual ao escXml, mas troca "\n" por uma quebra de linha de verdade dentro da
+// célula do Word — {descricao} sempre cai isolado dentro de um único <w:t>, então
+// é seguro fechar e reabrir o texto ao redor do <w:br/>.
+function escXmlQuebra(s){return escXml(s).split("\n").join('</w:t><w:br/><w:t xml:space="preserve">');}
 function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;}
 async function preencherDocx(tpl,mapa,loop){
@@ -522,7 +630,7 @@ async function preencherDocx(tpl,mapa,loop){
       let out="";
       (loop||[]).forEach(it=>{
         let l=modelo.split("{#itens}").join("").split("{/itens}").join("");
-        l=l.split("{descricao}").join(escXml(it.descricao));
+        l=l.split("{descricao}").join(escXmlQuebra(it.descricao));
         l=l.split("{residuo}").join(escXml(it.residuo));
         l=l.split("{unidade}").join(escXml(it.unidade));
         l=l.split("{valor}").join(escXml(it.valor));
@@ -535,37 +643,128 @@ async function preencherDocx(tpl,mapa,loop){
   return await zip.generateAsync({type:"blob",
     mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
 }
-function baixar(blob,nome){const u=URL.createObjectURL(blob),a=document.createElement("a");
+async function baixar(blob,nome){
+  if(pastaHandle){
+    try{
+      let perm=await pastaHandle.queryPermission({mode:"readwrite"});
+      if(perm!=="granted") perm=await pastaHandle.requestPermission({mode:"readwrite"});
+      if(perm==="granted"){
+        const fh=await pastaHandle.getFileHandle(nome,{create:true});
+        const ws=await fh.createWritable();
+        await ws.write(blob);
+        await ws.close();
+        return;
+      }
+    }catch(e){ console.warn("Pasta escolhida indisponível, caiu para Downloads:",e); }
+  }
+  const u=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=u;a.download=nome;document.body.appendChild(a);a.click();document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(u),4000);}
-function linhaEnd(l,b,c,u){return [l,b,(c&&u)?`${c} - ${u}`:(c||u)].filter(Boolean).join(", ");}
+  setTimeout(()=>URL.revokeObjectURL(u),4000);
+}
+// Padrão Google Maps: Logradouro - Bairro, Cidade - UF, CEP
+function linhaEnd(l,b,c,u,cep){
+  const linha=[l,b?"- "+b:""].filter(Boolean).join(" ");
+  const corpo=[linha,(c&&u)?`${c} - ${u}`:(c||u)].filter(Boolean).join(", ");
+  return cep?[corpo,cep].filter(Boolean).join(", "):corpo;
+}
 function mapear(){
   const g=id=>document.getElementById(id).value.trim();
-  const end=linhaEnd(g("logradouro"),g("bairro"),g("cidade"),g("uf").toUpperCase());
-  const cu=(g("cidade")&&g("uf"))?`${g("cidade")}/${g("uf").toUpperCase()}`:"";
-  const endC=mesmoEnd?end:linhaEnd(g("logradouroColeta"),g("bairroColeta"),g("cidadeColeta"),g("ufColeta").toUpperCase());
-  const cuC=mesmoEnd?cu:((g("cidadeColeta")&&g("ufColeta"))?`${g("cidadeColeta")}/${g("ufColeta").toUpperCase()}`:"");
+  const G=id=>g(id).toUpperCase(); // endereço sempre em caixa alta no documento final
+  const end=linhaEnd(G("logradouro"),G("bairro"),G("cidade"),g("uf").toUpperCase());
+  const cu=(g("cidade")&&g("uf"))?`${G("cidade")}/${g("uf").toUpperCase()}`:"";
+  const endC=mesmoEnd?end:linhaEnd(G("logradouroColeta"),G("bairroColeta"),G("cidadeColeta"),g("ufColeta").toUpperCase());
+  const cuC=mesmoEnd?cu:((g("cidadeColeta")&&g("ufColeta"))?`${G("cidadeColeta")}/${g("ufColeta").toUpperCase()}`:"");
   const d=g("dataProposta")?new Date(g("dataProposta")+"T00:00:00"):new Date();
   return {rs:g("razaoSocial").toUpperCase(),mapa:{
     razao_social:g("razaoSocial").toUpperCase(),contato_nome:g("solicitante"),telefone:g("telefone"),
     cnpj:g("cnpj"),inscricao_estadual_sufixo:g("ie")?`; IE: ${g("ie")}`:"",inscricao_estadual:g("ie"),
-    endereco_completo:end,endereco_logradouro:g("logradouro"),bairro:g("bairro"),cidade_uf:cu,cep:g("cep"),
+    endereco_completo:end,endereco_logradouro:G("logradouro"),bairro:G("bairro"),cidade_uf:cu,cep:g("cep"),
     email:g("email"),email_nfe:g("email"),endereco_coleta:endC,cidade_uf_coleta:cuC,
     cep_coleta:mesmoEnd?g("cep"):g("cepColeta"),proposta_numero:g("proposalNumber"),objeto:objetoTexto(),
     dia:String(d.getDate()).padStart(2,"0"),mes:MESES[d.getMonth()],ano:String(d.getFullYear()),
     data:d.toLocaleDateString("pt-BR")}};
 }
-let ultimos=[];
-function reg(blob,nome){ultimos=ultimos.filter(a=>a.nome!==nome);ultimos.push({blob,nome});
-  const s=!!(navigator.canShare&&navigator.share);
-  document.getElementById("btnCompartilhar").classList.toggle("oculto",!(s&&ultimos.length));}
-async function compartilharUltimos(){
-  try{const files=ultimos.map(a=>new File([a.blob],a.nome,
-    {type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}));
-    if(!navigator.canShare({files})){document.getElementById("statusGeracao").textContent=
-      "Navegador não permite compartilhar direto. Envie pelo arquivo baixado.";return;}
-    await navigator.share({files,title:"Proposta Corpus"});
-  }catch(e){if(e.name!=="AbortError")console.error(e);}
+// WhatsApp não deixa um site anexar arquivo pronto na conversa — nenhuma página
+// consegue fazer isso, só a API paga do WhatsApp Business. O que dá pra automatizar
+// é abrir a conversa certa com a mensagem pronta; o arquivo (já salvo na pasta
+// escolhida, ou nos Downloads) o próprio WhatsApp deixa anexar em dois toques.
+let ultimaGeracao=null;
+function marcarGerado(mapa,rs){
+  ultimaGeracao={numero:mapa.proposta_numero,cliente:rs};
+  document.getElementById("btnWhats").classList.remove("oculto");
+}
+const LS_WHATS="corpus_meu_whats";
+function salvarMeuWhats(){localStorage.setItem(LS_WHATS,document.getElementById("meuWhats").value);}
+function carregarMeuWhats(){
+  const el=document.getElementById("meuWhats");
+  el.value=localStorage.getItem(LS_WHATS)||"27 99944-8204";
+  mascaraTelefone(el);
+}
+function enviarWhatsApp(){
+  const numero=so(document.getElementById("meuWhats").value);
+  if(numero.length<10){document.getElementById("statusGeracao").textContent="Preencha seu WhatsApp no card “Envio e downloads”.";return;}
+  const msg=ultimaGeracao
+    ?`Segue a Proposta ${ultimaGeracao.numero} — ${ultimaGeracao.cliente}. Anexe aqui o arquivo que acabou de gerar.`
+    :"Segue a proposta em anexo.";
+  window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`,"_blank");
+}
+
+/* ============ PASTA DE DESTINO (File System Access API — Chrome/Edge) ============ */
+const IDB_NOME="corpus_fs",IDB_LOJA="alcas";
+function idbAbrir(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(IDB_NOME,1);
+    req.onupgradeneeded=()=>req.result.createObjectStore(IDB_LOJA);
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+}
+async function idbGet(chave){
+  const db=await idbAbrir();
+  return new Promise((resolve,reject)=>{
+    const r=db.transaction(IDB_LOJA,"readonly").objectStore(IDB_LOJA).get(chave);
+    r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);
+  });
+}
+async function idbSet(chave,valor){
+  const db=await idbAbrir();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(IDB_LOJA,"readwrite");
+    tx.objectStore(IDB_LOJA).put(valor,chave);
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });
+}
+let pastaHandle=null;
+async function iniciarPasta(){
+  if(!("showDirectoryPicker" in window)){
+    document.getElementById("btnEscolherPasta").disabled=true;
+    document.getElementById("btnEscolherPasta").textContent="Sem suporte neste navegador";
+    return;
+  }
+  try{
+    const h=await idbGet("pasta");
+    if(h){pastaHandle=h;atualizarPastaUI();}
+  }catch(e){}
+}
+function atualizarPastaUI(){
+  document.getElementById("pastaAtual").textContent=pastaHandle
+    ?("📁 "+pastaHandle.name):"Downloads do navegador (padrão)";
+  document.getElementById("btnLimparPasta").style.display=pastaHandle?"block":"none";
+}
+async function escolherPasta(){
+  if(!("showDirectoryPicker" in window))return;
+  try{
+    pastaHandle=await window.showDirectoryPicker({mode:"readwrite"});
+    await idbSet("pasta",pastaHandle);
+    atualizarPastaUI();
+    document.getElementById("avisoPasta").textContent="Pronto — os próximos arquivos gerados vão direto pra essa pasta, sem passar pelos Downloads.";
+  }catch(e){ /* usuário cancelou a escolha */ }
+}
+function limparPasta(){
+  pastaHandle=null;
+  idbSet("pasta",null);
+  atualizarPastaUI();
+  document.getElementById("avisoPasta").textContent="Voltou para os Downloads padrão do navegador.";
 }
 function checar(precisaItens){
   const st=document.getElementById("statusGeracao");
@@ -577,16 +776,16 @@ function checar(precisaItens){
 async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const b=await preencherDocx(TPL_P,c.mapa,itens);
     const n=`${c.mapa.proposta_numero} - ${c.rs} - Proposta.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    baixar(b,n);reg(b,n);c.st.textContent="Proposta pronta.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+    await baixar(b,n);marcarGerado(c.mapa,c.rs);c.st.textContent="Proposta pronta.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
   try{const b=await preencherDocx(TPL_A,c.mapa,null);
     const n=`${c.mapa.proposta_numero} - ${c.rs} - Aceite.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    baixar(b,n);reg(b,n);c.st.textContent="Aceite pronto.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+    await baixar(b,n);marcarGerado(c.mapa,c.rs);c.st.textContent="Aceite pronto.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
-    baixar(bp,base+" - Proposta.docx");setTimeout(()=>baixar(ba,base+" - Aceite.docx"),400);
-    reg(bp,base+" - Proposta.docx");reg(ba,base+" - Aceite.docx");
+    await baixar(bp,base+" - Proposta.docx");await baixar(ba,base+" - Aceite.docx");
+    marcarGerado(c.mapa,c.rs);
     c.st.textContent="Prontos! Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 
 
@@ -615,6 +814,7 @@ async function buscarCNPJ(){
       const v=f.map(d);
       if(!v.rs) continue;
       document.getElementById("razaoSocial").value=v.rs.toUpperCase();
+      conferirRazaoSocial();
       document.getElementById("logradouro").value=v.log;
       document.getElementById("bairro").value=v.bai;
       document.getElementById("cidade").value=v.cid;
@@ -696,6 +896,7 @@ function listarClientes(){
 function carregarCliente(i){
   const c=clientes[i];if(!c)return;
   document.getElementById("razaoSocial").value=(c.razaoSocial||"").toUpperCase();
+  conferirRazaoSocial();
   const elc=document.getElementById("cnpj");elc.value=c.cnpj||"";mascaraCNPJ(elc);
   document.getElementById("ie").value=c.ie||"";
   document.getElementById("email").value=c.email||"";
@@ -753,7 +954,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.13-1";
+const APP_VERSION="2026.08.13-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -773,6 +974,11 @@ async function buscarAtualizacao(){
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
+
+// Só agora, no fim do arquivo, é que "Meus clientes", WhatsApp e pasta de destino
+// terminaram de declarar suas const/let — chamar isso mais cedo (antes da própria
+// declaração rodar) derruba o script inteiro com "Cannot access before initialization".
+carregarMeuWhats();iniciarPasta();
 
 </script>
 </body>
