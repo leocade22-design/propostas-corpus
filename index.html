@@ -76,6 +76,28 @@
   .badge{display:inline-block;background:var(--verde);color:#fff;border-radius:999px;
     font-size:.7rem;padding:1px 8px;margin-left:5px;}
   .sub{font-size:.72rem;color:var(--suave);margin-top:3px;}
+
+  .modal-fundo{position:fixed;inset:0;background:rgba(20,30,25,.55);z-index:100;
+    display:flex;align-items:flex-end;justify-content:center;padding:0;}
+  .modal-caixa{background:#fff;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;
+    border-radius:16px 16px 0 0;padding:16px;}
+  .modal-topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .modal-topo h3{font-size:1.02rem;color:var(--verde);margin:0;}
+  .modal-fechar{background:none;color:var(--suave);font-size:1.1rem;padding:4px 8px;}
+  .btn-mic{background:var(--verde-claro);color:var(--verde);border:1px solid var(--verde-borda);
+    width:52px;flex:0 0 auto;font-size:1.2rem;align-self:stretch;}
+  .btn-mic.gravando{background:var(--alerta);color:#fff;border-color:var(--alerta);animation:pulsarMic 1.4s infinite;}
+  @keyframes pulsarMic{0%{opacity:1}50%{opacity:.55}100%{opacity:1}}
+  .cartao-voz{border:1px solid #e2e6e3;border-radius:10px;padding:10px 12px;margin-top:10px;}
+  .cartao-voz.reconhecido{border-color:var(--verde-borda);background:var(--verde-claro);}
+  .cartao-voz.naoreconhecido{border-color:#f0d98c;background:#fff8e6;}
+  .cartao-voz .linha-topo{display:flex;align-items:flex-start;gap:8px;}
+  .cartao-voz .linha-topo input[type=checkbox]{margin-top:4px;width:18px;height:18px;flex:0 0 auto;}
+  .cartao-voz .texto-original{font-size:.78rem;color:var(--suave);font-style:italic;margin-top:4px;}
+  .cartao-voz .desc-reconhecida{font-size:.88rem;font-weight:600;white-space:pre-line;}
+  .cartao-voz .campo-valor{display:flex;align-items:center;gap:6px;margin-top:8px;}
+  .cartao-voz .campo-valor label{margin:0;white-space:nowrap;}
+  .cartao-voz .campo-valor input{padding:6px 8px;font-size:.85rem;}
 </style>
 </head>
 <body>
@@ -192,7 +214,8 @@
 
   <div class="card">
     <h2>Linha de serviço <span class="badge" id="contagemItens">0</span></h2>
-    <div class="etapa-titulo">Categoria</div>
+    <button class="btn-sec btn-full" onclick="abrirReconhecimento()">🎙️ Reconhecimento rápido (voz ou texto)</button>
+    <div class="etapa-titulo" style="margin-top:12px">Categoria</div>
     <div class="chips" id="chipsCategoria"></div>
 
     <div class="etapa oculto" id="etapa2"><div class="etapa-titulo" id="tit2"></div><div class="chips" id="chips2"></div></div>
@@ -252,6 +275,35 @@
     </div>
     <button class="btn-sec btn-full oculto" id="btnWhats" onclick="enviarWhatsApp()">Abrir no WhatsApp</button>
     <div class="status" id="statusGeracao"></div>
+  </div>
+</div>
+
+<!-- ============ RECONHECIMENTO RÁPIDO (voz ou texto) ============
+     Reconhece por palavras-chave contra os mesmos catálogos do wizard manual —
+     sem IA, sem servidor, sem custo. Só acerta o que já está cadastrado (veículo,
+     resíduo, cargo, equipamento…); o que não reconhecer fica pra você completar
+     à mão, igual sempre foi. -->
+<div class="modal-fundo oculto" id="modalVoz">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3>Reconhecimento rápido</h3>
+      <button class="modal-fechar" onclick="fecharReconhecimento()">✕</button>
+    </div>
+    <p class="sub">Fale ou digite um item por vez — pode ir completando aos poucos, durante o atendimento.
+      Ex.: "coleta classe 2 por coleta com fiorino, 850 reais". Toque em Reconhecer quando terminar.</p>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <textarea id="textoVoz" placeholder="Fale pelo microfone ou digite aqui, um item por linha..." style="flex:1"></textarea>
+      <button id="btnMicVoz" class="btn-mic" onclick="alternarMicrofone()" title="Ditar por voz">🎤</button>
+    </div>
+    <div class="sub" id="statusVoz"></div>
+    <button class="btn-principal btn-full" style="margin-top:10px" onclick="reconhecerTrechos()">Reconhecer itens</button>
+
+    <div id="resultadosVoz"></div>
+
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-sec" onclick="fecharReconhecimento()">Fechar</button>
+      <button class="btn-principal" onclick="adicionarReconhecidos()">Adicionar selecionados</button>
+    </div>
   </div>
 </div>
 
@@ -579,6 +631,200 @@ function render(){
     <span style="color:#5b6961">${it.residuo} • ${it.unidade} • R$ ${it.valor||"—"}</span></td>
     <td class="acao"><button class="btn-mini" onclick="duplicarItem(${i})">duplicar</button>
     <button class="btn-rem" onclick="removerItem(${i})">remover</button></td></tr>`).join("");
+}
+
+/* ============ RECONHECIMENTO RÁPIDO (voz ou texto, sem IA) ============
+   Casa o texto contra os MESMOS catálogos do wizard manual (VEICULOS, RES_II,
+   RES_I, RECI, CARGOS, LOCACOES) por palavra-chave. Roda inteiro no navegador,
+   de graça — só não entende frase fora do que já está cadastrado; nesse caso
+   deixa marcado como "não reconhecido" pra completar à mão. */
+function escVoz(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+function extrairValor(txt){
+  // No terceiro padrão a vírgula decimal é obrigatória: sem ela, "classe 1 por kg"
+  // batia como se "1" fosse o preço, comendo o valor de verdade mais à frente.
+  let m = txt.match(/(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*reais?/i)
+       || txt.match(/r\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)/i)
+       || txt.match(/(\d+,\d{1,2})\s*(?:o\s*|por\s*)?(?:quilo|kg|m³|m3|viagem|hora|di[aá]ria)/i);
+  if(!m){
+    const todos=txt.match(/\d+(?:,\d{1,2})?/g);
+    if(todos&&todos.length) m=[null,todos[todos.length-1]];
+  }
+  if(!m) return "";
+  let v=m[1].replace(/\.(?=\d{3}(\D|$))/g,"");
+  if(!v.includes(",")) v+=",00";
+  return v;
+}
+
+function unidadeFalada(txt,padrao){
+  if(/por\s*equipamento|por\s*hora/i.test(txt)) return "POR EQUIPAMENTO";
+  if(/quilo|\bkg\b/i.test(txt)) return "POR KG";
+  if(/\bton(elada)?\b/i.test(txt)) return "POR TON";
+  if(/m[³3]/i.test(txt)) return "POR M³";
+  if(/unidade/i.test(txt)) return "POR UNIDADE";
+  if(/por\s*coleta/i.test(txt)) return "POR COLETA";
+  return padrao;
+}
+
+function reconhecerItem(textoOriginal){
+  const t=semAc(textoOriginal);
+  const r={textoOriginal,ok:false,sel:null,desc:"",res:"-",uni:"",obs:"",valor:""};
+
+  // Coleta de resíduos: precisa achar o veículo — classe e modalidade completam,
+  // mas sem veículo não dá pra saber qual linha do catálogo é.
+  const veic=VEICULOS.find(v=>t.includes(semAc(v.n)));
+  if(veic){
+    const classe=/classe\s*1\b|classe\s*i\b(?!i)/i.test(textoOriginal)?"CLASSE I":"CLASSE IIA E IIB";
+    const mod=unidadeFalada(textoOriginal,"POR COLETA");
+    const cl=classe==="CLASSE I"?"CLASSE I":"CLASSE II";
+    const obs=(mod==="POR EQUIPAMENTO"&&veic.e)?veic.e:veic.c;
+    r.ok=true;
+    r.sel={cat:"COLETA DE RESÍDUOS",classe,mod,veic:veic.n};
+    r.desc=`COLETA DE RESÍDUOS ${cl} - ${mod} -\n${veic.n}`;
+    r.uni=UNI_MOD[mod]||""; r.obs=obs; r.valor=extrairValor(textoOriginal);
+    return r;
+  }
+
+  // Destinação final: casa pelo nome do resíduo (Classe I ou II)
+  for(const[lista,classeTxt]of[[RES_II,"CLASSE II"],[RES_I,"CLASSE I"]]){
+    const res=lista.find(x=>t.includes(semAc(x.n.split(" - ")[0])));
+    if(res){
+      const uni=unidadeFalada(textoOriginal,"POR KG");
+      r.ok=true;
+      r.sel={cat:"DESTINAÇÃO FINAL DE RESÍDUOS",classe:classeTxt,uni,res:res.n};
+      r.desc=`DESTINAÇÃO FINAL DE RESÍDUOS - ${classeTxt} – ${uni}`;
+      r.res=res.n; r.uni=uni.replace("POR ",""); r.obs=res.o; r.valor=extrairValor(textoOriginal);
+      return r;
+    }
+  }
+
+  // Recicláveis mistos
+  const reci=RECI.find(x=>t.includes(semAc(x.n)));
+  if(reci){
+    const uni=unidadeFalada(textoOriginal,"POR KG");
+    r.ok=true;
+    r.sel={cat:"RECICLÁVEIS MISTOS",uni,res:reci.n};
+    r.desc="RECICLÁVEIS MISTOS"; r.res=reci.n; r.uni=uni.replace("POR ",""); r.obs=reci.o;
+    r.valor=extrairValor(textoOriginal);
+    return r;
+  }
+
+  // Mão de obra
+  const cargo=CARGOS.find(c=>t.includes(semAc(c)));
+  if(cargo){
+    r.ok=true;
+    r.sel={cat:"MÃO DE OBRA",cargo};
+    r.desc="MDO - "+cargo; r.uni="Diária"; r.valor=extrairValor(textoOriginal);
+    return r;
+  }
+
+  // Locação / disponibilização
+  const loc=LOCACOES.find(l=>t.includes(semAc(l.n)));
+  if(loc){
+    r.ok=true;
+    r.sel={cat:"LOCAÇÃO / DISPONIBILIZAÇÃO",loc:loc.n};
+    r.desc=loc.d; r.uni="Un."; r.obs=OBS_LOC; r.valor=extrairValor(textoOriginal);
+    return r;
+  }
+
+  // Manutenção de áreas verdes / limpeza industrial: sem sub-opções
+  for(const cat of["MANUTENÇÃO DE ÁREAS VERDES","LIMPEZA INDUSTRIAL"]){
+    if(t.includes(semAc(cat))){
+      r.ok=true;
+      r.sel={cat};
+      r.desc=cat; r.valor=extrairValor(textoOriginal);
+      return r;
+    }
+  }
+
+  return r;
+}
+
+function dividirEmTrechos(texto){
+  return texto.split(/\n+|(?<=[.;])\s+|\s+(?:mais uma|mais um|também mais|também|e mais)\s+/i)
+    .map(s=>s.trim()).filter(s=>s.length>3);
+}
+
+let resultadosReconhecidos=[];
+let reconhecendoVoz=null; // instância do SpeechRecognition ativa, ou null
+
+function abrirReconhecimento(){
+  document.getElementById("modalVoz").classList.remove("oculto");
+  document.getElementById("textoVoz").value="";
+  document.getElementById("resultadosVoz").innerHTML="";
+  document.getElementById("statusVoz").textContent="";
+  resultadosReconhecidos=[];
+  const suportaVoz="webkitSpeechRecognition"in window||"SpeechRecognition"in window;
+  document.getElementById("btnMicVoz").style.display=suportaVoz?"block":"none";
+  if(!suportaVoz) document.getElementById("statusVoz").textContent="Ditado por voz não é suportado neste navegador — digite ou cole o texto.";
+}
+function fecharReconhecimento(){
+  if(reconhecendoVoz){ reconhecendoVoz.stop(); reconhecendoVoz=null; }
+  document.getElementById("modalVoz").classList.add("oculto");
+}
+function alternarMicrofone(){
+  const btn=document.getElementById("btnMicVoz");
+  if(reconhecendoVoz){ reconhecendoVoz.stop(); reconhecendoVoz=null; btn.classList.remove("gravando"); return; }
+  const Reconhecedor=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new Reconhecedor();
+  rec.lang="pt-BR"; rec.continuous=true; rec.interimResults=false;
+  const campo=document.getElementById("textoVoz");
+  rec.onresult=(ev)=>{
+    let novo="";
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
+      if(ev.results[i].isFinal) novo+=ev.results[i][0].transcript+". ";
+    }
+    if(novo) campo.value=(campo.value?campo.value.trim()+" ":"")+novo.trim()+" ";
+  };
+  rec.onerror=(ev)=>{ document.getElementById("statusVoz").textContent="Erro no microfone: "+ev.error; };
+  rec.onend=()=>{ btn.classList.remove("gravando"); if(reconhecendoVoz===rec) reconhecendoVoz=null; };
+  rec.start();
+  reconhecendoVoz=rec;
+  btn.classList.add("gravando");
+  document.getElementById("statusVoz").textContent="Ouvindo… fale um item e faça uma pausa.";
+}
+function reconhecerTrechos(){
+  const texto=document.getElementById("textoVoz").value;
+  const trechos=dividirEmTrechos(texto);
+  resultadosReconhecidos=trechos.map(reconhecerItem);
+  renderResultadosVoz();
+  const okCount=resultadosReconhecidos.filter(r=>r.ok).length;
+  document.getElementById("statusVoz").textContent=trechos.length
+    ?`${okCount} de ${trechos.length} reconhecido(s). Confira embaixo antes de adicionar.`
+    :"Nada pra reconhecer ainda.";
+}
+function renderResultadosVoz(){
+  const alvo=document.getElementById("resultadosVoz");
+  alvo.innerHTML=resultadosReconhecidos.map((r,i)=>`
+    <div class="cartao-voz ${r.ok?"reconhecido":"naoreconhecido"}">
+      <div class="linha-topo">
+        <input type="checkbox" id="chkVoz${i}" ${r.ok?"checked":""} ${r.ok?"":"disabled"}>
+        <div style="flex:1">
+          ${r.ok
+            ?`<div class="desc-reconhecida">${escVoz(r.desc)}</div>
+               <div class="sub">${escVoz(r.res)} · ${escVoz(r.uni)||"(unidade)"}</div>`
+            :`<div class="sub" style="color:#6b5900">Não reconheci — adicione esse item à mão pelo wizard abaixo.</div>`}
+          <div class="texto-original">"${escVoz(r.textoOriginal)}"</div>
+          ${r.ok?`<div class="campo-valor"><label>R$</label>
+              <input type="text" id="valorVoz${i}" value="${escVoz(r.valor)}" inputmode="decimal" oninput="mascaraValor(this)"></div>`
+            :""}
+        </div>
+      </div>
+    </div>`).join("");
+}
+function adicionarReconhecidos(){
+  let n=0;
+  resultadosReconhecidos.forEach((r,i)=>{
+    if(!r.ok) return;
+    const chk=document.getElementById("chkVoz"+i);
+    if(!chk||!chk.checked) return;
+    const valorEl=document.getElementById("valorVoz"+i);
+    itens.push({descricao:r.desc,residuo:r.res,unidade:r.uni,
+      valor:valorEl?valorEl.value.trim():r.valor,observacoes:r.obs||"",sel:r.sel});
+    n++;
+  });
+  if(n){ render(); fecharReconhecimento(); }
+  else{ document.getElementById("statusVoz").textContent="Nenhum item selecionado pra adicionar."; }
 }
 
 /* ============ PADRÕES ============ */
@@ -964,7 +1210,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.13-3";
+const APP_VERSION="2026.08.13-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
