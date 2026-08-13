@@ -29,6 +29,12 @@ jobs:
 
       - name: Preparar o Pages
         uses: actions/configure-pages@v5
+        with:
+          # Num repositório onde o Pages nunca foi ligado, o padrão (false) faz
+          # este passo falhar com "Get Pages site failed — 404": ele só CONSULTA
+          # a configuração, não cria o site. enablement:true faz a primeira
+          # publicação já criar o site sozinha, sem precisar passar pelas Settings.
+          enablement: true
 
       - name: Empacotar o site
         uses: actions/upload-pages-artifact@v3
