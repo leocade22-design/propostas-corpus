@@ -146,6 +146,7 @@
     <label>Endereço completo (preenchimento manual)</label>
     <input type="text" id="enderecoUnico" onblur="quebrarEndereco()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
     <div class="sub">A quebra acontece quando você sai do campo — confira os campos abaixo antes de gerar (são eles que valem no documento):</div>
+    <div class="sub" id="avisoEndereco" style="color:var(--alerta)"></div>
     <div class="row4">
       <input type="text" id="logradouro" placeholder="Logradouro">
       <input type="text" id="bairro" placeholder="Bairro">
@@ -351,22 +352,22 @@ function mascaraValor(el){let v=so(el.value);
 
 /* ============ ENDEREÇO ============ */
 function partirEndereco(txt){
-  const r={logradouro:"",bairro:"",cidade:"",uf:"",cep:""};
+  const r={logradouro:"",bairro:"",cidade:"",uf:"",cep:"",incerto:false};
   if(!txt)return r;
   let t=txt.trim();
   const mCep=t.match(/(\d{5})[-.\s]?(\d{3})/);
   if(mCep){r.cep=mCep[1]+"-"+mCep[2];t=t.replace(mCep[0],"");}
   const mUf=t.match(/[-,\/\s]\s*([A-Z]{2})\b\s*[.,]?\s*$/i);
   if(mUf){r.uf=mUf[1].toUpperCase();t=t.replace(mUf[0],"");}
-  // Só separa com segurança quando há vírgulas de verdade — nomes de rua com
-  // número embutido ("Rua 31 de Outubro") tornam qualquer heurística sem vírgula
-  // um chute. Sem vírgula, o texto inteiro fica em logradouro pra revisão manual,
-  // em vez de arriscar jogar pedaço certo no campo errado.
   const partes=t.split(",").map(s=>s.trim()).filter(Boolean);
+  // Só separa Bairro e Cidade quando não há dúvida de onde um termina e o outro
+  // começa (3+ vírgulas). Com 1 vírgula só, "Rua X, 133 Novo Horizonte Cariacica"
+  // não dá pra saber se é tudo bairro, tudo cidade, ou os dois — chutar decide
+  // errado quase sempre, então nesse caso nem tenta: fica tudo em logradouro
+  // e avisa pra completar à mão.
   if(partes.length>=4){r.logradouro=partes[0]+", "+partes[1];r.bairro=partes[2];r.cidade=partes[3];}
   else if(partes.length===3){r.logradouro=partes[0];r.bairro=partes[1];r.cidade=partes[2];}
-  else if(partes.length===2){r.logradouro=partes[0];r.cidade=partes[1];}
-  else r.logradouro=partes[0]||"";
+  else{r.logradouro=partes.join(", ");r.incerto=!!partes.length;}
   return r;
 }
 // Aviso simples: razão social sem LTDA/ME/EIRELI/S.A./etc costuma estar
@@ -380,13 +381,22 @@ function conferirRazaoSocial(){
 }
 function quebrarEndereco(){
   const r=partirEndereco(document.getElementById("enderecoUnico").value);
-  ["logradouro","bairro","cidade","uf","cep"].forEach(k=>{
-    if(r[k]) document.getElementById(k).value=r[k];});
+  document.getElementById("logradouro").value=r.logradouro;
+  document.getElementById("bairro").value=r.incerto?"":r.bairro;
+  document.getElementById("cidade").value=r.incerto?"":r.cidade;
+  if(r.uf) document.getElementById("uf").value=r.uf;
+  if(r.cep) document.getElementById("cep").value=r.cep;
+  document.getElementById("avisoEndereco").textContent=r.incerto
+    ?"Não deu pra separar Bairro e Cidade com segurança — preencha os dois campos abaixo à mão (ou use Buscar dados pelo CNPJ)."
+    :"";
 }
 function quebrarEnderecoColeta(){
   const r=partirEndereco(document.getElementById("enderecoColetaUnico").value);
-  ["logradouro","bairro","cidade","uf","cep"].forEach(k=>{
-    if(r[k]) document.getElementById(k+"Coleta").value=r[k];});
+  document.getElementById("logradouroColeta").value=r.logradouro;
+  document.getElementById("bairroColeta").value=r.incerto?"":r.bairro;
+  document.getElementById("cidadeColeta").value=r.incerto?"":r.cidade;
+  if(r.uf) document.getElementById("ufColeta").value=r.uf;
+  if(r.cep) document.getElementById("cepColeta").value=r.cep;
 }
 /* ============ MEUS CLIENTES (recolhido por padrão) ============ */
 function toggleClientes(){
@@ -775,16 +785,16 @@ function checar(precisaItens){
 }
 async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const b=await preencherDocx(TPL_P,c.mapa,itens);
-    const n=`${c.mapa.proposta_numero} - ${c.rs} - Proposta.docx`.replace(/[\\/:*?"<>|]/g,"-");
+    const n=`Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
     await baixar(b,n);marcarGerado(c.mapa,c.rs);c.st.textContent="Proposta pronta.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
   try{const b=await preencherDocx(TPL_A,c.mapa,null);
-    const n=`${c.mapa.proposta_numero} - ${c.rs} - Aceite.docx`.replace(/[\\/:*?"<>|]/g,"-");
+    const n=`Aceite de Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
     await baixar(b,n);marcarGerado(c.mapa,c.rs);c.st.textContent="Aceite pronto.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(bp,base+" - Proposta.docx");await baixar(ba,base+" - Aceite.docx");
+    await baixar(bp,`Proposta ${base}.docx`);await baixar(ba,`Aceite de Proposta ${base}.docx`);
     marcarGerado(c.mapa,c.rs);
     c.st.textContent="Prontos! Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 
@@ -954,7 +964,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.13-2";
+const APP_VERSION="2026.08.13-3";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
