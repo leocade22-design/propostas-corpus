@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gerador de Documentos — Corpus</title>
+<meta name="theme-color" content="#1E6B3A">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Propostas Corpus">
+<!-- Os dois vêm do próprio site: o app precisa gerar documento sem internet. -->
+<script src="vendor/jszip.min.js"></script>
+<script src="modelos.js"></script>
+<style>
+  :root{
+    --verde:#1E6B3A; --verde-claro:#E8F3EC; --verde-borda:#BFE0CC;
+    --cinza:#f4f5f4; --texto:#1f2a24; --suave:#5b6961; --branco:#fff;
+    --alerta:#b3261e; --alerta-bg:#fdecea;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--cinza);color:var(--texto);padding-bottom:120px;}
+  header{background:var(--verde);color:#fff;padding:20px 16px;}
+  header h1{margin:0;font-size:1.25rem;}
+  header p{margin:5px 0 0;font-size:.8rem;opacity:.9;}
+  .wrap{max-width:640px;margin:0 auto;padding:12px;}
+  .card{background:var(--branco);border:1px solid #e2e6e3;border-radius:12px;
+    padding:14px;margin-bottom:12px;}
+  .card h2{font-size:.98rem;color:var(--verde);margin:0 0 10px;padding-bottom:7px;
+    border-bottom:1px solid var(--verde-borda);}
+  label{display:block;font-size:.8rem;color:var(--suave);margin:9px 0 4px;}
+  input,textarea{width:100%;padding:10px 11px;border:1px solid #d3d9d5;border-radius:8px;
+    font-size:.95rem;background:#fff;color:var(--texto);font-family:inherit;}
+  textarea{resize:vertical;min-height:64px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end;}
+  .row4{display:grid;grid-template-columns:2fr 2fr 0.8fr 1.4fr;gap:7px;}
+  button{cursor:pointer;border:none;border-radius:8px;font-size:.9rem;font-weight:600;padding:11px 15px;}
+  .btn-principal{background:var(--verde);color:#fff;width:100%;}
+  .btn-sec{background:var(--verde-claro);color:var(--verde);border:1px solid var(--verde-borda);}
+  .btn-full{width:100%;margin-top:9px;}
+  .btn-mini{background:var(--verde-claro);color:var(--verde);padding:6px 10px;font-size:.78rem;}
+  .btn-rem{background:var(--alerta-bg);color:var(--alerta);padding:6px 10px;font-size:.78rem;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 4px;}
+  .chip{background:#fff;border:1.5px solid #d3d9d5;border-radius:20px;padding:9px 14px;
+    font-size:.85rem;font-weight:500;color:var(--texto);line-height:1.2;}
+  .chip.ativo{background:var(--verde);border-color:var(--verde);color:#fff;}
+  .oculto{display:none !important;}
+  .etapa{margin-top:12px;padding-top:10px;border-top:1px dashed #dfe5e1;}
+  .etapa-titulo{font-size:.78rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.04em;margin-bottom:6px;}
+  .aviso{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:9px 11px;
+    font-size:.78rem;color:#6b5900;margin-top:9px;line-height:1.4;}
+  .previa{background:var(--verde-claro);border:1px solid var(--verde-borda);border-radius:8px;
+    padding:10px 12px;margin-top:12px;font-size:.85rem;line-height:1.5;}
+  .previa b{color:var(--verde);}
+  .destacar input{border:2px solid var(--alerta);background:#fffafa;}
+  .destacar label{color:var(--alerta);font-weight:600;}
+  table.itens{width:100%;border-collapse:collapse;margin-top:8px;font-size:.8rem;}
+  table.itens td{border-bottom:1px solid #eee;padding:8px 3px;vertical-align:top;}
+  table.itens td.acao{text-align:right;white-space:nowrap;}
+  .vazio{color:var(--suave);font-size:.84rem;font-style:italic;padding:8px 0;}
+  .rodape{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e6e3;
+    padding:10px 12px;box-shadow:0 -4px 10px rgba(0,0,0,.05);}
+  .rodape .wrap{padding:0;}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .status{font-size:.78rem;text-align:center;margin-top:7px;min-height:15px;color:var(--suave);}
+  .badge{display:inline-block;background:var(--verde);color:#fff;border-radius:999px;
+    font-size:.7rem;padding:1px 8px;margin-left:5px;}
+  .sub{font-size:.72rem;color:var(--suave);margin-top:3px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gerador de Documentos — Corpus</h1>
+  <p>Proposta e Aceite em .docx, gerados no seu aparelho. Nenhum dado sai do celular.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>Colar dados do cliente</h2>
+    <textarea id="colaTexto" placeholder="Cole aqui a mensagem do cliente — mesmo fora do padrão. CNPJ, CEP, telefone e e-mail são reconhecidos em qualquer formato."></textarea>
+    <button class="btn-sec btn-full" onclick="extrairDoTexto()">Extrair e preencher</button>
+    <div class="sub" id="resumoExtracao"></div>
+  </div>
+
+
+  <div class="card">
+    <h2>Meus clientes <span class="badge" id="badgeClientes">–</span></h2>
+    <div id="cofreBloqueado">
+      <label>Senha do cofre</label>
+      <div class="row2">
+        <input type="password" id="senhaCofre" inputmode="text" placeholder="sua senha">
+        <button class="btn-sec" onclick="abrirCofre()">Abrir</button>
+      </div>
+      <div class="sub" id="avisoCofre">Primeira vez? Digite uma senha nova e toque em Abrir para criar o cofre.</div>
+    </div>
+    <div id="cofreAberto" class="oculto">
+      <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
+      <div class="chips" id="listaClientes" style="margin-top:8px"></div>
+      <button class="btn-sec btn-full" onclick="salvarClienteAtual()">Salvar o cliente do formulário no cofre</button>
+      <div class="row2" style="margin-top:8px">
+        <button class="btn-sec" onclick="document.getElementById('arqClientes').click()">Importar lista</button>
+        <button class="btn-sec" onclick="exportarClientes()">Exportar lista</button>
+      </div>
+      <input type="file" id="arqClientes" accept="application/json" class="oculto" onchange="importarClientes(this)">
+      <div class="sub">Guardado só neste aparelho, criptografado com sua senha. O cofre nasce vazio — traga sua lista pelo botão Importar.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Dados do cliente</h2>
+    <label>Razão Social</label>
+    <input type="text" id="razaoSocial" style="text-transform:uppercase">
+    <div class="row2">
+      <div><label>CNPJ</label><input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this)"></div>
+      <div><label>Inscrição Estadual</label><input type="text" id="ie" inputmode="numeric"></div>
+    </div>
+    <div class="row2">
+      <div><label>Contato</label><input type="text" id="solicitante"></div>
+      <div><label>Telefone</label><input type="text" id="telefone" inputmode="numeric" oninput="mascaraTelefone(this)" placeholder="27 99999-9999"></div>
+    </div>
+    <button class="btn-sec btn-full" onclick="buscarCNPJ()">Buscar dados pelo CNPJ</button>
+    <div class="sub" id="statusCNPJ"></div>
+    <label>E-mail</label>
+    <input type="text" id="email" inputmode="email">
+    <label>Endereço completo</label>
+    <input type="text" id="enderecoUnico" oninput="quebrarEndereco()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
+    <div class="sub">Conferir a quebra (usada no Aceite):</div>
+    <div class="row4">
+      <input type="text" id="logradouro" placeholder="Logradouro">
+      <input type="text" id="bairro" placeholder="Bairro">
+      <input type="text" id="uf" placeholder="UF" maxlength="2" style="text-transform:uppercase">
+      <input type="text" id="cep" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this)">
+    </div>
+    <input type="text" id="cidade" placeholder="Cidade" style="margin-top:7px">
+  </div>
+
+  <div class="card">
+    <h2>Endereço de coleta</h2>
+    <div class="chips" id="chipsColeta"></div>
+    <div id="blocoColeta" class="oculto">
+      <label>Endereço de coleta</label>
+      <input type="text" id="enderecoColetaUnico" oninput="quebrarEnderecoColeta()">
+      <div class="row4" style="margin-top:7px">
+        <input type="text" id="logradouroColeta" placeholder="Logradouro">
+        <input type="text" id="bairroColeta" placeholder="Bairro">
+        <input type="text" id="ufColeta" placeholder="UF" maxlength="2" style="text-transform:uppercase">
+        <input type="text" id="cepColeta" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this)">
+      </div>
+      <input type="text" id="cidadeColeta" placeholder="Cidade" style="margin-top:7px">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Dados da proposta</h2>
+    <div class="row2">
+      <div><label>Nº da proposta (PO)</label><input type="text" id="proposalNumber"></div>
+      <div><label>Data</label><input type="date" id="dataProposta"></div>
+    </div>
+    <label>Objeto</label>
+    <div class="chips" id="chipsObjeto"></div>
+    <div id="blocoSubObjeto" class="oculto">
+      <div class="etapa-titulo" style="margin-top:8px">Subcategoria</div>
+      <div class="chips" id="chipsSubObjeto"></div>
+    </div>
+    <div class="previa" id="previaObjeto" style="margin-top:9px"></div>
+    <div class="aviso">PO sugerido pelo padrão 10+mês+sequência. Confira no seu controle antes de enviar.</div>
+  </div>
+
+  <div class="card">
+    <h2>Linha de serviço <span class="badge" id="contagemItens">0</span></h2>
+    <div class="etapa-titulo">Categoria</div>
+    <div class="chips" id="chipsCategoria"></div>
+
+    <div class="etapa oculto" id="etapa2"><div class="etapa-titulo" id="tit2"></div><div class="chips" id="chips2"></div></div>
+    <div class="etapa oculto" id="etapa3"><div class="etapa-titulo" id="tit3"></div><div class="chips" id="chips3"></div></div>
+    <div class="etapa oculto" id="etapa4"><div class="etapa-titulo" id="tit4"></div><div class="chips" id="chips4"></div></div>
+
+    <div class="previa oculto" id="previaItem"></div>
+
+    <div id="camposFinais" class="oculto">
+      <div class="row2">
+        <div id="wrapValor"><label>Valor Unitário (R$)</label>
+          <input type="text" id="itemValor" inputmode="decimal" oninput="mascaraValor(this)" placeholder="0,00"></div>
+        <div><label>Unidade</label><input type="text" id="itemUnidade"></div>
+      </div>
+      <label>Observações</label>
+      <textarea id="itemObs"></textarea>
+      <button class="btn-principal btn-full" onclick="adicionarItem()">+ Adicionar à proposta</button>
+    </div>
+
+    <div class="vazio" id="listaVazia">Nenhum item adicionado ainda.</div>
+    <table class="itens oculto" id="tabelaItens"><tbody id="corpoItens"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Sobre o app</h2>
+    <div class="sub">Roda offline depois de instalado. Nada é enviado para servidor —
+      só a busca por CNPJ, quando você toca no botão, sai do aparelho.</div>
+    <div class="row2" style="margin-top:9px">
+      <div class="sub">versão <span id="verApp">–</span></div>
+      <button class="btn-sec" onclick="buscarAtualizacao()">Buscar atualização</button>
+    </div>
+    <div class="status" id="statusApp"></div>
+  </div>
+</div>
+
+<div class="rodape">
+  <div class="wrap">
+    <div class="row3" style="margin-bottom:7px">
+      <button class="btn-sec" onclick="gerarProposta()">Só Proposta</button>
+      <button class="btn-sec" onclick="gerarAceite()">Só Aceite</button>
+      <button class="btn-principal" onclick="gerarAmbos()">Gerar os dois</button>
+    </div>
+    <button class="btn-sec btn-full oculto" id="btnCompartilhar" onclick="compartilharUltimos()">Compartilhar no WhatsApp</button>
+    <div class="status" id="statusGeracao"></div>
+  </div>
+</div>
+
+<script>
+/* ============ BASES ============ */
+const VEICULOS=[
+ {n:"Fiorino",c:"Valor por viagem realizada. Dedicada para coletas de menores volumes.",e:null},
+ {n:"Caminhão Baú",c:"Valor por viagem realizada. Dedicada para coletas de maiores volumes.",e:null},
+ {n:"Caminhão Compactador",c:"Valor por viagem realizada. Coleta compartilhada.",e:null},
+ {n:"Caminhão Poliguincho",c:"Valor por entrega ou viagem realizada. Transporta 2 caixas de 5m³ por viagem. Máx de 5 ton. por caixa.",e:null},
+ {n:"Caminhão Roll-On",c:"Valor por entrega ou viagem realizada. Transporta 1 caixa de 26 ou 40m³ por viagem. Máx de 12 ton. por caixa.",e:null},
+ {n:"Caminhão Munck",c:"Valor por viagem realizada.",e:null},
+ {n:"Carreta Basculante",c:"Valor por viagem realizada.",e:null},
+ {n:"Caminhão Vácuo",c:"Valor por viagem realizada.",e:"Valor por hora dedicada do equipamento. Cobrança mínima 3h."},
+ {n:"Caminhão Hidrovácuo",c:"Valor por viagem realizada. Incluso: torpedo para limpeza e desobstrução.",e:"Valor por hora dedicada do equipamento. Cobrança mínima 3h. Incluso: torpedo para limpeza e desobstrução."},
+ {n:"Caminhão Hipervácuo",c:"Valor por viagem realizada. Incluso: torpedo para limpeza e desobstrução.",e:"Valor por hora dedicada do equipamento. Cobrança mínima 3h. Incluso: torpedo para limpeza e desobstrução."},
+ {n:"Carreta Tanque",c:"Valor por viagem realizada.",e:"Valor por viagem realizada."}];
+const UNI_MOD={"POR COLETA":"Viagem","POR EQUIPAMENTO":"Hora","POR KG":"Kg"};
+const RES_II=[
+ {n:"Comum/Orgânico - Classe II",o:"Tratamento: Aterro Classe II."},
+ {n:"Não Recicláveis - Classe II",o:"Tratamento: Aterro Classe II."},
+ {n:"Fossa Séptica - Classe II",o:"Tratamento: ETE Classe II."},
+ {n:"Gordura - Classe II",o:"Tratamento: ETE Classe II."},
+ {n:"Madeira - Classe II",o:"Tratamento: Aterro Classe II."},
+ {n:"RCC - Classe II (Rejeito)",o:"Rejeito (sacos cimento, podas, espuma, lata de tintas, etc). Tratamento: Usina de reaproveitamento."},
+ {n:"RCC - Classe II (Limpo)",o:"RCC Limpo. Tratamento: Usina de reaproveitamento."}];
+const RES_I=[
+ {n:"RSS - Resíduo de Serviços de Saúde (Grupo A, B e E) - Classe I",o:"Tratamento: Autoclave."},
+ {n:"Sólidos Contaminados - Classe I",o:"Tratamento: Aterro Classe I."},
+ {n:"Líquidos Contaminados - Classe I",o:"Tratamento: ETE Classe I."},
+ {n:"Água e Óleo - Classe I",o:"Tratamento: ETE Classe I."},
+ {n:"Lâmpada Inteira - Classe I",o:"Tratamento: Aterro Classe I."},
+ {n:"Lâmpada Quebrada - Classe I",o:"Tratamento: Aterro Classe I."}];
+const RECI=["Papel/Papelão","Plástico Stretch","Sucata Ferrosa","Sucata Metálica","Pallets","Bombonas Plásticas","Tambor Metálico"]
+ .map(n=>({n:n,o:"Receita. Sujeito a avaliação de qualidade. Tratamento: Usina de reaproveitamento."}));
+const CARGOS=["Auxiliar de Serviços Gerais","Ajudante","Coletor","Jardineiro","Jardineiro Operador"];
+const LOCACOES=[
+ {n:"CONTENTOR 1000L",d:"DISPON. CONTENTOR 1000L"},
+ {n:"CAIXA POLI 5m³",d:"DISPON. CAIXA POLI - 5m³"},
+ {n:"CAIXA ROLL-ON 15m³",d:"DISPON. CAIXA ROLL-ON - 15m³"},
+ {n:"CAIXA ROLL-ON 26m³",d:"DISPON. CAIXA ROLL-ON - 26m³"},
+ {n:"CAIXA ROLL-ON 40m³",d:"DISPON. CAIXA ROLL-ON - 40m³"},
+ {n:"CAIXA COMPACTADORA 7m³",d:"CAIXA COMPACTADORA - 7m³"},
+ {n:"CAIXA COMPACTADORA 17m³",d:"CAIXA COMPACTADORA - 17m³"}];
+const OBS_LOC="Valor por unidade estacionária disponibilizada.";
+const OBJETOS=[
+ {n:"COLETA, TRANSPORTE E DESTINAÇÃO FINAL DE RESÍDUO",sub:true},
+ {n:"COLETA E TRANSPORTE DE RESÍDUOS",sub:true},
+ {n:"MANUTENÇÃO DE ÁREAS VERDES",sub:true},
+ {n:"LIMPEZA INDUSTRIAL",sub:true},
+ {n:"GERENCIAMENTO DE RESÍDUOS",sub:false},
+ {n:"ADITIVO CONTRATUAL",sub:false}];
+const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+let itens=[], sel={}, objetoSel=null, subObjetoSel=null, mesmoEnd=true, editandoIdx=null;
+
+/* ============ CHIPS ============ */
+function chips(cont,opcoes,ativo,onPick){
+  const el=document.getElementById(cont);
+  el.innerHTML="";
+  opcoes.forEach(op=>{
+    const b=document.createElement("button");
+    b.className="chip"+(op===ativo?" ativo":"");
+    b.textContent=op;
+    b.onclick=()=>onPick(op);
+    el.appendChild(b);
+  });
+}
+function mostrarEtapa(n,titulo,opcoes,ativo,onPick){
+  document.getElementById("etapa"+n).classList.remove("oculto");
+  document.getElementById("tit"+n).textContent=titulo;
+  chips("chips"+n,opcoes,ativo,onPick);
+}
+function esconderEtapas(de){
+  for(let i=de;i<=4;i++) document.getElementById("etapa"+i).classList.add("oculto");
+  document.getElementById("previaItem").classList.add("oculto");
+  document.getElementById("camposFinais").classList.add("oculto");
+}
+
+/* ============ MÁSCARAS ============ */
+function so(v){return v.replace(/\D/g,"");}
+function mascaraCNPJ(el){let v=so(el.value).slice(0,14);
+  v=v.replace(/^(\d{2})(\d)/,"$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/,"$1.$2.$3")
+     .replace(/\.(\d{3})(\d)/,".$1/$2").replace(/(\d{4})(\d)/,"$1-$2");
+  el.value=v;}
+function mascaraTelefone(el){let v=so(el.value).slice(0,11);
+  if(v.length>2)v=v.slice(0,2)+" "+v.slice(2);
+  if(v.length>10)v=v.slice(0,v.length-4)+"-"+v.slice(v.length-4);
+  el.value=v;}
+function mascaraCEP(el){let v=so(el.value).slice(0,8);
+  if(v.length>5)v=v.slice(0,5)+"-"+v.slice(5);
+  el.value=v;}
+function mascaraValor(el){let v=so(el.value);
+  if(!v){el.value="";return;}
+  v=(parseInt(v,10)/100).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  el.value=v;}
+
+/* ============ ENDEREÇO ============ */
+function partirEndereco(txt){
+  const r={logradouro:"",bairro:"",cidade:"",uf:"",cep:""};
+  if(!txt)return r;
+  let t=txt.trim();
+  const mCep=t.match(/(\d{5})[-.\s]?(\d{3})/);
+  if(mCep){r.cep=mCep[1]+"-"+mCep[2];t=t.replace(mCep[0],"");}
+  const mUf=t.match(/[-,\/\s]\s*([A-Z]{2})\b\s*[.,]?\s*$/);
+  if(mUf){r.uf=mUf[1];t=t.replace(mUf[0],"");}
+  const partes=t.split(",").map(s=>s.trim()).filter(Boolean);
+  if(partes.length>=4){r.logradouro=partes[0]+", "+partes[1];r.bairro=partes[2];r.cidade=partes[3];}
+  else if(partes.length===3){r.logradouro=partes[0];r.bairro=partes[1];r.cidade=partes[2];}
+  else if(partes.length===2){r.logradouro=partes[0];r.cidade=partes[1];}
+  else r.logradouro=partes[0]||"";
+  return r;
+}
+function quebrarEndereco(){
+  const r=partirEndereco(document.getElementById("enderecoUnico").value);
+  ["logradouro","bairro","cidade","uf","cep"].forEach(k=>{
+    if(r[k]) document.getElementById(k).value=r[k];});
+}
+function quebrarEnderecoColeta(){
+  const r=partirEndereco(document.getElementById("enderecoColetaUnico").value);
+  ["logradouro","bairro","cidade","uf","cep"].forEach(k=>{
+    if(r[k]) document.getElementById(k+"Coleta").value=r[k];});
+}
+function montarChipsColeta(){
+  chips("chipsColeta",["Mesmo endereço do cliente","Endereço diferente"],
+    mesmoEnd?"Mesmo endereço do cliente":"Endereço diferente",op=>{
+      mesmoEnd=(op==="Mesmo endereço do cliente");
+      document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
+      montarChipsColeta();
+    });
+}
+
+/* ============ EXTRAÇÃO TOLERANTE ============ */
+function semAc(s){return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();}
+function extrairDoTexto(){
+  const t=document.getElementById("colaTexto").value;
+  if(!t.trim())return;
+  const achados=[];
+  const set=(id,v)=>{if(v){document.getElementById(id).value=v;}};
+
+  const mC=t.match(/\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2}/);
+  if(mC){const el=document.getElementById("cnpj");el.value=mC[0];mascaraCNPJ(el);achados.push("CNPJ");}
+  const mE=t.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
+  if(mE){set("email",mE[0]);achados.push("e-mail");}
+  const mT=t.match(/(?:\(?\d{2}\)?[\s-]?)?9?\d{4}[-\s]?\d{4}/);
+  if(mT){const el=document.getElementById("telefone");el.value=mT[0];mascaraTelefone(el);achados.push("telefone");}
+
+  const mapa={"nome do solicitante":"solicitante","solicitante":"solicitante","contato":"solicitante",
+    "razao social":"razaoSocial","razao":"razaoSocial","empresa":"razaoSocial",
+    "inscricao estadual":"ie","ie":"ie","endereco":"enderecoUnico"};
+  t.split(/\r?\n/).forEach(l=>{
+    const m=l.match(/^([^:]{2,40}):\s*(.+)$/);
+    if(!m)return;
+    const k=semAc(m[1]),v=m[2].trim();
+    if(mapa[k]&&v){set(mapa[k],v);achados.push(m[1].trim());}
+  });
+  const rs=document.getElementById("razaoSocial");
+  rs.value=rs.value.toUpperCase();
+  quebrarEndereco();
+  document.getElementById("resumoExtracao").textContent =
+    achados.length?("Reconhecido: "+[...new Set(achados)].join(", ")+". Confira o resto."):"Nada reconhecido — preencha à mão.";
+  document.getElementById("colaTexto").value="";
+}
+
+/* ============ OBJETO ============ */
+function montarObjeto(){
+  chips("chipsObjeto",OBJETOS.map(o=>o.n),objetoSel,op=>{
+    objetoSel=op;subObjetoSel=null;
+    const o=OBJETOS.find(x=>x.n===op);
+    document.getElementById("blocoSubObjeto").classList.toggle("oculto",!o.sub);
+    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;montarObjeto();});
+    montarObjeto();
+  });
+  if(objetoSel){
+    const o=OBJETOS.find(x=>x.n===objetoSel);
+    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;montarObjeto();});
+  }
+  document.getElementById("previaObjeto").innerHTML="<b>Objeto:</b> "+objetoTexto();
+}
+function objetoTexto(){
+  if(!objetoSel)return "(selecione)";
+  const o=OBJETOS.find(x=>x.n===objetoSel);
+  if(o.sub&&subObjetoSel) return objetoSel+" – "+subObjetoSel;
+  if(!o.sub) return objetoSel;
+  return objetoSel;
+}
+
+/* ============ WIZARD ITEM ============ */
+const CATEGORIAS=["COLETA DE RESÍDUOS","COLETA E DESTINAÇÃO FINAL DE RESÍDUOS",
+  "DESTINAÇÃO FINAL DE RESÍDUOS","RECICLÁVEIS MISTOS","MÃO DE OBRA",
+  "LOCAÇÃO / DISPONIBILIZAÇÃO","MANUTENÇÃO DE ÁREAS VERDES","LIMPEZA INDUSTRIAL"];
+
+function montarCategorias(){
+  chips("chipsCategoria",CATEGORIAS,sel.cat,op=>{sel={cat:op};esconderEtapas(2);fluxo();montarCategorias();});
+}
+function fluxo(){
+  const c=sel.cat;
+  if(c==="COLETA DE RESÍDUOS"||c==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS"){
+    mostrarEtapa(2,"Classe",["CLASSE IIA E IIB","CLASSE I"],sel.classe,v=>{sel.classe=v;esconderEtapas(3);fluxo();});
+    if(sel.classe) mostrarEtapa(3,"Modalidade",["POR COLETA","POR EQUIPAMENTO","POR KG"],sel.mod,v=>{sel.mod=v;esconderEtapas(4);fluxo();});
+    if(sel.classe&&sel.mod) mostrarEtapa(4,"Veículo",VEICULOS.map(v=>v.n),sel.veic,v=>{sel.veic=v;fluxo();});
+    if(sel.classe&&sel.mod&&sel.veic){
+      const v=VEICULOS.find(x=>x.n===sel.veic);
+      const cl=sel.classe==="CLASSE I"?"CLASSE I":"CLASSE II";
+      const obs=(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:v.c;
+      previa(`${c} ${cl} - ${sel.mod} - ${sel.veic}`,"-",UNI_MOD[sel.mod]||"",obs);
+    }
+  } else if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
+    mostrarEtapa(2,"Classe",["CLASSE II","CLASSE I"],sel.classe,v=>{sel.classe=v;esconderEtapas(3);fluxo();});
+    if(sel.classe) mostrarEtapa(3,"Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,v=>{sel.uni=v;esconderEtapas(4);fluxo();});
+    if(sel.classe&&sel.uni){
+      const lista=sel.classe==="CLASSE II"?RES_II:RES_I;
+      mostrarEtapa(4,"Resíduo",lista.map(r=>r.n),sel.res,v=>{sel.res=v;fluxo();});
+      if(sel.res){
+        const r=lista.find(x=>x.n===sel.res);
+        previa(`DESTINAÇÃO FINAL DE RESÍDUOS - ${sel.classe} – ${sel.uni}`,r.n,sel.uni.replace("POR ",""),r.o);
+      }
+    }
+  } else if(c==="RECICLÁVEIS MISTOS"){
+    mostrarEtapa(2,"Unidade",["POR KG","POR UNIDADE","POR TON"],sel.uni,v=>{sel.uni=v;esconderEtapas(3);fluxo();});
+    if(sel.uni){
+      mostrarEtapa(3,"Resíduo",RECI.map(r=>r.n),sel.res,v=>{sel.res=v;fluxo();});
+      if(sel.res){const r=RECI.find(x=>x.n===sel.res);
+        previa("RECICLÁVEIS MISTOS",r.n,sel.uni.replace("POR ",""),r.o);}
+    }
+  } else if(c==="MÃO DE OBRA"){
+    mostrarEtapa(2,"Função",CARGOS,sel.cargo,v=>{sel.cargo=v;fluxo();});
+    if(sel.cargo) previa("MDO - "+sel.cargo,"-","Diária","");
+  } else if(c==="LOCAÇÃO / DISPONIBILIZAÇÃO"){
+    mostrarEtapa(2,"Equipamento",LOCACOES.map(l=>l.n),sel.loc,v=>{sel.loc=v;fluxo();});
+    if(sel.loc){const l=LOCACOES.find(x=>x.n===sel.loc);previa(l.d,"-","Un.",OBS_LOC);}
+  } else if(c==="MANUTENÇÃO DE ÁREAS VERDES"||c==="LIMPEZA INDUSTRIAL"){
+    previa(c,"-","","");
+  }
+}
+function previa(desc,res,uni,obs){
+  const b=document.getElementById("previaItem");
+  b.innerHTML=`<b>Descrição:</b> ${desc}<br><b>Resíduo:</b> ${res}<br><b>Unidade:</b> ${uni||"(preencher)"}`;
+  b.classList.remove("oculto");
+  b.dataset.desc=desc;b.dataset.res=res;
+  document.getElementById("itemUnidade").value=uni;
+  document.getElementById("itemObs").value=obs||"";
+  if(editandoIdx===null) document.getElementById("itemValor").value="";
+  document.getElementById("camposFinais").classList.remove("oculto");
+  document.getElementById("wrapValor").classList.toggle("destacar",!document.getElementById("itemValor").value);
+}
+function adicionarItem(){
+  const b=document.getElementById("previaItem");
+  if(!b.dataset.desc)return;
+  itens.push({descricao:b.dataset.desc,residuo:b.dataset.res,
+    unidade:document.getElementById("itemUnidade").value.trim(),
+    valor:document.getElementById("itemValor").value.trim(),
+    observacoes:document.getElementById("itemObs").value.trim(),
+    sel:JSON.parse(JSON.stringify(sel))});
+  editandoIdx=null;sel={};esconderEtapas(2);montarCategorias();render();
+}
+function duplicarItem(i){
+  const it=itens[i];
+  sel=JSON.parse(JSON.stringify(it.sel||{}));
+  editandoIdx=null;
+  montarCategorias();esconderEtapas(2);fluxo();
+  document.getElementById("itemValor").value="";
+  document.getElementById("itemObs").value=it.observacoes;
+  document.getElementById("itemUnidade").value=it.unidade;
+  document.getElementById("wrapValor").classList.add("destacar");
+  document.getElementById("camposFinais").scrollIntoView({behavior:"smooth",block:"center"});
+}
+function removerItem(i){itens.splice(i,1);render();}
+function render(){
+  document.getElementById("contagemItens").textContent=itens.length;
+  const c=document.getElementById("corpoItens");
+  document.getElementById("tabelaItens").classList.toggle("oculto",!itens.length);
+  document.getElementById("listaVazia").classList.toggle("oculto",!!itens.length);
+  c.innerHTML=itens.map((it,i)=>`<tr><td><b>${it.descricao}</b><br>
+    <span style="color:#5b6961">${it.residuo} • ${it.unidade} • R$ ${it.valor||"—"}</span></td>
+    <td class="acao"><button class="btn-mini" onclick="duplicarItem(${i})">duplicar</button>
+    <button class="btn-rem" onclick="removerItem(${i})">remover</button></td></tr>`).join("");
+}
+
+/* ============ PADRÕES ============ */
+(function(){
+  const h=new Date();
+  document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
+  const mm=String(h.getMonth()+1).padStart(2,"0");
+  document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
+  montarCategorias();montarObjeto();montarChipsColeta();render();
+})();
+
+/* ============ GERAÇÃO ============ */
+function escXml(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;}
+async function preencherDocx(tpl,mapa,loop){
+  const zip=await JSZip.loadAsync(b64Bytes(tpl));
+  let xml=await zip.file("word/document.xml").async("string");
+  for(const[k,v]of Object.entries(mapa)) xml=xml.split("{"+k+"}").join(escXml(v));
+  if(xml.includes("{#itens}")){
+    const rows=xml.match(/<w:tr\b[\s\S]*?<\/w:tr>/g)||[];
+    const modelo=rows.find(r=>r.includes("{#itens}")&&r.includes("{/itens}"));
+    if(modelo){
+      let out="";
+      (loop||[]).forEach(it=>{
+        let l=modelo.split("{#itens}").join("").split("{/itens}").join("");
+        l=l.split("{descricao}").join(escXml(it.descricao));
+        l=l.split("{residuo}").join(escXml(it.residuo));
+        l=l.split("{unidade}").join(escXml(it.unidade));
+        l=l.split("{valor}").join(escXml(it.valor));
+        l=l.split("{observacoes}").join(escXml(it.observacoes));
+        out+=l;});
+      xml=xml.split(modelo).join(out);
+    }
+  }
+  zip.file("word/document.xml",xml);
+  return await zip.generateAsync({type:"blob",
+    mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+function baixar(blob,nome){const u=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=u;a.download=nome;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(u),4000);}
+function linhaEnd(l,b,c,u){return [l,b,(c&&u)?`${c} - ${u}`:(c||u)].filter(Boolean).join(", ");}
+function mapear(){
+  const g=id=>document.getElementById(id).value.trim();
+  const end=linhaEnd(g("logradouro"),g("bairro"),g("cidade"),g("uf").toUpperCase());
+  const cu=(g("cidade")&&g("uf"))?`${g("cidade")}/${g("uf").toUpperCase()}`:"";
+  const endC=mesmoEnd?end:linhaEnd(g("logradouroColeta"),g("bairroColeta"),g("cidadeColeta"),g("ufColeta").toUpperCase());
+  const cuC=mesmoEnd?cu:((g("cidadeColeta")&&g("ufColeta"))?`${g("cidadeColeta")}/${g("ufColeta").toUpperCase()}`:"");
+  const d=g("dataProposta")?new Date(g("dataProposta")+"T00:00:00"):new Date();
+  return {rs:g("razaoSocial").toUpperCase(),mapa:{
+    razao_social:g("razaoSocial").toUpperCase(),contato_nome:g("solicitante"),telefone:g("telefone"),
+    cnpj:g("cnpj"),inscricao_estadual_sufixo:g("ie")?`; IE: ${g("ie")}`:"",inscricao_estadual:g("ie"),
+    endereco_completo:end,endereco_logradouro:g("logradouro"),bairro:g("bairro"),cidade_uf:cu,cep:g("cep"),
+    email:g("email"),email_nfe:g("email"),endereco_coleta:endC,cidade_uf_coleta:cuC,
+    cep_coleta:mesmoEnd?g("cep"):g("cepColeta"),proposta_numero:g("proposalNumber"),objeto:objetoTexto(),
+    dia:String(d.getDate()).padStart(2,"0"),mes:MESES[d.getMonth()],ano:String(d.getFullYear()),
+    data:d.toLocaleDateString("pt-BR")}};
+}
+let ultimos=[];
+function reg(blob,nome){ultimos=ultimos.filter(a=>a.nome!==nome);ultimos.push({blob,nome});
+  const s=!!(navigator.canShare&&navigator.share);
+  document.getElementById("btnCompartilhar").classList.toggle("oculto",!(s&&ultimos.length));}
+async function compartilharUltimos(){
+  try{const files=ultimos.map(a=>new File([a.blob],a.nome,
+    {type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}));
+    if(!navigator.canShare({files})){document.getElementById("statusGeracao").textContent=
+      "Navegador não permite compartilhar direto. Envie pelo arquivo baixado.";return;}
+    await navigator.share({files,title:"Proposta Corpus"});
+  }catch(e){if(e.name!=="AbortError")console.error(e);}
+}
+function checar(precisaItens){
+  const st=document.getElementById("statusGeracao");
+  const {rs,mapa}=mapear();
+  if(!rs){st.textContent="Preencha a Razão Social.";return null;}
+  if(precisaItens&&!itens.length){st.textContent="Adicione ao menos uma linha de serviço.";return null;}
+  return {rs,mapa,st};
+}
+async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
+  try{const b=await preencherDocx(TPL_P,c.mapa,itens);
+    const n=`${c.mapa.proposta_numero} - ${c.rs} - Proposta.docx`.replace(/[\\/:*?"<>|]/g,"-");
+    baixar(b,n);reg(b,n);c.st.textContent="Proposta pronta.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
+  try{const b=await preencherDocx(TPL_A,c.mapa,null);
+    const n=`${c.mapa.proposta_numero} - ${c.rs} - Aceite.docx`.replace(/[\\/:*?"<>|]/g,"-");
+    baixar(b,n);reg(b,n);c.st.textContent="Aceite pronto.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
+  try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
+    const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
+    baixar(bp,base+" - Proposta.docx");setTimeout(()=>baixar(ba,base+" - Aceite.docx"),400);
+    reg(bp,base+" - Proposta.docx");reg(ba,base+" - Aceite.docx");
+    c.st.textContent="Prontos! Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+
+
+/* ============ BUSCA CNPJ (consulta externa, sob demanda) ============ */
+async function buscarCNPJ(){
+  const st=document.getElementById("statusCNPJ");
+  const num=so(document.getElementById("cnpj").value);
+  if(num.length!==14){st.textContent="Digite o CNPJ completo (14 dígitos).";return;}
+  st.textContent="Consultando...";
+  const fontes=[
+    {url:"https://brasilapi.com.br/api/cnpj/v1/"+num, map:d=>({
+      rs:d.razao_social||d.nome_fantasia||"",
+      log:[d.descricao_tipo_de_logradouro,d.logradouro,d.numero].filter(Boolean).join(" "),
+      bai:d.bairro||"", cid:d.municipio||"", uf:d.uf||"", cep:d.cep||"",
+      tel:d.ddd_telefone_1||"", em:d.email||""})},
+    {url:"https://minhareceita.org/"+num, map:d=>({
+      rs:d.razao_social||"", log:[d.descricao_tipo_de_logradouro,d.logradouro,d.numero].filter(Boolean).join(" "),
+      bai:d.bairro||"", cid:d.municipio||"", uf:d.uf||"", cep:d.cep||"",
+      tel:d.ddd_telefone_1||"", em:d.email||""})}
+  ];
+  for(const f of fontes){
+    try{
+      const r=await fetch(f.url);
+      if(!r.ok) continue;
+      const d=await r.json();
+      const v=f.map(d);
+      if(!v.rs) continue;
+      document.getElementById("razaoSocial").value=v.rs.toUpperCase();
+      document.getElementById("logradouro").value=v.log;
+      document.getElementById("bairro").value=v.bai;
+      document.getElementById("cidade").value=v.cid;
+      document.getElementById("uf").value=v.uf;
+      if(v.cep){const el=document.getElementById("cep");el.value=v.cep;mascaraCEP(el);}
+      document.getElementById("enderecoUnico").value=
+        [v.log,v.bai,(v.cid&&v.uf)?v.cid+" - "+v.uf:v.cid,v.cep].filter(Boolean).join(", ");
+      if(v.tel&&!document.getElementById("telefone").value){
+        const el=document.getElementById("telefone");el.value=v.tel;mascaraTelefone(el);}
+      if(v.em&&!document.getElementById("email").value) document.getElementById("email").value=v.em.toLowerCase();
+      st.textContent="Preenchido pela Receita. Confira antes de gerar.";
+      return;
+    }catch(e){}
+  }
+  st.textContent="Não consegui consultar (sem internet ou serviço fora do ar). Preencha à mão.";
+}
+
+/* ============ COFRE DE CLIENTES (criptografia real AES-GCM) ============ */
+let clientes=[], chaveCofre=null;
+const CHAVE_LS="corpus_cofre_v1";
+
+async function derivar(senha,salt){
+  const enc=new TextEncoder();
+  const base=await crypto.subtle.importKey("raw",enc.encode(senha),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    {name:"PBKDF2",salt:salt,iterations:150000,hash:"SHA-256"},
+    base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+async function gravarCofre(){
+  if(!chaveCofre)return;
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const dados=new TextEncoder().encode(JSON.stringify(clientes));
+  const cif=await crypto.subtle.encrypt({name:"AES-GCM",iv},chaveCofre,dados);
+  const salt=JSON.parse(localStorage.getItem(CHAVE_LS)).salt;
+  localStorage.setItem(CHAVE_LS,JSON.stringify({salt,
+    iv:Array.from(iv),dados:Array.from(new Uint8Array(cif))}));
+}
+async function abrirCofre(){
+  const senha=document.getElementById("senhaCofre").value;
+  const aviso=document.getElementById("avisoCofre");
+  if(senha.length<4){aviso.textContent="Use ao menos 4 caracteres.";return;}
+  let guardado=localStorage.getItem(CHAVE_LS);
+  try{
+    if(!guardado){
+      const salt=Array.from(crypto.getRandomValues(new Uint8Array(16)));
+      localStorage.setItem(CHAVE_LS,JSON.stringify({salt,iv:[],dados:[]}));
+      chaveCofre=await derivar(senha,new Uint8Array(salt));
+      clientes=[];
+      await gravarCofre();
+    } else {
+      const g=JSON.parse(guardado);
+      chaveCofre=await derivar(senha,new Uint8Array(g.salt));
+      if(g.dados.length){
+        const pl=await crypto.subtle.decrypt({name:"AES-GCM",iv:new Uint8Array(g.iv)},
+          chaveCofre,new Uint8Array(g.dados));
+        clientes=JSON.parse(new TextDecoder().decode(pl));
+      } else clientes=[];
+    }
+  }catch(e){aviso.textContent="Senha incorreta.";chaveCofre=null;return;}
+  document.getElementById("cofreBloqueado").classList.add("oculto");
+  document.getElementById("cofreAberto").classList.remove("oculto");
+  document.getElementById("senhaCofre").value="";
+  listarClientes();
+}
+function listarClientes(){
+  const q=semAc(document.getElementById("buscaCliente").value);
+  const vis=clientes.filter(c=>!q||semAc(c.razaoSocial).includes(q)||so(c.cnpj).includes(so(q)));
+  document.getElementById("badgeClientes").textContent=clientes.length;
+  const el=document.getElementById("listaClientes");
+  el.innerHTML="";
+  vis.slice(0,40).forEach((c,i)=>{
+    const b=document.createElement("button");
+    b.className="chip";b.textContent=c.razaoSocial.slice(0,38);
+    b.onclick=()=>carregarCliente(clientes.indexOf(c));
+    el.appendChild(b);
+  });
+  if(!vis.length) el.innerHTML='<span class="sub">Nenhum cliente encontrado.</span>';
+}
+function carregarCliente(i){
+  const c=clientes[i];if(!c)return;
+  document.getElementById("razaoSocial").value=(c.razaoSocial||"").toUpperCase();
+  const elc=document.getElementById("cnpj");elc.value=c.cnpj||"";mascaraCNPJ(elc);
+  document.getElementById("ie").value=c.ie||"";
+  document.getElementById("email").value=c.email||"";
+  const contato=(c.contato||"");
+  const mt=contato.match(/(\(?\d{2}\)?[\s-]?9?\d{4}[-\s]?\d{4})/);
+  document.getElementById("solicitante").value=contato.replace(/\s*[-–]\s*.*$/,"").trim();
+  if(mt){const elt=document.getElementById("telefone");elt.value=mt[1];mascaraTelefone(elt);}
+  document.getElementById("enderecoUnico").value=c.endereco||"";
+  quebrarEndereco();
+  document.getElementById("statusCNPJ").textContent="Carregado do cofre.";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+async function salvarClienteAtual(){
+  const g=id=>document.getElementById(id).value.trim();
+  const rs=g("razaoSocial").toUpperCase();
+  if(!rs){alert("Preencha a Razão Social antes de salvar.");return;}
+  const novo={razaoSocial:rs,cnpj:g("cnpj"),ie:g("ie"),email:g("email"),
+    contato:[g("solicitante"),g("telefone")].filter(Boolean).join(" - "),
+    endereco:g("enderecoUnico")||g("logradouro")};
+  const i=clientes.findIndex(c=>so(c.cnpj)&&so(c.cnpj)===so(novo.cnpj));
+  if(i>=0) clientes[i]=Object.assign({},clientes[i],novo); else clientes.push(novo);
+  clientes.sort((a,b)=>a.razaoSocial.localeCompare(b.razaoSocial));
+  await gravarCofre();listarClientes();
+  document.getElementById("statusCNPJ").textContent="Cliente salvo no cofre.";
+}
+
+/* A lista viaja em JSON puro: é assim que ela passa de um aparelho pro outro,
+   já que o cofre em si nunca sai deste navegador. */
+function importarClientes(input){
+  const arq=input.files&&input.files[0]; if(!arq)return;
+  const st=document.getElementById("avisoCofre");
+  const leitor=new FileReader();
+  leitor.onload=async()=>{
+    try{
+      const lista=JSON.parse(leitor.result);
+      if(!Array.isArray(lista)) throw new Error("formato");
+      let novos=0,atualizados=0;
+      lista.forEach(c=>{
+        if(!c||!c.razaoSocial)return;
+        const i=clientes.findIndex(x=>so(x.cnpj)&&so(x.cnpj)===so(c.cnpj||""));
+        if(i>=0){clientes[i]=Object.assign({},clientes[i],c);atualizados++;}
+        else{clientes.push(c);novos++;}
+      });
+      clientes.sort((a,b)=>a.razaoSocial.localeCompare(b.razaoSocial));
+      await gravarCofre();listarClientes();
+      st.textContent=`Importados: ${novos} novos, ${atualizados} atualizados.`;
+    }catch(e){ st.textContent="Arquivo inválido — esperava uma lista JSON de clientes."; }
+    input.value="";
+  };
+  leitor.readAsText(arq);
+}
+function exportarClientes(){
+  const blob=new Blob([JSON.stringify(clientes,null,2)],{type:"application/json"});
+  baixar(blob,"clientes-corpus.json");
+}
+
+/* ============ APP INSTALADO ============ */
+const APP_VERSION="2026.08.13-1";
+document.getElementById("verApp").textContent=APP_VERSION;
+async function buscarAtualizacao(){
+  const st=document.getElementById("statusApp");
+  st.textContent="Buscando...";
+  try{
+    if("serviceWorker" in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.update()));
+    }
+    if(window.caches){
+      const nomes=await caches.keys();
+      await Promise.all(nomes.map(n=>caches.delete(n)));
+    }
+  }catch(e){}
+  location.reload();
+}
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+
+</script>
+</body>
+</html>

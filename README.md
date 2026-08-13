@@ -1,0 +1,107 @@
+# Gerador de Documentos — Corpus
+
+Monta a **Proposta** e o **Aceite** em `.docx` a partir dos modelos do Word da
+empresa, direto no celular. Sem servidor, sem login: o documento é montado no
+próprio aparelho e cai na pasta de downloads.
+
+## O que ele faz
+
+- **Colar e extrair** — cole a mensagem do cliente, mesmo fora de padrão, e o app
+  reconhece CNPJ, CEP, telefone e e-mail em qualquer formato.
+- **Buscar por CNPJ** — puxa razão social e endereço da Receita (BrasilAPI, com
+  Minha Receita de reserva). É a única coisa que sai do aparelho, e só quando você
+  toca no botão.
+- **Cofre de clientes** — guarda a carteira criptografada com AES-GCM e uma senha
+  sua, no `localStorage`. Chave derivada por PBKDF2, 150 mil iterações.
+- **Linha de serviço em etapas** — categoria → classe → modalidade → veículo, com
+  a descrição, a unidade e as observações técnicas já preenchidas pelo catálogo
+  da Corpus (resíduos Classe I e II, recicláveis, mão de obra, locação).
+- **Proposta e Aceite** — gera um, o outro ou os dois, e compartilha no WhatsApp
+  pelo menu do próprio celular.
+
+## Onde ficam os dados
+
+No `localStorage` deste aparelho, e em nenhum outro lugar. Trocar de celular,
+limpar os dados do site ou desinstalar o app **apaga o cofre**.
+
+Antes de mexer em qualquer coisa: *Meus clientes* → **Exportar lista**. Guarde o
+JSON, e é por ele que a carteira volta — em outro aparelho, é só **Importar lista**.
+
+> Em "Limpar armazenamento"/"Limpar dados" nas configurações do Android o cofre
+> some. "Limpar cache" é seguro — só remove os arquivos guardados do app.
+
+## A lista de clientes não mora aqui
+
+O `.gitignore` bloqueia `clientes*.json` de propósito. A carteira tem razão
+social, CNPJ, nome e telefone de contato de clientes reais; num repositório
+público isso ficaria legível pra qualquer pessoa da internet.
+
+O app nasce com o cofre vazio. O formato esperado está em
+[`dados/clientes-exemplo.json`](dados/clientes-exemplo.json):
+
+```json
+[
+  {
+    "razaoSocial": "CLIENTE EXEMPLO LTDA",
+    "cnpj": "00.000.000/0001-00",
+    "contato": "Nome do contato - 27 99999-9999",
+    "endereco": "RUA EXEMPLO, 100, CENTRO, VITÓRIA - ES. 29000-000",
+    "ultimoPO": "100001-2026"
+  }
+]
+```
+
+Cliente novo com CNPJ que já existe é atualizado, não duplicado.
+
+## Estrutura
+
+| Arquivo                | O que é                                                  |
+|------------------------|----------------------------------------------------------|
+| `index.html`           | O app inteiro: estilos, marcação e o JavaScript          |
+| `modelos.js`           | Os dois `.docx` da Corpus, em base64                      |
+| `vendor/jszip.min.js`  | JSZip 3.10.1, servido pelo próprio site                    |
+| `sw.js` / `manifest.json` | O que faz instalar na tela inicial e rodar offline     |
+
+### Como o `.docx` é montado
+
+Um `.docx` é um zip. O app abre o modelo com o JSZip, lê o `word/document.xml`,
+troca os marcadores `{razao_social}`, `{objeto}`, `{proposta_numero}` e afins pelo
+que está no formulário, e fecha o zip de novo. A tabela de itens é a linha `<w:tr>`
+marcada com `{#itens}…{/itens}`: ela é usada como molde e repetida por item.
+
+**Trocar o modelo do Word:** converta o `.docx` novo para base64 e substitua
+`TPL_P` (proposta) ou `TPL_A` (aceite) em `modelos.js`. Os marcadores precisam
+continuar existindo, e cada um tem que estar inteiro dentro de um mesmo trecho de
+texto — se o Word partir `{razao_social}` no meio, a troca não acontece. Editar o
+campo de uma vez só, sem voltar com o cursor, costuma resolver.
+
+## Publicar uma versão nova
+
+`.github/workflows/pages.yml` publica a cada push na `main`. Dá pra publicar na
+mão pela aba **Actions** → *Publicar no GitHub Pages* → *Run workflow*.
+
+> O Pages precisa estar em *Settings → Pages → Source: GitHub Actions*.
+
+**Ao publicar, mude a versão nos dois arquivos, juntos:**
+
+| Arquivo      | Constante     |
+|--------------|---------------|
+| `sw.js`      | `VERSAO`      |
+| `index.html` | `APP_VERSION` |
+
+É a mudança do conteúdo de `sw.js` que faz o navegador perceber que existe versão
+nova. Sem isso o app instalado continua rodando a versão antiga indefinidamente.
+A versão aparece no card *Sobre o app*, com o botão de buscar atualização do lado.
+
+## Testar localmente
+
+O service worker exige HTTP — abrir o arquivo direto não serve pra testar
+instalação:
+
+```
+python3 -m http.server 8099
+```
+
+Esse servidor não manda `Cache-Control`, então ele não reproduz o cenário de cache
+do Pages. Pra testar atualização do app já instalado é preciso um servidor que
+envie `Cache-Control: max-age=600`.
