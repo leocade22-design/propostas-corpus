@@ -84,20 +84,31 @@
   .modal-topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .modal-topo h3{font-size:1.02rem;color:var(--verde);margin:0;}
   .modal-fechar{background:none;color:var(--suave);font-size:1.1rem;padding:4px 8px;}
-  .btn-mic{background:var(--verde-claro);color:var(--verde);border:1px solid var(--verde-borda);
-    width:52px;flex:0 0 auto;font-size:1.2rem;align-self:stretch;}
-  .btn-mic.gravando{background:var(--alerta);color:#fff;border-color:var(--alerta);animation:pulsarMic 1.4s infinite;}
-  @keyframes pulsarMic{0%{opacity:1}50%{opacity:.55}100%{opacity:1}}
-  .cartao-voz{border:1px solid #e2e6e3;border-radius:10px;padding:10px 12px;margin-top:10px;}
-  .cartao-voz.reconhecido{border-color:var(--verde-borda);background:var(--verde-claro);}
-  .cartao-voz.naoreconhecido{border-color:#f0d98c;background:#fff8e6;}
-  .cartao-voz .linha-topo{display:flex;align-items:flex-start;gap:8px;}
-  .cartao-voz .linha-topo input[type=checkbox]{margin-top:4px;width:18px;height:18px;flex:0 0 auto;}
-  .cartao-voz .texto-original{font-size:.78rem;color:var(--suave);font-style:italic;margin-top:4px;}
-  .cartao-voz .desc-reconhecida{font-size:.88rem;font-weight:600;white-space:pre-line;}
-  .cartao-voz .campo-valor{display:flex;align-items:center;gap:6px;margin-top:8px;}
-  .cartao-voz .campo-valor label{margin:0;white-space:nowrap;}
-  .cartao-voz .campo-valor input{padding:6px 8px;font-size:.85rem;}
+  /* Passo já escolhido vira uma linha só, pra sobrar tela */
+  .passo-resumo{display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 12px;
+    background:var(--verde-claro);border:1px solid var(--verde-borda);border-radius:8px;}
+  .passo-resumo .passo-rotulo{font-size:.72rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.04em;flex:0 0 auto;}
+  .passo-resumo .passo-valor{font-size:.85rem;font-weight:600;color:var(--verde);flex:1;line-height:1.3;}
+  .passo-resumo .passo-editar{font-size:.72rem;color:var(--suave);flex:0 0 auto;}
+  .chip-gerenciar{border-style:dashed;color:var(--suave);}
+
+  /* Uma linha de valor por item escolhido na multi-seleção */
+  .linha-valor{border:1px solid var(--verde-borda);background:var(--verde-claro);
+    border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+  .linha-valor .nome{font-size:.85rem;font-weight:600;margin-bottom:6px;}
+  .linha-valor .campos{display:grid;grid-template-columns:1.2fr 1fr;gap:8px;}
+  .linha-valor input{padding:8px 10px;font-size:.9rem;}
+  .linha-valor .obs{margin-top:6px;}
+  .linha-valor .obs input{font-size:.8rem;}
+
+  .linha-cat{border:1px solid #e2e6e3;background:#fff;border-radius:10px;
+    padding:10px 12px;margin-bottom:8px;}
+  .linha-cat .nome{font-size:.85rem;font-weight:600;}
+
+  .resultado-ok{background:var(--verde-claro);border:1px solid var(--verde-borda);
+    border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:.82rem;text-align:left;}
+  .resultado-ok .arquivo{font-weight:600;word-break:break-word;}
 </style>
 </head>
 <body>
@@ -214,25 +225,16 @@
 
   <div class="card">
     <h2>Linha de serviço <span class="badge" id="contagemItens">0</span></h2>
-    <button class="btn-sec btn-full" onclick="abrirReconhecimento()">🎙️ Reconhecimento rápido (voz ou texto)</button>
-    <div class="etapa-titulo" style="margin-top:12px">Categoria</div>
-    <div class="chips" id="chipsCategoria"></div>
 
-    <div class="etapa oculto" id="etapa2"><div class="etapa-titulo" id="tit2"></div><div class="chips" id="chips2"></div></div>
-    <div class="etapa oculto" id="etapa3"><div class="etapa-titulo" id="tit3"></div><div class="chips" id="chips3"></div></div>
-    <div class="etapa oculto" id="etapa4"><div class="etapa-titulo" id="tit4"></div><div class="chips" id="chips4"></div></div>
-
-    <div class="previa oculto" id="previaItem"></div>
+    <div id="passo1"></div>
+    <div class="etapa oculto" id="passo2"></div>
+    <div class="etapa oculto" id="passo3"></div>
+    <div class="etapa oculto" id="passo4"></div>
 
     <div id="camposFinais" class="oculto">
-      <div class="row2">
-        <div id="wrapValor"><label>Valor Unitário (R$)</label>
-          <input type="text" id="itemValor" inputmode="decimal" oninput="mascaraValor(this)" placeholder="0,00"></div>
-        <div><label>Unidade</label><input type="text" id="itemUnidade"></div>
-      </div>
-      <label>Observações</label>
-      <textarea id="itemObs"></textarea>
-      <button class="btn-principal btn-full" onclick="adicionarItem()">+ Adicionar à proposta</button>
+      <div class="etapa-titulo" style="margin-top:12px">Valores <span id="contagemLinhas" class="badge">0</span></div>
+      <div id="linhasValores"></div>
+      <button class="btn-principal btn-full" onclick="adicionarItens()">+ Adicionar à proposta</button>
     </div>
 
     <div class="vazio" id="listaVazia">Nenhum item adicionado ainda.</div>
@@ -240,12 +242,8 @@
   </div>
 
   <div class="card">
-    <h2>Envio e downloads</h2>
-    <label>Seu WhatsApp (pra abrir a conversa já pronta)</label>
-    <input type="text" id="meuWhats" inputmode="tel" placeholder="27 99999-9999" oninput="mascaraTelefone(this);salvarMeuWhats();">
-    <div class="sub">Cada pessoa configura o próprio número aqui, uma vez só — fica salvo neste navegador.</div>
-
-    <label style="margin-top:14px">Pasta de destino dos arquivos</label>
+    <h2>Downloads</h2>
+    <label>Pasta de destino dos arquivos</label>
     <div class="row2">
       <div class="sub" id="pastaAtual" style="align-self:center">Downloads do navegador (padrão)</div>
       <button class="btn-sec" id="btnEscolherPasta" onclick="escolherPasta()">Escolher pasta</button>
@@ -273,37 +271,34 @@
       <button class="btn-sec" onclick="gerarAceite()">Só Aceite</button>
       <button class="btn-principal" onclick="gerarAmbos()">Gerar os dois</button>
     </div>
-    <button class="btn-sec btn-full oculto" id="btnWhats" onclick="enviarWhatsApp()">Abrir no WhatsApp</button>
+    <div id="resultadoGeracao" class="oculto"></div>
     <div class="status" id="statusGeracao"></div>
   </div>
 </div>
 
-<!-- ============ RECONHECIMENTO RÁPIDO (voz ou texto) ============
-     Reconhece por palavras-chave contra os mesmos catálogos do wizard manual —
-     sem IA, sem servidor, sem custo. Só acerta o que já está cadastrado (veículo,
-     resíduo, cargo, equipamento…); o que não reconhecer fica pra você completar
-     à mão, igual sempre foi. -->
-<div class="modal-fundo oculto" id="modalVoz">
+<!-- ============ EDITOR DE CATÁLOGO ============
+     Veículos, resíduos, funções e equipamentos que aparecem nos chips. As listas
+     de fábrica vêm no código; o que for criado ou ajustado aqui fica guardado
+     neste aparelho e entra por cima delas. -->
+<div class="modal-fundo oculto" id="modalCatalogo">
   <div class="modal-caixa">
     <div class="modal-topo">
-      <h3>Reconhecimento rápido</h3>
-      <button class="modal-fechar" onclick="fecharReconhecimento()">✕</button>
+      <h3 id="tituloCatalogo">Editar lista</h3>
+      <button class="modal-fechar" onclick="fecharCatalogo()">✕</button>
     </div>
-    <p class="sub">Fale ou digite um item por vez — pode ir completando aos poucos, durante o atendimento.
-      Ex.: "coleta classe 2 por coleta com fiorino, 850 reais". Toque em Reconhecer quando terminar.</p>
-    <div style="display:flex;gap:8px;align-items:flex-start">
-      <textarea id="textoVoz" placeholder="Fale pelo microfone ou digite aqui, um item por linha..." style="flex:1"></textarea>
-      <button id="btnMicVoz" class="btn-mic" onclick="alternarMicrofone()" title="Ditar por voz">🎤</button>
-    </div>
-    <div class="sub" id="statusVoz"></div>
-    <button class="btn-principal btn-full" style="margin-top:10px" onclick="reconhecerTrechos()">Reconhecer itens</button>
+    <div id="listaCatalogo"></div>
 
-    <div id="resultadosVoz"></div>
-
-    <div class="row2" style="margin-top:12px">
-      <button class="btn-sec" onclick="fecharReconhecimento()">Fechar</button>
-      <button class="btn-principal" onclick="adicionarReconhecidos()">Adicionar selecionados</button>
+    <div class="etapa" style="margin-top:14px">
+      <div class="etapa-titulo" id="tituloFormCat">Adicionar novo</div>
+      <div id="camposCatalogo"></div>
+      <div class="row2" style="margin-top:10px">
+        <button class="btn-sec" onclick="cancelarEdicaoCat()">Limpar</button>
+        <button class="btn-principal" onclick="salvarItemCatalogo()">Salvar</button>
+      </div>
+      <div class="sub" id="statusCatalogo"></div>
     </div>
+
+    <button class="btn-sec btn-full" style="margin-top:14px" onclick="fecharCatalogo()">Fechar</button>
   </div>
 </div>
 
@@ -358,8 +353,10 @@ const OBJETOS=[
  {n:"ADITIVO CONTRATUAL",sub:false}];
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-let itens=[], sel={}, objetoSel=null, subObjetoSel=null, mesmoEnd=true, editandoIdx=null;
+let itens=[], sel={}, objetoSel=null, subObjetoSel=null, mesmoEnd=true;
 let objetoAberto=true, clientesAberto=false;
+// Passo do wizard que o usuário abriu pra alterar (os demais ficam recolhidos)
+let passoAberto=null;
 
 /* ============ CHIPS ============ */
 function chips(cont,opcoes,ativo,onPick){
@@ -373,15 +370,63 @@ function chips(cont,opcoes,ativo,onPick){
     el.appendChild(b);
   });
 }
-function mostrarEtapa(n,titulo,opcoes,ativo,onPick){
-  document.getElementById("etapa"+n).classList.remove("oculto");
-  document.getElementById("tit"+n).textContent=titulo;
-  chips("chips"+n,opcoes,ativo,onPick);
+/* Um passo do wizard. Enquanto não tem escolha, mostra os chips; depois de
+   escolhido vira uma linha-resumo (a menos que seja o passo que o usuário
+   abriu pra alterar, ou uma multi-seleção, que fica sempre aberta). */
+function renderPasso(idAlvo,titulo,opcoes,escolha,onPick,opts){
+  opts=opts||{};
+  const el=document.getElementById(idAlvo);
+  el.classList.remove("oculto");
+  const multi=!!opts.multi;
+  const temEscolha=multi?(escolha&&escolha.length>0):!!escolha;
+
+  if(temEscolha&&!multi&&passoAberto!==idAlvo){
+    el.innerHTML="";
+    const linha=document.createElement("div");
+    linha.className="passo-resumo";
+    linha.innerHTML=`<span class="passo-rotulo">${titulo}</span>`+
+      `<span class="passo-valor"></span><span class="passo-editar">alterar</span>`;
+    linha.querySelector(".passo-valor").textContent=escolha;
+    linha.onclick=()=>{passoAberto=idAlvo;fluxo();};
+    el.appendChild(linha);
+    return;
+  }
+
+  el.innerHTML=`<div class="etapa-titulo">${titulo}</div>`;
+  const cont=document.createElement("div");
+  cont.className="chips";
+  opcoes.forEach(op=>{
+    const b=document.createElement("button");
+    const ativo=multi?escolha.includes(op):op===escolha;
+    b.className="chip"+(ativo?" ativo":"");
+    b.textContent=op;
+    b.onclick=()=>onPick(op);
+    cont.appendChild(b);
+  });
+  if(opts.gerenciar){
+    const g=document.createElement("button");
+    g.className="chip chip-gerenciar";
+    g.textContent="✎ editar lista";
+    g.onclick=opts.gerenciar;
+    cont.appendChild(g);
+  }
+  el.appendChild(cont);
+  if(multi){
+    const dica=document.createElement("div");
+    dica.className="sub";
+    dica.textContent="Pode marcar vários — sai uma linha de serviço pra cada.";
+    el.appendChild(dica);
+  }
 }
-function esconderEtapas(de){
-  for(let i=de;i<=4;i++) document.getElementById("etapa"+i).classList.add("oculto");
-  document.getElementById("previaItem").classList.add("oculto");
+function esconderPassos(de){
+  for(let i=de;i<=4;i++) document.getElementById("passo"+i).classList.add("oculto");
   document.getElementById("camposFinais").classList.add("oculto");
+}
+// Liga/desliga um item numa seleção múltipla
+function alternar(lista,valor){
+  const i=lista.indexOf(valor);
+  if(i>=0) lista.splice(i,1); else lista.push(valor);
+  return lista;
 }
 
 /* ============ MÁSCARAS ============ */
@@ -545,80 +590,186 @@ const CATEGORIAS=["COLETA DE RESÍDUOS","COLETA E DESTINAÇÃO FINAL DE RESÍDUO
   "LOCAÇÃO / DISPONIBILIZAÇÃO","MANUTENÇÃO DE ÁREAS VERDES","LIMPEZA INDUSTRIAL"];
 
 function montarCategorias(){
-  chips("chipsCategoria",CATEGORIAS,sel.cat,op=>{sel={cat:op};esconderEtapas(2);fluxo();montarCategorias();});
+  renderPasso("passo1","Categoria",CATEGORIAS,sel.cat,op=>{
+    // Modalidade/unidade já entram no que é usado na esmagadora maioria das
+    // propostas — quem precisar de outra troca em um toque.
+    sel={cat:op};
+    if(op==="COLETA DE RESÍDUOS"||op==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS") sel.mod="POR COLETA";
+    if(op==="DESTINAÇÃO FINAL DE RESÍDUOS"||op==="RECICLÁVEIS MISTOS") sel.uni="POR KG";
+    passoAberto=null;
+    esconderPassos(2);
+    fluxo();
+  });
 }
 function fluxo(){
+  montarCategorias();
   const c=sel.cat;
+  if(!c){esconderPassos(2);return;}
+
   if(c==="COLETA DE RESÍDUOS"||c==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS"){
-    mostrarEtapa(2,"Classe",["CLASSE IIA E IIB","CLASSE I"],sel.classe,v=>{sel.classe=v;esconderEtapas(3);fluxo();});
-    if(sel.classe) mostrarEtapa(3,"Modalidade",["POR COLETA","POR EQUIPAMENTO","POR KG"],sel.mod,v=>{sel.mod=v;esconderEtapas(4);fluxo();});
-    if(sel.classe&&sel.mod) mostrarEtapa(4,"Veículo",VEICULOS.map(v=>v.n),sel.veic,v=>{sel.veic=v;fluxo();});
-    if(sel.classe&&sel.mod&&sel.veic){
-      const v=VEICULOS.find(x=>x.n===sel.veic);
-      const cl=sel.classe==="CLASSE I"?"CLASSE I":"CLASSE II";
-      const obs=(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:v.c;
+    sel.veics=sel.veics||[];
+    renderPasso("passo2","Classe",["CLASSE IIA E IIB","CLASSE I"],sel.classe,
+      v=>{sel.classe=v;passoAberto=null;fluxo();});
+    if(sel.classe) renderPasso("passo3","Modalidade",["POR COLETA","POR EQUIPAMENTO","POR KG"],sel.mod,
+      v=>{sel.mod=v;passoAberto=null;fluxo();});
+    else esconderPassos(3);
+    if(sel.classe&&sel.mod) renderPasso("passo4","Veículos",listaVeiculos().map(v=>v.n),sel.veics,
+      v=>{alternar(sel.veics,v);fluxo();},
+      {multi:true,gerenciar:()=>abrirCatalogo("veiculos")});
+    else esconderPassos(4);
+
+  } else if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
+    sel.residuos=sel.residuos||[];
+    renderPasso("passo2","Classe",["CLASSE II","CLASSE I"],sel.classe,
+      v=>{sel.classe=v;sel.residuos=[];passoAberto=null;fluxo();});
+    if(sel.classe) renderPasso("passo3","Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,
+      v=>{sel.uni=v;passoAberto=null;fluxo();});
+    else esconderPassos(3);
+    if(sel.classe&&sel.uni){
+      const tipo=sel.classe==="CLASSE II"?"residuos2":"residuos1";
+      renderPasso("passo4","Resíduos",listaResiduos(sel.classe).map(r=>r.n),sel.residuos,
+        v=>{alternar(sel.residuos,v);fluxo();},
+        {multi:true,gerenciar:()=>abrirCatalogo(tipo)});
+    } else esconderPassos(4);
+
+  } else if(c==="RECICLÁVEIS MISTOS"){
+    sel.residuos=sel.residuos||[];
+    renderPasso("passo2","Unidade",["POR KG","POR UNIDADE","POR TON"],sel.uni,
+      v=>{sel.uni=v;passoAberto=null;fluxo();});
+    if(sel.uni) renderPasso("passo3","Resíduos",listaReciclaveis().map(r=>r.n),sel.residuos,
+      v=>{alternar(sel.residuos,v);fluxo();},
+      {multi:true,gerenciar:()=>abrirCatalogo("reciclaveis")});
+    else esconderPassos(3);
+    esconderPassos(4);
+
+  } else if(c==="MÃO DE OBRA"){
+    sel.cargos=sel.cargos||[];
+    renderPasso("passo2","Funções",listaCargos(),sel.cargos,
+      v=>{alternar(sel.cargos,v);fluxo();},
+      {multi:true,gerenciar:()=>abrirCatalogo("cargos")});
+    esconderPassos(3);
+
+  } else if(c==="LOCAÇÃO / DISPONIBILIZAÇÃO"){
+    sel.locs=sel.locs||[];
+    renderPasso("passo2","Equipamentos",listaLocacoes().map(l=>l.n),sel.locs,
+      v=>{alternar(sel.locs,v);fluxo();},
+      {multi:true,gerenciar:()=>abrirCatalogo("locacoes")});
+    esconderPassos(3);
+
+  } else if(c==="MANUTENÇÃO DE ÁREAS VERDES"||c==="LIMPEZA INDUSTRIAL"){
+    esconderPassos(2);
+  }
+  renderLinhasValores();
+}
+
+/* Traduz a seleção atual nas linhas que vão pra proposta — uma por veículo,
+   resíduo, função ou equipamento marcado. */
+function montarLinhas(){
+  const c=sel.cat;
+  if(!c) return [];
+  if(c==="COLETA DE RESÍDUOS"||c==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS"){
+    if(!sel.classe||!sel.mod||!sel.veics||!sel.veics.length) return [];
+    const cl=sel.classe==="CLASSE I"?"CLASSE I":"CLASSE II";
+    return sel.veics.map(nome=>{
+      const v=listaVeiculos().find(x=>x.n===nome)||{n:nome,c:"",e:null};
       // Quebra fixa entre a classificação e o veículo — sem depender da largura
       // da coluna no Word pra decidir onde o texto cai pra segunda linha.
-      previa(`${c} ${cl} - ${sel.mod} -\n${sel.veic}`,"-",UNI_MOD[sel.mod]||"",obs);
-    }
-  } else if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
-    mostrarEtapa(2,"Classe",["CLASSE II","CLASSE I"],sel.classe,v=>{sel.classe=v;esconderEtapas(3);fluxo();});
-    if(sel.classe) mostrarEtapa(3,"Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,v=>{sel.uni=v;esconderEtapas(4);fluxo();});
-    if(sel.classe&&sel.uni){
-      const lista=sel.classe==="CLASSE II"?RES_II:RES_I;
-      mostrarEtapa(4,"Resíduo",lista.map(r=>r.n),sel.res,v=>{sel.res=v;fluxo();});
-      if(sel.res){
-        const r=lista.find(x=>x.n===sel.res);
-        previa(`DESTINAÇÃO FINAL DE RESÍDUOS - ${sel.classe} – ${sel.uni}`,r.n,sel.uni.replace("POR ",""),r.o);
-      }
-    }
-  } else if(c==="RECICLÁVEIS MISTOS"){
-    mostrarEtapa(2,"Unidade",["POR KG","POR UNIDADE","POR TON"],sel.uni,v=>{sel.uni=v;esconderEtapas(3);fluxo();});
-    if(sel.uni){
-      mostrarEtapa(3,"Resíduo",RECI.map(r=>r.n),sel.res,v=>{sel.res=v;fluxo();});
-      if(sel.res){const r=RECI.find(x=>x.n===sel.res);
-        previa("RECICLÁVEIS MISTOS",r.n,sel.uni.replace("POR ",""),r.o);}
-    }
-  } else if(c==="MÃO DE OBRA"){
-    mostrarEtapa(2,"Função",CARGOS,sel.cargo,v=>{sel.cargo=v;fluxo();});
-    if(sel.cargo) previa("MDO - "+sel.cargo,"-","Diária","");
-  } else if(c==="LOCAÇÃO / DISPONIBILIZAÇÃO"){
-    mostrarEtapa(2,"Equipamento",LOCACOES.map(l=>l.n),sel.loc,v=>{sel.loc=v;fluxo();});
-    if(sel.loc){const l=LOCACOES.find(x=>x.n===sel.loc);previa(l.d,"-","Un.",OBS_LOC);}
-  } else if(c==="MANUTENÇÃO DE ÁREAS VERDES"||c==="LIMPEZA INDUSTRIAL"){
-    previa(c,"-","","");
+      return {chave:"veic:"+nome, nome,
+        descricao:`${c} ${cl} - ${sel.mod} -\n${nome}`, residuo:"-",
+        unidade:UNI_MOD[sel.mod]||"",
+        observacoes:(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:(v.c||"")};
+    });
   }
+  if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
+    if(!sel.classe||!sel.uni||!sel.residuos||!sel.residuos.length) return [];
+    return sel.residuos.map(nome=>{
+      const r=listaResiduos(sel.classe).find(x=>x.n===nome)||{n:nome,o:""};
+      return {chave:"res:"+nome, nome,
+        descricao:`DESTINAÇÃO FINAL DE RESÍDUOS - ${sel.classe} – ${sel.uni}`,
+        residuo:r.n, unidade:sel.uni.replace("POR ",""), observacoes:r.o||""};
+    });
+  }
+  if(c==="RECICLÁVEIS MISTOS"){
+    if(!sel.uni||!sel.residuos||!sel.residuos.length) return [];
+    return sel.residuos.map(nome=>{
+      const r=listaReciclaveis().find(x=>x.n===nome)||{n:nome,o:""};
+      return {chave:"reci:"+nome, nome, descricao:"RECICLÁVEIS MISTOS",
+        residuo:r.n, unidade:sel.uni.replace("POR ",""), observacoes:r.o||""};
+    });
+  }
+  if(c==="MÃO DE OBRA"){
+    if(!sel.cargos||!sel.cargos.length) return [];
+    return sel.cargos.map(nome=>({chave:"cargo:"+nome, nome,
+      descricao:"MDO - "+nome, residuo:"-", unidade:"Diária", observacoes:""}));
+  }
+  if(c==="LOCAÇÃO / DISPONIBILIZAÇÃO"){
+    if(!sel.locs||!sel.locs.length) return [];
+    return sel.locs.map(nome=>{
+      const l=listaLocacoes().find(x=>x.n===nome)||{n:nome,d:nome};
+      return {chave:"loc:"+nome, nome, descricao:l.d, residuo:"-",
+        unidade:"Un.", observacoes:OBS_LOC};
+    });
+  }
+  if(c==="MANUTENÇÃO DE ÁREAS VERDES"||c==="LIMPEZA INDUSTRIAL"){
+    return [{chave:"cat:"+c, nome:c, descricao:c, residuo:"-", unidade:"", observacoes:""}];
+  }
+  return [];
 }
-function previa(desc,res,uni,obs){
-  const b=document.getElementById("previaItem");
-  b.innerHTML=`<b>Descrição:</b> ${desc.replace(/\n/g,"<br>")}<br><b>Resíduo:</b> ${res}<br><b>Unidade:</b> ${uni||"(preencher)"}`;
-  b.classList.remove("oculto");
-  b.dataset.desc=desc;b.dataset.res=res;
-  document.getElementById("itemUnidade").value=uni;
-  document.getElementById("itemObs").value=obs||"";
-  if(editandoIdx===null) document.getElementById("itemValor").value="";
-  document.getElementById("camposFinais").classList.remove("oculto");
-  document.getElementById("wrapValor").classList.toggle("destacar",!document.getElementById("itemValor").value);
+
+// Valor e observação digitados ficam guardados por chave, pra não se perderem
+// quando a lista é redesenhada ao marcar/desmarcar outro item.
+let valorPorChave={}, obsPorChave={};
+function renderLinhasValores(){
+  const linhas=montarLinhas();
+  const bloco=document.getElementById("camposFinais");
+  bloco.classList.toggle("oculto",!linhas.length);
+  document.getElementById("contagemLinhas").textContent=linhas.length;
+  const alvo=document.getElementById("linhasValores");
+  alvo.innerHTML="";
+  linhas.forEach(l=>{
+    const div=document.createElement("div");
+    div.className="linha-valor";
+    div.innerHTML=
+      `<div class="nome"></div>
+       <div class="campos">
+         <div><label>Valor Unitário (R$)</label>
+           <input type="text" inputmode="numeric" placeholder="0,00" data-campo="valor"></div>
+         <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
+       </div>
+       <div class="obs"><label>Observações</label><input type="text" data-campo="obs"></div>`;
+    div.querySelector(".nome").textContent=l.nome;
+    const iv=div.querySelector('[data-campo="valor"]');
+    iv.value=valorPorChave[l.chave]||"";
+    iv.oninput=()=>{mascaraValor(iv);valorPorChave[l.chave]=iv.value;};
+    const iu=div.querySelector('[data-campo="unidade"]');
+    iu.value=l.unidade;
+    iu.oninput=()=>{l.unidade=iu.value;};
+    const io=div.querySelector('[data-campo="obs"]');
+    io.value=obsPorChave[l.chave]!==undefined?obsPorChave[l.chave]:l.observacoes;
+    io.oninput=()=>{obsPorChave[l.chave]=io.value;};
+    alvo.appendChild(div);
+  });
 }
-function adicionarItem(){
-  const b=document.getElementById("previaItem");
-  if(!b.dataset.desc)return;
-  itens.push({descricao:b.dataset.desc,residuo:b.dataset.res,
-    unidade:document.getElementById("itemUnidade").value.trim(),
-    valor:document.getElementById("itemValor").value.trim(),
-    observacoes:document.getElementById("itemObs").value.trim(),
-    sel:JSON.parse(JSON.stringify(sel))});
-  editandoIdx=null;sel={};esconderEtapas(2);montarCategorias();render();
+function adicionarItens(){
+  const linhas=montarLinhas();
+  if(!linhas.length) return;
+  const alvo=document.getElementById("linhasValores");
+  linhas.forEach((l,i)=>{
+    const div=alvo.children[i];
+    itens.push({descricao:l.descricao, residuo:l.residuo,
+      unidade:div?div.querySelector('[data-campo="unidade"]').value.trim():l.unidade,
+      valor:div?div.querySelector('[data-campo="valor"]').value.trim():"",
+      observacoes:div?div.querySelector('[data-campo="obs"]').value.trim():l.observacoes,
+      sel:JSON.parse(JSON.stringify(sel))});
+  });
+  sel={};valorPorChave={};obsPorChave={};passoAberto=null;
+  esconderPassos(2);fluxo();render();
 }
 function duplicarItem(i){
   const it=itens[i];
   sel=JSON.parse(JSON.stringify(it.sel||{}));
-  editandoIdx=null;
-  montarCategorias();esconderEtapas(2);fluxo();
-  document.getElementById("itemValor").value="";
-  document.getElementById("itemObs").value=it.observacoes;
-  document.getElementById("itemUnidade").value=it.unidade;
-  document.getElementById("wrapValor").classList.add("destacar");
+  valorPorChave={};obsPorChave={};passoAberto=null;
+  fluxo();
   document.getElementById("camposFinais").scrollIntoView({behavior:"smooth",block:"center"});
 }
 function removerItem(i){itens.splice(i,1);render();}
@@ -633,199 +784,135 @@ function render(){
     <button class="btn-rem" onclick="removerItem(${i})">remover</button></td></tr>`).join("");
 }
 
-/* ============ RECONHECIMENTO RÁPIDO (voz ou texto, sem IA) ============
-   Casa o texto contra os MESMOS catálogos do wizard manual (VEICULOS, RES_II,
-   RES_I, RECI, CARGOS, LOCACOES) por palavra-chave. Roda inteiro no navegador,
-   de graça — só não entende frase fora do que já está cadastrado; nesse caso
-   deixa marcado como "não reconhecido" pra completar à mão. */
-function escVoz(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
-
-function extrairValor(txt){
-  // No terceiro padrão a vírgula decimal é obrigatória: sem ela, "classe 1 por kg"
-  // batia como se "1" fosse o preço, comendo o valor de verdade mais à frente.
-  let m = txt.match(/(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)\s*reais?/i)
-       || txt.match(/r\$\s*(\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?)/i)
-       || txt.match(/(\d+,\d{1,2})\s*(?:o\s*|por\s*)?(?:quilo|kg|m³|m3|viagem|hora|di[aá]ria)/i);
-  if(!m){
-    const todos=txt.match(/\d+(?:,\d{1,2})?/g);
-    if(todos&&todos.length) m=[null,todos[todos.length-1]];
-  }
-  if(!m) return "";
-  let v=m[1].replace(/\.(?=\d{3}(\D|$))/g,"");
-  if(!v.includes(",")) v+=",00";
-  return v;
+/* ============ CATÁLOGO EDITÁVEL ============
+   As listas de fábrica (VEICULOS, RES_II…) continuam no código como base. O que
+   for criado ou ajustado aqui fica no localStorage e entra por cima: item com o
+   mesmo nome substitui o de fábrica, e "ocultos" some com o que não se usa. */
+const LS_CATALOGO="corpus_catalogo_v1";
+let catalogo={veiculos:[],residuos2:[],residuos1:[],reciclaveis:[],cargos:[],locacoes:[],ocultos:[]};
+function carregarCatalogo(){
+  try{
+    const s=localStorage.getItem(LS_CATALOGO);
+    if(s) catalogo=Object.assign(catalogo,JSON.parse(s));
+  }catch(e){}
 }
-
-function unidadeFalada(txt,padrao){
-  if(/por\s*equipamento|por\s*hora/i.test(txt)) return "POR EQUIPAMENTO";
-  if(/quilo|\bkg\b/i.test(txt)) return "POR KG";
-  if(/\bton(elada)?\b/i.test(txt)) return "POR TON";
-  if(/m[³3]/i.test(txt)) return "POR M³";
-  if(/unidade/i.test(txt)) return "POR UNIDADE";
-  if(/por\s*coleta/i.test(txt)) return "POR COLETA";
-  return padrao;
+function gravarCatalogo(){
+  try{localStorage.setItem(LS_CATALOGO,JSON.stringify(catalogo));}
+  catch(e){document.getElementById("statusCatalogo").textContent="Não deu pra salvar — armazenamento cheio.";}
 }
-
-function reconhecerItem(textoOriginal){
-  const t=semAc(textoOriginal);
-  const r={textoOriginal,ok:false,sel:null,desc:"",res:"-",uni:"",obs:"",valor:""};
-
-  // Coleta de resíduos: precisa achar o veículo — classe e modalidade completam,
-  // mas sem veículo não dá pra saber qual linha do catálogo é.
-  const veic=VEICULOS.find(v=>t.includes(semAc(v.n)));
-  if(veic){
-    const classe=/classe\s*1\b|classe\s*i\b(?!i)/i.test(textoOriginal)?"CLASSE I":"CLASSE IIA E IIB";
-    const mod=unidadeFalada(textoOriginal,"POR COLETA");
-    const cl=classe==="CLASSE I"?"CLASSE I":"CLASSE II";
-    const obs=(mod==="POR EQUIPAMENTO"&&veic.e)?veic.e:veic.c;
-    r.ok=true;
-    r.sel={cat:"COLETA DE RESÍDUOS",classe,mod,veic:veic.n};
-    r.desc=`COLETA DE RESÍDUOS ${cl} - ${mod} -\n${veic.n}`;
-    r.uni=UNI_MOD[mod]||""; r.obs=obs; r.valor=extrairValor(textoOriginal);
-    return r;
-  }
-
-  // Destinação final: casa pelo nome do resíduo (Classe I ou II)
-  for(const[lista,classeTxt]of[[RES_II,"CLASSE II"],[RES_I,"CLASSE I"]]){
-    const res=lista.find(x=>t.includes(semAc(x.n.split(" - ")[0])));
-    if(res){
-      const uni=unidadeFalada(textoOriginal,"POR KG");
-      r.ok=true;
-      r.sel={cat:"DESTINAÇÃO FINAL DE RESÍDUOS",classe:classeTxt,uni,res:res.n};
-      r.desc=`DESTINAÇÃO FINAL DE RESÍDUOS - ${classeTxt} – ${uni}`;
-      r.res=res.n; r.uni=uni.replace("POR ",""); r.obs=res.o; r.valor=extrairValor(textoOriginal);
-      return r;
-    }
-  }
-
-  // Recicláveis mistos
-  const reci=RECI.find(x=>t.includes(semAc(x.n)));
-  if(reci){
-    const uni=unidadeFalada(textoOriginal,"POR KG");
-    r.ok=true;
-    r.sel={cat:"RECICLÁVEIS MISTOS",uni,res:reci.n};
-    r.desc="RECICLÁVEIS MISTOS"; r.res=reci.n; r.uni=uni.replace("POR ",""); r.obs=reci.o;
-    r.valor=extrairValor(textoOriginal);
-    return r;
-  }
-
-  // Mão de obra
-  const cargo=CARGOS.find(c=>t.includes(semAc(c)));
-  if(cargo){
-    r.ok=true;
-    r.sel={cat:"MÃO DE OBRA",cargo};
-    r.desc="MDO - "+cargo; r.uni="Diária"; r.valor=extrairValor(textoOriginal);
-    return r;
-  }
-
-  // Locação / disponibilização
-  const loc=LOCACOES.find(l=>t.includes(semAc(l.n)));
-  if(loc){
-    r.ok=true;
-    r.sel={cat:"LOCAÇÃO / DISPONIBILIZAÇÃO",loc:loc.n};
-    r.desc=loc.d; r.uni="Un."; r.obs=OBS_LOC; r.valor=extrairValor(textoOriginal);
-    return r;
-  }
-
-  // Manutenção de áreas verdes / limpeza industrial: sem sub-opções
-  for(const cat of["MANUTENÇÃO DE ÁREAS VERDES","LIMPEZA INDUSTRIAL"]){
-    if(t.includes(semAc(cat))){
-      r.ok=true;
-      r.sel={cat};
-      r.desc=cat; r.valor=extrairValor(textoOriginal);
-      return r;
-    }
-  }
-
-  return r;
+function mesclar(base,extras){
+  const mapa=new Map();
+  base.forEach(x=>mapa.set(x.n,x));
+  (extras||[]).forEach(x=>mapa.set(x.n,x));
+  return [...mapa.values()].filter(x=>!catalogo.ocultos.includes(x.n));
 }
+function listaVeiculos(){return mesclar(VEICULOS,catalogo.veiculos);}
+function listaResiduos(classe){
+  return classe==="CLASSE I"?mesclar(RES_I,catalogo.residuos1):mesclar(RES_II,catalogo.residuos2);
+}
+function listaReciclaveis(){return mesclar(RECI,catalogo.reciclaveis);}
+function listaLocacoes(){return mesclar(LOCACOES,catalogo.locacoes);}
+function listaCargos(){return mesclar(CARGOS.map(n=>({n})),catalogo.cargos).map(x=>x.n);}
 
-function dividirEmTrechos(texto){
-  return texto.split(/\n+|(?<=[.;])\s+|\s+(?:mais uma|mais um|também mais|também|e mais)\s+/i)
-    .map(s=>s.trim()).filter(s=>s.length>3);
-}
+// Cada tipo tem seus campos próprios; o editor é o mesmo pra todos.
+const TIPOS_CAT={
+  veiculos:{titulo:"Veículos",base:()=>VEICULOS,lista:()=>listaVeiculos(),
+    campos:[{k:"n",r:"Nome do veículo"},{k:"c",r:"Observação (por coleta/viagem)"},{k:"e",r:"Observação (por equipamento/hora)"}]},
+  residuos2:{titulo:"Resíduos Classe II",base:()=>RES_II,lista:()=>listaResiduos("CLASSE II"),
+    campos:[{k:"n",r:"Nome do resíduo"},{k:"o",r:"Observação / tratamento"}]},
+  residuos1:{titulo:"Resíduos Classe I",base:()=>RES_I,lista:()=>listaResiduos("CLASSE I"),
+    campos:[{k:"n",r:"Nome do resíduo"},{k:"o",r:"Observação / tratamento"}]},
+  reciclaveis:{titulo:"Recicláveis",base:()=>RECI,lista:()=>listaReciclaveis(),
+    campos:[{k:"n",r:"Nome do material"},{k:"o",r:"Observação / tratamento"}]},
+  cargos:{titulo:"Funções (mão de obra)",base:()=>CARGOS.map(n=>({n})),lista:()=>listaCargos().map(n=>({n})),
+    campos:[{k:"n",r:"Nome da função"}]},
+  locacoes:{titulo:"Equipamentos (locação)",base:()=>LOCACOES,lista:()=>listaLocacoes(),
+    campos:[{k:"n",r:"Nome curto (aparece no chip)"},{k:"d",r:"Descrição que vai na proposta"}]}
+};
+let tipoCatAtual=null, editandoCat=null;
 
-let resultadosReconhecidos=[];
-let reconhecendoVoz=null; // instância do SpeechRecognition ativa, ou null
-
-function abrirReconhecimento(){
-  document.getElementById("modalVoz").classList.remove("oculto");
-  document.getElementById("textoVoz").value="";
-  document.getElementById("resultadosVoz").innerHTML="";
-  document.getElementById("statusVoz").textContent="";
-  resultadosReconhecidos=[];
-  const suportaVoz="webkitSpeechRecognition"in window||"SpeechRecognition"in window;
-  document.getElementById("btnMicVoz").style.display=suportaVoz?"block":"none";
-  if(!suportaVoz) document.getElementById("statusVoz").textContent="Ditado por voz não é suportado neste navegador — digite ou cole o texto.";
+function abrirCatalogo(tipo){
+  tipoCatAtual=tipo; editandoCat=null;
+  document.getElementById("tituloCatalogo").textContent=TIPOS_CAT[tipo].titulo;
+  document.getElementById("modalCatalogo").classList.remove("oculto");
+  document.getElementById("statusCatalogo").textContent="";
+  renderCamposCatalogo(); renderListaCatalogo();
 }
-function fecharReconhecimento(){
-  if(reconhecendoVoz){ reconhecendoVoz.stop(); reconhecendoVoz=null; }
-  document.getElementById("modalVoz").classList.add("oculto");
+function fecharCatalogo(){
+  document.getElementById("modalCatalogo").classList.add("oculto");
+  fluxo();
 }
-function alternarMicrofone(){
-  const btn=document.getElementById("btnMicVoz");
-  if(reconhecendoVoz){ reconhecendoVoz.stop(); reconhecendoVoz=null; btn.classList.remove("gravando"); return; }
-  const Reconhecedor=window.SpeechRecognition||window.webkitSpeechRecognition;
-  const rec=new Reconhecedor();
-  rec.lang="pt-BR"; rec.continuous=true; rec.interimResults=false;
-  const campo=document.getElementById("textoVoz");
-  rec.onresult=(ev)=>{
-    let novo="";
-    for(let i=ev.resultIndex;i<ev.results.length;i++){
-      if(ev.results[i].isFinal) novo+=ev.results[i][0].transcript+". ";
-    }
-    if(novo) campo.value=(campo.value?campo.value.trim()+" ":"")+novo.trim()+" ";
-  };
-  rec.onerror=(ev)=>{ document.getElementById("statusVoz").textContent="Erro no microfone: "+ev.error; };
-  rec.onend=()=>{ btn.classList.remove("gravando"); if(reconhecendoVoz===rec) reconhecendoVoz=null; };
-  rec.start();
-  reconhecendoVoz=rec;
-  btn.classList.add("gravando");
-  document.getElementById("statusVoz").textContent="Ouvindo… fale um item e faça uma pausa.";
-}
-function reconhecerTrechos(){
-  const texto=document.getElementById("textoVoz").value;
-  const trechos=dividirEmTrechos(texto);
-  resultadosReconhecidos=trechos.map(reconhecerItem);
-  renderResultadosVoz();
-  const okCount=resultadosReconhecidos.filter(r=>r.ok).length;
-  document.getElementById("statusVoz").textContent=trechos.length
-    ?`${okCount} de ${trechos.length} reconhecido(s). Confira embaixo antes de adicionar.`
-    :"Nada pra reconhecer ainda.";
-}
-function renderResultadosVoz(){
-  const alvo=document.getElementById("resultadosVoz");
-  alvo.innerHTML=resultadosReconhecidos.map((r,i)=>`
-    <div class="cartao-voz ${r.ok?"reconhecido":"naoreconhecido"}">
-      <div class="linha-topo">
-        <input type="checkbox" id="chkVoz${i}" ${r.ok?"checked":""} ${r.ok?"":"disabled"}>
-        <div style="flex:1">
-          ${r.ok
-            ?`<div class="desc-reconhecida">${escVoz(r.desc)}</div>
-               <div class="sub">${escVoz(r.res)} · ${escVoz(r.uni)||"(unidade)"}</div>`
-            :`<div class="sub" style="color:#6b5900">Não reconheci — adicione esse item à mão pelo wizard abaixo.</div>`}
-          <div class="texto-original">"${escVoz(r.textoOriginal)}"</div>
-          ${r.ok?`<div class="campo-valor"><label>R$</label>
-              <input type="text" id="valorVoz${i}" value="${escVoz(r.valor)}" inputmode="decimal" oninput="mascaraValor(this)"></div>`
-            :""}
-        </div>
-      </div>
-    </div>`).join("");
-}
-function adicionarReconhecidos(){
-  let n=0;
-  resultadosReconhecidos.forEach((r,i)=>{
-    if(!r.ok) return;
-    const chk=document.getElementById("chkVoz"+i);
-    if(!chk||!chk.checked) return;
-    const valorEl=document.getElementById("valorVoz"+i);
-    itens.push({descricao:r.desc,residuo:r.res,unidade:r.uni,
-      valor:valorEl?valorEl.value.trim():r.valor,observacoes:r.obs||"",sel:r.sel});
-    n++;
+function renderCamposCatalogo(){
+  const def=TIPOS_CAT[tipoCatAtual];
+  const alvo=document.getElementById("camposCatalogo");
+  alvo.innerHTML="";
+  def.campos.forEach(campo=>{
+    const lab=document.createElement("label"); lab.textContent=campo.r;
+    const inp=document.createElement("input");
+    inp.type="text"; inp.id="cat_"+campo.k;
+    inp.value=editandoCat?(editandoCat[campo.k]||""):"";
+    alvo.appendChild(lab); alvo.appendChild(inp);
   });
-  if(n){ render(); fecharReconhecimento(); }
-  else{ document.getElementById("statusVoz").textContent="Nenhum item selecionado pra adicionar."; }
+  document.getElementById("tituloFormCat").textContent=editandoCat?"Editando: "+editandoCat.n:"Adicionar novo";
 }
+function renderListaCatalogo(){
+  const def=TIPOS_CAT[tipoCatAtual];
+  const alvo=document.getElementById("listaCatalogo");
+  const itensLista=def.lista();
+  alvo.innerHTML="";
+  if(!itensLista.length){alvo.innerHTML='<div class="vazio">Nenhum item na lista.</div>';return;}
+  itensLista.forEach(item=>{
+    const div=document.createElement("div");
+    div.className="linha-cat";
+    div.innerHTML=`<div class="nome"></div><div class="sub detalhe"></div>
+      <div class="row2" style="margin-top:8px">
+        <button class="btn-mini">editar</button>
+        <button class="btn-rem">remover</button></div>`;
+    div.querySelector(".nome").textContent=item.n;
+    const detalhe=def.campos.slice(1).map(c=>item[c.k]).filter(Boolean).join(" · ");
+    div.querySelector(".detalhe").textContent=detalhe;
+    div.querySelectorAll("button")[0].onclick=()=>{
+      editandoCat=Object.assign({},item); renderCamposCatalogo();
+      document.getElementById("camposCatalogo").scrollIntoView({behavior:"smooth",block:"center"});
+    };
+    div.querySelectorAll("button")[1].onclick=()=>removerDoCatalogo(item.n);
+    alvo.appendChild(div);
+  });
+}
+function salvarItemCatalogo(){
+  const def=TIPOS_CAT[tipoCatAtual];
+  const novo={};
+  def.campos.forEach(c=>{
+    const v=document.getElementById("cat_"+c.k).value.trim();
+    if(v) novo[c.k]=v;
+  });
+  const st=document.getElementById("statusCatalogo");
+  if(!novo.n){st.textContent="O nome é obrigatório.";return;}
+  // Renomear ao editar = tirar o antigo de cena antes de gravar o novo
+  if(editandoCat&&editandoCat.n!==novo.n) removerDoCatalogo(editandoCat.n,true);
+  const arr=catalogo[tipoCatAtual];
+  const i=arr.findIndex(x=>x.n===novo.n);
+  if(i>=0) arr[i]=novo; else arr.push(novo);
+  catalogo.ocultos=catalogo.ocultos.filter(n=>n!==novo.n);
+  gravarCatalogo(); editandoCat=null;
+  renderCamposCatalogo(); renderListaCatalogo();
+  st.textContent="Salvo.";
+}
+function removerDoCatalogo(nome,silencioso){
+  const arr=catalogo[tipoCatAtual];
+  const i=arr.findIndex(x=>x.n===nome);
+  if(i>=0) arr.splice(i,1);
+  // Se veio da lista de fábrica, some por "oculto" — o código continua intacto
+  const ehDeFabrica=TIPOS_CAT[tipoCatAtual].base().some(x=>x.n===nome);
+  if(ehDeFabrica&&!catalogo.ocultos.includes(nome)) catalogo.ocultos.push(nome);
+  gravarCatalogo();
+  if(!silencioso){
+    if(editandoCat&&editandoCat.n===nome){editandoCat=null;renderCamposCatalogo();}
+    renderListaCatalogo();
+    document.getElementById("statusCatalogo").textContent="Removido.";
+  }
+}
+function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.getElementById("statusCatalogo").textContent="";}
 
 /* ============ PADRÕES ============ */
 (function(){
@@ -833,7 +920,8 @@ function adicionarReconhecidos(){
   document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
   const mm=String(h.getMonth()+1).padStart(2,"0");
   document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
-  montarCategorias();montarObjeto();montarChipsColeta();render();
+  carregarCatalogo();
+  fluxo();montarObjeto();montarChipsColeta();render();
 })();
 
 /* ============ NOVA PROPOSTA ============ */
@@ -843,8 +931,9 @@ function novaProposta(){
   const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
   if(temAlgo&&!confirm("Começar uma proposta nova? O que estiver preenchido e não foi gerado se perde."))return;
 
-  itens=[];sel={};objetoSel=null;subObjetoSel=null;objetoAberto=true;editandoIdx=null;
-  mesmoEnd=true;ultimaGeracao=null;
+  itens=[];sel={};objetoSel=null;subObjetoSel=null;objetoAberto=true;
+  mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};
+  limparResultado();
 
   ["razaoSocial","cnpj","ie","solicitante","telefone","email","enderecoUnico",
    "logradouro","bairro","uf","cep","cidade",
@@ -855,15 +944,14 @@ function novaProposta(){
   document.getElementById("avisoRazaoSocial").textContent="";
   document.getElementById("blocoColeta").classList.add("oculto");
   document.getElementById("statusGeracao").textContent="";
-  document.getElementById("btnWhats").classList.add("oculto");
 
   const h=new Date();
   document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
   const mm=String(h.getMonth()+1).padStart(2,"0");
   document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
 
-  esconderEtapas(2);
-  montarCategorias();montarObjeto();montarChipsColeta();render();
+  esconderPassos(2);
+  fluxo();montarObjeto();montarChipsColeta();render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -940,29 +1028,42 @@ function mapear(){
     dia:String(d.getDate()).padStart(2,"0"),mes:MESES[d.getMonth()],ano:String(d.getFullYear()),
     data:d.toLocaleDateString("pt-BR")}};
 }
-// WhatsApp não deixa um site anexar arquivo pronto na conversa — nenhuma página
-// consegue fazer isso, só a API paga do WhatsApp Business. O que dá pra automatizar
-// é abrir a conversa certa com a mensagem pronta; o arquivo (já salvo na pasta
-// escolhida, ou nos Downloads) o próprio WhatsApp deixa anexar em dois toques.
-let ultimaGeracao=null;
-function marcarGerado(mapa,rs){
-  ultimaGeracao={numero:mapa.proposta_numero,cliente:rs};
-  document.getElementById("btnWhats").classList.remove("oculto");
+/* Depois de gerar, mostra o que saiu e pra onde foi, com botão de abrir o
+   arquivo. Abrir a PASTA em si o navegador não permite — nenhum site consegue
+   pedir pro sistema abrir o explorador de arquivos, é barreira de segurança.
+   O que dá é abrir o documento gerado, e é o que o botão faz. */
+let ultimosGerados=[];
+function marcarGerado(arquivos){
+  ultimosGerados=arquivos;
+  const el=document.getElementById("resultadoGeracao");
+  el.classList.remove("oculto");
+  el.innerHTML="";
+  const onde=pastaHandle?("📁 "+pastaHandle.name):"📁 Downloads do navegador";
+  arquivos.forEach((a,i)=>{
+    const div=document.createElement("div");
+    div.className="resultado-ok";
+    div.innerHTML=`<div class="arquivo"></div><div class="sub local"></div>`;
+    div.querySelector(".arquivo").textContent="✓ "+a.nome;
+    div.querySelector(".local").textContent="salvo em "+onde;
+    const btn=document.createElement("button");
+    btn.className="btn-mini"; btn.style.marginTop="8px";
+    btn.textContent="Abrir arquivo";
+    btn.onclick=()=>abrirGerado(i);
+    div.appendChild(btn);
+    el.appendChild(div);
+  });
 }
-const LS_WHATS="corpus_meu_whats";
-function salvarMeuWhats(){localStorage.setItem(LS_WHATS,document.getElementById("meuWhats").value);}
-function carregarMeuWhats(){
-  const el=document.getElementById("meuWhats");
-  el.value=localStorage.getItem(LS_WHATS)||"27 99944-8204";
-  mascaraTelefone(el);
+function abrirGerado(i){
+  const a=ultimosGerados[i];
+  if(!a) return;
+  const url=URL.createObjectURL(a.blob);
+  window.open(url,"_blank");
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-function enviarWhatsApp(){
-  const numero=so(document.getElementById("meuWhats").value);
-  if(numero.length<10){document.getElementById("statusGeracao").textContent="Preencha seu WhatsApp no card “Envio e downloads”.";return;}
-  const msg=ultimaGeracao
-    ?`Segue a Proposta ${ultimaGeracao.numero} — ${ultimaGeracao.cliente}. Anexe aqui o arquivo que acabou de gerar.`
-    :"Segue a proposta em anexo.";
-  window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(msg)}`,"_blank");
+function limparResultado(){
+  ultimosGerados=[];
+  const el=document.getElementById("resultadoGeracao");
+  el.classList.add("oculto"); el.innerHTML="";
 }
 
 /* ============ PASTA DE DESTINO (File System Access API — Chrome/Edge) ============ */
@@ -1029,19 +1130,20 @@ function checar(precisaItens){
   if(precisaItens&&!itens.length){st.textContent="Adicione ao menos uma linha de serviço.";return null;}
   return {rs,mapa,st};
 }
-async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
+async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const b=await preencherDocx(TPL_P,c.mapa,itens);
     const n=`Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(b,n);marcarGerado(c.mapa,c.rs);c.st.textContent="Proposta pronta.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
-async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
+    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);c.st.textContent="Proposta pronta.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const b=await preencherDocx(TPL_A,c.mapa,null);
     const n=`Aceite de Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(b,n);marcarGerado(c.mapa,c.rs);c.st.textContent="Aceite pronto.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
-async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
+    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);c.st.textContent="Aceite pronto.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(bp,`Proposta ${base}.docx`);await baixar(ba,`Aceite de Proposta ${base}.docx`);
-    marcarGerado(c.mapa,c.rs);
+    const nomeP=`Proposta ${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
+    await baixar(bp,nomeP);await baixar(ba,nomeA);
+    marcarGerado([{blob:bp,nome:nomeP},{blob:ba,nome:nomeA}]);
     c.st.textContent="Prontos! Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 
 
@@ -1210,7 +1312,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.13-4";
+const APP_VERSION="2026.08.13-5";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -1234,7 +1336,7 @@ if("serviceWorker" in navigator){
 // Só agora, no fim do arquivo, é que "Meus clientes", WhatsApp e pasta de destino
 // terminaram de declarar suas const/let — chamar isso mais cedo (antes da própria
 // declaração rodar) derruba o script inteiro com "Cannot access before initialization".
-carregarMeuWhats();iniciarPasta();
+iniciarPasta();
 
 </script>
 </body>
