@@ -323,8 +323,8 @@ const RES_II=[
  {n:"Fossa Séptica - Classe II",o:"Tratamento: ETE Classe II."},
  {n:"Gordura - Classe II",o:"Tratamento: ETE Classe II."},
  {n:"Madeira - Classe II",o:"Tratamento: Aterro Classe II."},
- {n:"RCC - Classe II (Rejeito)",o:"Rejeito (sacos cimento, podas, espuma, lata de tintas, etc). Tratamento: Usina de reaproveitamento."},
- {n:"RCC - Classe II (Limpo)",o:"RCC Limpo. Tratamento: Usina de reaproveitamento."}];
+ {n:"RCC Sujo - Classe II",o:"Rejeito (sacos cimento, podas, espuma, lata de tintas, etc). Tratamento: Usina de reaproveitamento."},
+ {n:"RCC Limpo - Classe II",o:"RCC Limpo. Tratamento: Usina de reaproveitamento."}];
 const RES_I=[
  {n:"RSS - Resíduo de Serviços de Saúde (Grupo A, B e E) - Classe I",o:"Tratamento: Autoclave."},
  {n:"Sólidos Contaminados - Classe I",o:"Tratamento: Aterro Classe I."},
@@ -672,10 +672,11 @@ function montarLinhas(){
     const cl=sel.classe==="CLASSE I"?"CLASSE I":"CLASSE II";
     return sel.veics.map(nome=>{
       const v=listaVeiculos().find(x=>x.n===nome)||{n:nome,c:"",e:null};
-      // Quebra fixa entre a classificação e o veículo — sem depender da largura
-      // da coluna no Word pra decidir onde o texto cai pra segunda linha.
+      // Três linhas fixas: serviço / classificação+modalidade / veículo. Sem isso
+      // é a largura da coluna no Word que decide onde o texto quebra, e aí cada
+      // proposta sai com um desenho diferente.
       return {chave:"veic:"+nome, nome,
-        descricao:`${c} ${cl} - ${sel.mod} -\n${nome}`, residuo:"-",
+        descricao:`${c}\n${cl} - ${sel.mod} -\n${nome}`, residuo:"-",
         unidade:UNI_MOD[sel.mod]||"",
         observacoes:(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:(v.c||"")};
     });
@@ -685,7 +686,7 @@ function montarLinhas(){
     return sel.residuos.map(nome=>{
       const r=listaResiduos(sel.classe).find(x=>x.n===nome)||{n:nome,o:""};
       return {chave:"res:"+nome, nome,
-        descricao:`DESTINAÇÃO FINAL DE RESÍDUOS - ${sel.classe} – ${sel.uni}`,
+        descricao:`DESTINAÇÃO FINAL DE RESÍDUOS - ${sel.classe}\n– ${sel.uni}`,
         residuo:r.n, unidade:sel.uni.replace("POR ",""), observacoes:r.o||""};
     });
   }
@@ -961,6 +962,12 @@ function escXml(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;
 // célula do Word — {descricao} sempre cai isolado dentro de um único <w:t>, então
 // é seguro fechar e reabrir o texto ao redor do <w:br/>.
 function escXmlQuebra(s){return escXml(s).split("\n").join('</w:t><w:br/><w:t xml:space="preserve">');}
+// Uma frase por linha nas Observações. Só quebra quando o ponto é mesmo fim de
+// frase — ou seja, seguido de maiúscula. "Máx de 5 ton. por caixa." continua
+// inteiro, porque "por" é minúscula e ali o ponto é de abreviação.
+function quebrarFrases(s){
+  return String(s??"").replace(/\.\s+(?=[A-ZÀ-ÝÁÉÍÓÚÂÊÔÃÕÇ])/g,".\n");
+}
 function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;}
 async function preencherDocx(tpl,mapa,loop){
@@ -978,7 +985,7 @@ async function preencherDocx(tpl,mapa,loop){
         l=l.split("{residuo}").join(escXml(it.residuo));
         l=l.split("{unidade}").join(escXml(it.unidade));
         l=l.split("{valor}").join(escXml(it.valor));
-        l=l.split("{observacoes}").join(escXml(it.observacoes));
+        l=l.split("{observacoes}").join(escXmlQuebra(quebrarFrases(it.observacoes)));
         out+=l;});
       xml=xml.split(modelo).join(out);
     }
@@ -1312,7 +1319,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.13-5";
+const APP_VERSION="2026.08.14-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
