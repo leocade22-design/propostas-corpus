@@ -151,6 +151,25 @@
   </div>
 
   <div class="card">
+    <h2 class="clicavel" onclick="toggleHistorico()">Propostas salvas <span class="badge" id="badgeHistorico">0</span><span class="seta" id="setaHistorico">▾</span></h2>
+    <div id="historicoCorpo" class="oculto">
+      <div class="sub" id="avisoHistorico" style="margin-bottom:8px">
+        Toda proposta é guardada sozinha quando você gera os arquivos. Abra pra editar
+        e gerar de novo. Fica só neste aparelho — e, diferente do cofre de clientes,
+        <strong>sem senha</strong>: quem abrir o app vê a lista.
+      </div>
+      <input type="text" id="buscaProposta" placeholder="Buscar por cliente ou número..." oninput="renderHistorico()">
+      <div id="listaHistorico" style="margin-top:8px"></div>
+      <div class="row2" style="margin-top:8px">
+        <button class="btn-sec" onclick="document.getElementById('arqPropostas').click()">Importar</button>
+        <button class="btn-sec" onclick="exportarPropostas()">Exportar</button>
+      </div>
+      <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
+      <div class="status" id="statusHistorico"></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Colar dados do cliente</h2>
     <textarea id="colaTexto" placeholder="Cole aqui a mensagem do cliente — mesmo fora do padrão. CNPJ, CEP, telefone e e-mail são reconhecidos em qualquer formato."></textarea>
     <button class="btn-sec btn-full" onclick="extrairDoTexto()">Extrair e preencher</button>
@@ -925,6 +944,177 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   fluxo();montarObjeto();montarChipsColeta();render();
 })();
 
+/* ============ PROPOSTAS SALVAS ============
+   Toda proposta gerada vira um registro aqui, pra poder ser reaberta e editada
+   depois. Fica em localStorage, neste aparelho — e sem a criptografia do cofre
+   de clientes, porque exigir a senha na hora de gerar travaria o caminho todo. */
+const LS_PROPOSTAS="corpus_propostas_v1";
+const CAMPOS_FORM=["razaoSocial","cnpj","ie","solicitante","telefone","email","enderecoUnico",
+  "logradouro","bairro","uf","cep","cidade",
+  "enderecoColetaUnico","logradouroColeta","bairroColeta","ufColeta","cepColeta","cidadeColeta",
+  "proposalNumber","dataProposta"];
+let propostas=[], propostaAtualId=null, historicoAberto=false;
+
+function carregarPropostas(){
+  try{
+    const s=localStorage.getItem(LS_PROPOSTAS);
+    if(s) propostas=JSON.parse(s)||[];
+  }catch(e){propostas=[];}
+  atualizarBadgeHistorico();
+}
+function gravarPropostas(){
+  try{
+    localStorage.setItem(LS_PROPOSTAS,JSON.stringify(propostas));
+    return true;
+  }catch(e){
+    document.getElementById("statusHistorico").textContent=
+      "Não deu pra salvar — armazenamento cheio. Exporte e apague propostas antigas.";
+    return false;
+  }
+}
+function atualizarBadgeHistorico(){
+  document.getElementById("badgeHistorico").textContent=propostas.length;
+}
+function toggleHistorico(){
+  historicoAberto=!historicoAberto;
+  document.getElementById("historicoCorpo").classList.toggle("oculto",!historicoAberto);
+  document.getElementById("setaHistorico").classList.toggle("aberta",historicoAberto);
+  if(historicoAberto) renderHistorico();
+}
+
+// Chamado depois de gerar os arquivos: grava ou atualiza a proposta em edição.
+function salvarPropostaAtual(){
+  const g=id=>document.getElementById(id).value;
+  const form={}; CAMPOS_FORM.forEach(id=>form[id]=g(id));
+  const registro={
+    id: propostaAtualId||String(Date.now()),
+    numero: form.proposalNumber,
+    cliente: form.razaoSocial.toUpperCase(),
+    data: form.dataProposta,
+    salvoEm: new Date().toISOString(),
+    form, mesmoEnd, objetoSel, subObjetoSel,
+    itens: JSON.parse(JSON.stringify(itens))
+  };
+  const i=propostas.findIndex(p=>p.id===registro.id);
+  if(i>=0) propostas[i]=registro; else propostas.unshift(registro);
+  propostaAtualId=registro.id;
+  // Teto pra não estourar a cota do navegador com o tempo
+  if(propostas.length>300) propostas=propostas.slice(0,300);
+  gravarPropostas(); atualizarBadgeHistorico();
+  if(historicoAberto) renderHistorico();
+}
+
+function renderHistorico(){
+  const q=semAc(document.getElementById("buscaProposta").value);
+  const alvo=document.getElementById("listaHistorico");
+  const visiveis=propostas.filter(p=>!q
+    ||semAc(p.cliente||"").includes(q)||so(p.numero||"").includes(so(q))
+    ||semAc(p.numero||"").includes(q));
+  alvo.innerHTML="";
+  if(!visiveis.length){
+    alvo.innerHTML='<div class="vazio">'+(propostas.length?"Nenhuma proposta encontrada.":"Nenhuma proposta salva ainda — gere os arquivos de uma e ela aparece aqui.")+'</div>';
+    return;
+  }
+  visiveis.slice(0,60).forEach(p=>{
+    const div=document.createElement("div");
+    div.className="linha-cat";
+    if(p.id===propostaAtualId) div.style.borderColor="var(--verde)";
+    div.innerHTML=`<div class="nome"></div><div class="sub detalhe"></div>
+      <div class="row3" style="margin-top:8px">
+        <button class="btn-mini">abrir</button>
+        <button class="btn-mini">duplicar</button>
+        <button class="btn-rem">excluir</button></div>`;
+    div.querySelector(".nome").textContent=(p.cliente||"Sem cliente")+(p.id===propostaAtualId?"  ← em edição":"");
+    const qtd=(p.itens||[]).length;
+    div.querySelector(".detalhe").textContent=
+      `${p.numero||"sem número"} · ${dataBR(p.data)} · ${qtd} ${qtd===1?"linha":"linhas"}`;
+    const bts=div.querySelectorAll("button");
+    bts[0].onclick=()=>abrirProposta(p.id,false);
+    bts[1].onclick=()=>abrirProposta(p.id,true);
+    bts[2].onclick=()=>excluirProposta(p.id);
+    alvo.appendChild(div);
+  });
+}
+function dataBR(iso){
+  if(!iso) return "sem data";
+  const p=String(iso).split("-");
+  return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso;
+}
+
+function abrirProposta(id,comoCopia){
+  const p=propostas.find(x=>x.id===id);
+  if(!p) return;
+  const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
+  if(temAlgo&&!confirm(comoCopia
+      ?"Duplicar esta proposta? O que está preenchido agora se perde."
+      :"Abrir esta proposta? O que está preenchido agora se perde."))return;
+
+  CAMPOS_FORM.forEach(campo=>{
+    const el=document.getElementById(campo);
+    if(el) el.value=(p.form&&p.form[campo])||"";
+  });
+  itens=JSON.parse(JSON.stringify(p.itens||[]));
+  objetoSel=p.objetoSel||null; subObjetoSel=p.subObjetoSel||null;
+  mesmoEnd=p.mesmoEnd!==false;
+  sel={}; valorPorChave={}; obsPorChave={}; passoAberto=null; objetoAberto=false;
+  limparResultado();
+
+  if(comoCopia){
+    // Cópia é proposta nova: número e data de hoje, e não sobrescreve a original
+    propostaAtualId=null;
+    const h=new Date();
+    document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
+    const mm=String(h.getMonth()+1).padStart(2,"0");
+    document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
+  } else {
+    propostaAtualId=p.id;
+  }
+
+  document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
+  conferirRazaoSocial();
+  esconderPassos(2);
+  fluxo();montarObjeto();montarChipsColeta();render();
+  if(historicoAberto) renderHistorico();
+  document.getElementById("statusHistorico").textContent=comoCopia
+    ?"Cópia carregada — confira o número antes de gerar."
+    :"Proposta aberta pra edição. Gerar de novo atualiza o registro salvo.";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function excluirProposta(id){
+  const p=propostas.find(x=>x.id===id);
+  if(!p) return;
+  if(!confirm(`Excluir a proposta ${p.numero||""} — ${p.cliente||""}? Não dá pra desfazer.`))return;
+  propostas=propostas.filter(x=>x.id!==id);
+  if(propostaAtualId===id) propostaAtualId=null;
+  gravarPropostas(); atualizarBadgeHistorico(); renderHistorico();
+}
+function exportarPropostas(){
+  const blob=new Blob([JSON.stringify(propostas,null,2)],{type:"application/json"});
+  baixar(blob,"propostas-corpus.json");
+}
+function importarPropostas(input){
+  const arq=input.files&&input.files[0]; if(!arq)return;
+  const st=document.getElementById("statusHistorico");
+  const leitor=new FileReader();
+  leitor.onload=()=>{
+    try{
+      const lista=JSON.parse(leitor.result);
+      if(!Array.isArray(lista)) throw new Error("formato");
+      let novas=0,atualizadas=0;
+      lista.forEach(p=>{
+        if(!p||!p.id)return;
+        const i=propostas.findIndex(x=>x.id===p.id);
+        if(i>=0){propostas[i]=p;atualizadas++;} else {propostas.push(p);novas++;}
+      });
+      propostas.sort((a,b)=>String(b.salvoEm||"").localeCompare(String(a.salvoEm||"")));
+      gravarPropostas(); atualizarBadgeHistorico(); renderHistorico();
+      st.textContent=`Importadas: ${novas} novas, ${atualizadas} atualizadas.`;
+    }catch(e){ st.textContent="Arquivo inválido — esperava uma lista JSON de propostas."; }
+    input.value="";
+  };
+  leitor.readAsText(arq);
+}
+
 /* ============ NOVA PROPOSTA ============ */
 // Zera o formulário sem recarregar a página — recarregar funcionaria também,
 // mas aí o cofre de clientes fecha de novo e pede a senha à toa.
@@ -934,6 +1124,7 @@ function novaProposta(){
 
   itens=[];sel={};objetoSel=null;subObjetoSel=null;objetoAberto=true;
   mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};
+  propostaAtualId=null;
   limparResultado();
 
   ["razaoSocial","cnpj","ie","solicitante","telefone","email","enderecoUnico",
@@ -953,6 +1144,7 @@ function novaProposta(){
 
   esconderPassos(2);
   fluxo();montarObjeto();montarChipsColeta();render();
+  if(historicoAberto) renderHistorico();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -1140,18 +1332,18 @@ function checar(precisaItens){
 async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const b=await preencherDocx(TPL_P,c.mapa,itens);
     const n=`Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);c.st.textContent="Proposta pronta.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);salvarPropostaAtual();c.st.textContent="Proposta pronta e salva no histórico.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const b=await preencherDocx(TPL_A,c.mapa,null);
     const n=`Aceite de Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);c.st.textContent="Aceite pronto.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);salvarPropostaAtual();c.st.textContent="Aceite pronto e salvo no histórico.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
     const nomeP=`Proposta ${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
     await baixar(bp,nomeP);await baixar(ba,nomeA);
-    marcarGerado([{blob:bp,nome:nomeP},{blob:ba,nome:nomeA}]);
-    c.st.textContent="Prontos! Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+    marcarGerado([{blob:bp,nome:nomeP},{blob:ba,nome:nomeA}]);salvarPropostaAtual();
+    c.st.textContent="Prontos e salvos no histórico. Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 
 
 /* ============ BUSCA CNPJ (consulta externa, sob demanda) ============ */
@@ -1319,7 +1511,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.14-1";
+const APP_VERSION="2026.08.14-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -1340,10 +1532,11 @@ if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
 
-// Só agora, no fim do arquivo, é que "Meus clientes", WhatsApp e pasta de destino
-// terminaram de declarar suas const/let — chamar isso mais cedo (antes da própria
-// declaração rodar) derruba o script inteiro com "Cannot access before initialization".
+// Só agora, no fim do arquivo, é que a pasta de destino e o histórico terminaram
+// de declarar suas const/let — chamar isso mais cedo (antes da própria declaração
+// rodar) derruba o script inteiro com "Cannot access before initialization".
 iniciarPasta();
+carregarPropostas();
 
 </script>
 </body>
