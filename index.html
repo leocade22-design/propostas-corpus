@@ -1331,7 +1331,7 @@ function checar(precisaItens){
 }
 async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const b=await preencherDocx(TPL_P,c.mapa,itens);
-    const n=`Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
+    const n=`${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
     await baixar(b,n);marcarGerado([{blob:b,nome:n}]);salvarPropostaAtual();c.st.textContent="Proposta pronta e salva no histórico.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
 async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const b=await preencherDocx(TPL_A,c.mapa,null);
@@ -1340,7 +1340,7 @@ async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent
 async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
-    const nomeP=`Proposta ${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
+    const nomeP=`${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
     await baixar(bp,nomeP);await baixar(ba,nomeA);
     marcarGerado([{blob:bp,nome:nomeP},{blob:ba,nome:nomeA}]);salvarPropostaAtual();
     c.st.textContent="Prontos e salvos no histórico. Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
@@ -1511,7 +1511,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.14-2";
+const APP_VERSION="2026.08.14-3";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
