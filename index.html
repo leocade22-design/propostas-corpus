@@ -49,11 +49,46 @@
   .previa.clicavel:active{opacity:.85;}
   .previa .dica-alterar{display:block;margin-top:4px;font-size:.72rem;color:var(--suave);font-style:italic;}
   label{display:block;font-size:.8rem;color:var(--suave);margin:9px 0 4px;}
+  /* Rótulo com um atalho do lado: mesma fonte e tamanho do rótulo, um tom acima
+     pra dar a entender que ali se clica. */
+  .rotulo-acao{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .rotulo-acao label{flex:1;}
+  .link-acao{background:none;border:none;padding:0;margin:9px 0 4px;font-size:.8rem;
+    font-weight:600;color:var(--verde);font-family:inherit;}
+  .link-acao:active{opacity:.6;}
+  /* Sugestões rápidas embaixo de um campo que continua livre pra digitar */
+  .sugestoes{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .sugestoes button{background:var(--verde-claro);color:var(--verde);border:1px solid var(--verde-borda);
+    padding:5px 11px;font-size:.78rem;border-radius:999px;font-weight:600;}
+  .sugestoes button.ativa{background:var(--verde);color:#fff;border-color:var(--verde);}
+  /* Campo de valor com a calculadora encostada na borda direita */
+  .campo-calc{position:relative;}
+  .campo-calc input{padding-right:38px;}
+  .campo-calc .abre-calc{position:absolute;right:1px;top:1px;bottom:1px;width:34px;padding:0;
+    background:none;border:none;font-size:1rem;color:var(--suave);opacity:.75;}
+  .campo-calc .abre-calc:active{opacity:1;}
+
+  /* Calculadora */
+  .calc-caixa{max-width:420px;}
+  .calc-visor{background:var(--campo);border:1px solid var(--campo-borda);border-radius:10px;
+    padding:10px 12px;text-align:right;}
+  .calc-visor .conta{font-size:.78rem;color:var(--suave);min-height:1.1em;word-break:break-all;}
+  .calc-visor .valor{font-size:1.7rem;font-weight:700;color:var(--texto);word-break:break-all;}
+  .calc-teclas{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:8px;}
+  .calc-teclas.oculto{display:none;}
+  #calcCientifica{grid-template-columns:repeat(5,1fr);}
+  .calc-teclas button{background:var(--campo);color:var(--texto);border:1px solid var(--campo-borda);
+    padding:14px 0;font-size:1rem;font-weight:600;}
+  #calcCientifica button{padding:10px 0;font-size:.85rem;}
+  .calc-teclas button.op{background:var(--verde-claro);color:var(--verde);border-color:var(--verde-borda);}
+  .calc-teclas button.igual{background:var(--verde);color:#fff;border-color:var(--verde);}
   input,textarea,select{width:100%;padding:10px 11px;border:1px solid var(--campo-borda);
     border-radius:8px;font-size:.95rem;background:var(--campo);color:var(--texto);font-family:inherit;}
   textarea{resize:vertical;min-height:64px;overflow:hidden;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end;}
   .row4{display:grid;grid-template-columns:2fr 2fr 0.8fr 1.4fr;gap:7px;}
+  /* Cidade fica larga, UF é sempre duas letras e o CEP tem tamanho fixo */
+  .linha-cep{display:grid;grid-template-columns:1.7fr 0.5fr 1.1fr;gap:7px;}
   button{cursor:pointer;border:none;border-radius:8px;font-size:.9rem;font-weight:600;padding:11px 15px;}
   .btn-principal{background:var(--verde);color:#fff;width:100%;}
   .btn-sec{background:var(--verde-claro);color:var(--verde);border:1px solid var(--verde-borda);}
@@ -136,6 +171,15 @@
   .linha-cat{border:1px solid var(--card-borda);background:var(--branco);border-radius:10px;
     padding:10px 12px;margin-bottom:8px;}
   .linha-cat .nome{font-size:.85rem;font-weight:600;}
+  /* Linha de categoria: nome à esquerda, alça de arrasto encostada à direita */
+  .cat-linha .cat-topo{display:flex;align-items:center;gap:10px;}
+  .cat-linha .cat-corpo{flex:1;min-width:0;}
+  .cat-linha .alca{flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    width:38px;align-self:stretch;font-size:1.05rem;color:var(--suave);
+    cursor:grab;touch-action:none;user-select:none;border-radius:8px;background:var(--campo);}
+  .cat-linha .alca:active{cursor:grabbing;}
+  .linha-cat.apagada{opacity:.55;}
+  .linha-cat.apagada .nome{text-decoration:line-through;}
 
   /* Linha de custo já na proposta: o card inteiro abre a edição, e a alça ☰
      à direita reordena sem abrir nada. */
@@ -267,13 +311,15 @@
          no dia a dia o resumo já diz o que o app entendeu. -->
     <div class="resumo-quebra" id="resumoEndereco" onclick="toggleQuebra('')"></div>
     <div id="quebraEndereco" class="oculto" style="margin-top:7px">
-      <div class="row4">
+      <div class="row2">
         <input type="text" id="logradouro" placeholder="Logradouro" oninput="renderResumoEndereco('')">
         <input type="text" id="bairro" placeholder="Bairro" oninput="renderResumoEndereco('')">
-        <input type="text" id="uf" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('')">
-        <input type="text" id="cep" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this);renderResumoEndereco('')">
       </div>
-      <input type="text" id="cidade" placeholder="Cidade" style="margin-top:7px" oninput="renderResumoEndereco('')">
+      <div class="linha-cep" style="margin-top:7px">
+        <input type="text" id="cidade" placeholder="Cidade" oninput="renderResumoEndereco('')">
+        <input type="text" id="uf" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('')">
+        <input type="text" id="cep" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this);renderResumoEndereco('');buscarPorCEP('')">
+      </div>
     </div>
 
     <div class="etapa">
@@ -283,13 +329,15 @@
         <input type="text" id="enderecoColetaUnico" onblur="quebrarEnderecoColeta()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
         <div class="resumo-quebra" id="resumoEnderecoColeta" onclick="toggleQuebra('Coleta')"></div>
         <div id="quebraEnderecoColeta" class="oculto" style="margin-top:7px">
-          <div class="row4">
+          <div class="row2">
             <input type="text" id="logradouroColeta" placeholder="Logradouro" oninput="renderResumoEndereco('Coleta')">
             <input type="text" id="bairroColeta" placeholder="Bairro" oninput="renderResumoEndereco('Coleta')">
-            <input type="text" id="ufColeta" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('Coleta')">
-            <input type="text" id="cepColeta" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this);renderResumoEndereco('Coleta')">
           </div>
-          <input type="text" id="cidadeColeta" placeholder="Cidade" style="margin-top:7px" oninput="renderResumoEndereco('Coleta')">
+          <div class="linha-cep" style="margin-top:7px">
+            <input type="text" id="cidadeColeta" placeholder="Cidade" oninput="renderResumoEndereco('Coleta')">
+            <input type="text" id="ufColeta" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('Coleta')">
+            <input type="text" id="cepColeta" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this);renderResumoEndereco('Coleta');buscarPorCEP('Coleta')">
+          </div>
         </div>
       </div>
     </div>
@@ -416,16 +464,59 @@
     <label>Resíduo</label>
     <input type="text" id="edResiduo">
     <div class="row2">
-      <div><label>Valor Unitário (R$)</label><input type="text" id="edValor" inputmode="numeric" oninput="mascaraValor(this)" placeholder="0,00"></div>
+      <div>
+        <label>Valor Unitário (R$)</label>
+        <div class="campo-calc">
+          <input type="text" id="edValor" inputmode="numeric" oninput="mascaraValor(this)" placeholder="0,00">
+          <button class="abre-calc" title="Calculadora" onclick="abrirCalc('edValor')">🖩</button>
+        </div>
+      </div>
       <div><label>Unidade</label><input type="text" id="edUnidade" placeholder="Viagem, KG, Hora…"></div>
     </div>
-    <label>Observações</label>
+    <!-- As três de sempre a um toque; o campo continua aceitando qualquer texto -->
+    <div class="sugestoes" id="sugestoesUnidade"></div>
+    <div class="rotulo-acao">
+      <label>Observações</label>
+      <button class="link-acao" onclick="abrirFrequencia()">incluir frequência?</button>
+    </div>
     <textarea id="edObs" rows="3" oninput="ajustarAltura(this)"></textarea>
     <div class="row2" style="margin-top:12px">
       <button class="btn-rem" onclick="removerItemEditado()">Remover da proposta</button>
       <button class="btn-principal" onclick="salvarEdicaoItem()">Salvar</button>
     </div>
     <button class="btn-sec btn-full" onclick="fecharEdicaoItem()">Cancelar</button>
+  </div>
+</div>
+
+<!-- Frequência do serviço: entra como primeira frase das Observações -->
+<div class="modal-fundo oculto" id="modalFrequencia">
+  <div class="modal-caixa alerta-caixa">
+    <div class="emoji">📅</div>
+    <div class="zoeira">Com que frequência?</div>
+    <div class="motivo centro">Entra como primeira linha das Observações, e o resto do texto desce.</div>
+    <div class="chips" id="chipsFrequencia" style="justify-content:center"></div>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-sec" onclick="fecharFrequencia()">Cancelar</button>
+      <button class="btn-rem" onclick="tirarFrequencia()">Tirar frequência</button>
+    </div>
+  </div>
+</div>
+
+<!-- Calculadora: some do caminho quando não é chamada -->
+<div class="modal-fundo oculto" id="modalCalc">
+  <div class="modal-caixa calc-caixa">
+    <div class="modal-topo">
+      <h3>Calculadora</h3>
+      <button class="modal-fechar" onclick="fecharCalc()">✕</button>
+    </div>
+    <div class="calc-visor">
+      <div class="conta" id="calcConta"></div>
+      <div class="valor" id="calcVisor">0</div>
+    </div>
+    <div class="chips" id="chipsCalcModo" style="margin:8px 0"></div>
+    <div class="calc-teclas" id="calcCientifica"></div>
+    <div class="calc-teclas" id="calcTeclas"></div>
+    <button class="btn-principal btn-full" style="margin-top:10px" onclick="usarValorCalc()">Usar este valor</button>
   </div>
 </div>
 
@@ -447,15 +538,15 @@
     </div>
     <div id="listaCatalogo"></div>
 
-    <div class="etapa" style="margin-top:14px">
+    <div class="etapa" style="margin-top:14px" id="formCatalogo">
       <div class="etapa-titulo" id="tituloFormCat">Adicionar novo</div>
       <div id="camposCatalogo"></div>
       <div class="row2" style="margin-top:10px">
         <button class="btn-sec" onclick="cancelarEdicaoCat()">Limpar</button>
         <button class="btn-principal" onclick="salvarItemCatalogo()">Salvar</button>
       </div>
-      <div class="sub" id="statusCatalogo"></div>
     </div>
+    <div class="sub" id="statusCatalogo"></div>
 
     <button class="btn-sec btn-full" style="margin-top:14px" onclick="fecharCatalogo()">Fechar</button>
   </div>
@@ -663,12 +754,59 @@ function quebrarGenerico(sufixo){
   if(r.uf) document.getElementById("uf"+sufixo).value=r.uf;
   if(r.cep) document.getElementById("cep"+sufixo).value=r.cep;
   renderResumoEndereco(sufixo);
+  // Só o CEP colado já resolve: a base dos Correios devolve rua, bairro, cidade
+  // e UF separados. Falta o número, que ninguém tem como adivinhar.
+  if(r.cep) buscarPorCEP(sufixo);
   // Quando não deu pra separar com segurança, abre os campos sozinho: é o único
   // jeito de o usuário perceber que precisa completar antes de gerar.
-  if(r.incerto) abrirQuebra(sufixo,true);
+  else if(r.incerto) abrirQuebra(sufixo,true);
 }
 function quebrarEndereco(){quebrarGenerico("");}
 function quebrarEnderecoColeta(){quebrarGenerico("Coleta");}
+
+/* ============ BUSCA PELO CEP ============
+   Não é o Google Maps — pra ele existir num app precisaria de chave paga e
+   cartão cadastrado. É a base de CEP dos Correios (BrasilAPI, com o ViaCEP de
+   reserva), que é grátis e devolve exatamente o que interessa aqui: logradouro,
+   bairro, cidade e UF em campos separados. O número do imóvel não vem em base
+   nenhuma — esse continua na mão.
+   Só preenche campo vazio: o que você já digitou o app não sobrescreve. */
+let ultimoCEPBuscado={"":"","Coleta":""};
+async function consultarCEP(num){
+  const fontes=[
+    {url:"https://brasilapi.com.br/api/cep/v2/"+num,
+     map:d=>({log:d.street||"",bai:d.neighborhood||"",cid:d.city||"",uf:d.state||""})},
+    {url:"https://viacep.com.br/ws/"+num+"/json/",
+     map:d=>d.erro?null:({log:d.logradouro||"",bai:d.bairro||"",cid:d.localidade||"",uf:d.uf||""})}
+  ];
+  for(const f of fontes){
+    try{
+      const resp=await fetch(f.url);
+      if(!resp.ok) continue;
+      const v=f.map(await resp.json());
+      if(v&&(v.log||v.cid)) return v;
+    }catch(e){}
+  }
+  return null;
+}
+async function buscarPorCEP(sufixo){
+  const num=so(document.getElementById("cep"+sufixo).value);
+  if(num.length!==8||ultimoCEPBuscado[sufixo]===num) return;
+  ultimoCEPBuscado[sufixo]=num;
+  const dados=await consultarCEP(num);
+  if(!dados) return;
+  const preencher=(id,v)=>{
+    const el=document.getElementById(id+sufixo);
+    if(el&&v&&!el.value.trim()) el.value=v;
+  };
+  preencher("logradouro",dados.log);
+  preencher("bairro",dados.bai);
+  preencher("cidade",dados.cid);
+  preencher("uf",dados.uf);
+  abrirQuebra(sufixo,true);   // abre pra você conferir e pôr o número
+  renderResumoEndereco(sufixo);
+  agendarRascunho();
+}
 
 function abrirQuebra(sufixo,abrir){
   document.getElementById("quebraEndereco"+sufixo).classList.toggle("oculto",!abrir);
@@ -878,12 +1016,45 @@ function objetoTexto(){
 }
 
 /* ============ WIZARD ITEM ============ */
+/* As oito categorias são as que o app sabe montar — cada uma tem os próprios
+   passos por trás (classe, modalidade, veículo…). Por isso dá pra REORDENAR,
+   RENOMEAR e OCULTAR, mas não inventar uma nova: uma categoria inédita não teria
+   passo nenhum atrás dela.
+
+   Internamente a categoria é sempre o nome de fábrica (o "id"), que é o que o
+   resto do código compara. O nome que você escolher é só a etiqueta — aparece no
+   chip e sai no documento. */
 const CATEGORIAS=["COLETA DE RESÍDUOS","COLETA E DESTINAÇÃO FINAL DE RESÍDUOS",
   "DESTINAÇÃO FINAL DE RESÍDUOS","RECICLÁVEIS MISTOS","MÃO DE OBRA",
   "LOCAÇÃO / DISPONIBILIZAÇÃO","MANUTENÇÃO DE ÁREAS VERDES","LIMPEZA INDUSTRIAL"];
 
+function catsConfig(){
+  if(!catalogo.categorias) catalogo.categorias={ordem:[],nomes:{},ocultas:[]};
+  const c=catalogo.categorias;
+  if(!Array.isArray(c.ordem)) c.ordem=[];
+  if(!c.nomes) c.nomes={};
+  if(!Array.isArray(c.ocultas)) c.ocultas=[];
+  // categorias novas do código entram no fim, sem estragar a ordem já escolhida
+  CATEGORIAS.forEach(id=>{ if(!c.ordem.includes(id)) c.ordem.push(id); });
+  c.ordem=c.ordem.filter(id=>CATEGORIAS.includes(id));
+  return c;
+}
+function nomeCategoria(id){
+  const c=catsConfig();
+  return (c.nomes[id]||id);
+}
+function listaCategorias(){
+  const c=catsConfig();
+  return c.ordem.filter(id=>!c.ocultas.includes(id)).map(id=>({id,nome:nomeCategoria(id)}));
+}
+
 function montarCategorias(){
-  renderPasso("passo1","Categoria",CATEGORIAS,sel.cat,op=>{
+  const visiveis=listaCategorias();
+  const escolhida=sel.cat?nomeCategoria(sel.cat):null;
+  renderPasso("passo1","Categoria",visiveis.map(x=>x.nome),escolhida,rotulo=>{
+    const achada=visiveis.find(x=>x.nome===rotulo);
+    if(!achada) return;
+    const op=achada.id;
     // Modalidade/unidade já entram no que é usado na esmagadora maioria das
     // propostas — quem precisar de outra troca em um toque.
     sel={cat:op};
@@ -892,7 +1063,7 @@ function montarCategorias(){
     passoAberto=null;
     esconderPassos(2);
     fluxo();
-  });
+  },{gerenciar:()=>abrirCatalogo("categorias")});
 }
 function fluxo(){
   montarCategorias();
@@ -969,7 +1140,7 @@ function montarLinhas(){
       // é a largura da coluna no Word que decide onde o texto quebra, e aí cada
       // proposta sai com um desenho diferente.
       return {chave:"veic:"+nome, nome,
-        descricao:`${c}\n${cl} - ${sel.mod} -\n${nome}`, residuo:"-",
+        descricao:`${nomeCategoria(c)}\n${cl} - ${sel.mod} -\n${nome}`, residuo:"-",
         unidade:UNI_MOD[sel.mod]||"",
         observacoes:(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:(v.c||"")};
     });
@@ -979,7 +1150,7 @@ function montarLinhas(){
     return sel.residuos.map(nome=>{
       const r=listaResiduos(sel.classe).find(x=>x.n===nome)||{n:nome,o:""};
       return {chave:"res:"+nome, nome,
-        descricao:`DESTINAÇÃO FINAL DE RESÍDUOS - ${sel.classe}\n– ${sel.uni}`,
+        descricao:`${nomeCategoria(c)} - ${sel.classe}\n– ${sel.uni}`,
         residuo:r.n, unidade:sel.uni.replace("POR ",""), observacoes:r.o||""};
     });
   }
@@ -987,7 +1158,7 @@ function montarLinhas(){
     if(!sel.uni||!sel.residuos||!sel.residuos.length) return [];
     return sel.residuos.map(nome=>{
       const r=listaReciclaveis().find(x=>x.n===nome)||{n:nome,o:""};
-      return {chave:"reci:"+nome, nome, descricao:"RECICLÁVEIS MISTOS",
+      return {chave:"reci:"+nome, nome, descricao:nomeCategoria(c),
         residuo:r.n, unidade:sel.uni.replace("POR ",""), observacoes:r.o||""};
     });
   }
@@ -1005,7 +1176,7 @@ function montarLinhas(){
     });
   }
   if(c==="MANUTENÇÃO DE ÁREAS VERDES"||c==="LIMPEZA INDUSTRIAL"){
-    return [{chave:"cat:"+c, nome:c, descricao:c, residuo:"-", unidade:"", observacoes:""}];
+    return [{chave:"cat:"+c, nome:nomeCategoria(c), descricao:nomeCategoria(c), residuo:"-", unidade:"", observacoes:""}];
   }
   return [];
 }
@@ -1029,7 +1200,10 @@ function renderLinhasValores(){
       `<div class="nome"></div>
        <div class="campos">
          <div><label>Valor Unitário (R$)</label>
-           <input type="text" inputmode="numeric" placeholder="0,00" data-campo="valor"></div>
+           <div class="campo-calc">
+             <input type="text" inputmode="numeric" placeholder="0,00" data-campo="valor">
+             <button class="abre-calc" title="Calculadora">🖩</button>
+           </div></div>
          <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
        </div>
        <div class="obs"><label>Observações</label><input type="text" data-campo="obs"></div>`;
@@ -1037,6 +1211,7 @@ function renderLinhasValores(){
     const iv=div.querySelector('[data-campo="valor"]');
     iv.value=valorPorChave[l.chave]||"";
     iv.oninput=()=>{mascaraValor(iv);valorPorChave[l.chave]=iv.value;};
+    div.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
     const iu=div.querySelector('[data-campo="unidade"]');
     iu.value=unidadePorChave[l.chave]!==undefined?unidadePorChave[l.chave]:l.unidade;
     iu.oninput=()=>{unidadePorChave[l.chave]=iu.value;};
@@ -1084,12 +1259,199 @@ function abrirEdicaoItem(i){
   document.getElementById("edUnidade").value=it.unidade||"";
   document.getElementById("edObs").value=it.observacoes||"";
   document.getElementById("modalItem").classList.remove("oculto");
+  montarSugestoesUnidade();
   ["edDescricao","edObs"].forEach(id=>ajustarAltura(document.getElementById(id)));
 }
 function fecharEdicaoItem(){
   itemEditando=null;
   document.getElementById("modalItem").classList.add("oculto");
 }
+/* ============ CALCULADORA ============
+   Chamada pelo ícone dentro do campo de valor. Fecha devolvendo o resultado já
+   no formato do campo (1.234,56), sem precisar sair do app pra conferir uma
+   conta de "3 viagens × 249,90".
+
+   A expressão é montada só pelas teclas daqui — mesmo assim ela é resolvida por
+   um analisador próprio, e não por eval(): é pouca coisa de código e tira do
+   caminho qualquer chance de um texto virar comando. */
+let calcDestino=null, calcExpr="", calcCientifica=false;
+// aceita o id do campo ou o próprio elemento — as linhas do assistente são
+// criadas na hora e não têm id
+function campoAlvo(x){return (typeof x==="string")?document.getElementById(x):x;}
+const TECLAS_BASICAS=[
+  ["C","op"],["( )","op"],["%","op"],["÷","op"],
+  ["7",""],["8",""],["9",""],["×","op"],
+  ["4",""],["5",""],["6",""],["−","op"],
+  ["1",""],["2",""],["3",""],["+","op"],
+  ["0",""],[",",""],["⌫","op"],["=","igual"]
+];
+const TECLAS_CIENTIFICAS=[["√"],["x²"],["xʸ"],["1/x"],["π"]];
+function abrirCalc(destino){
+  calcDestino=campoAlvo(destino);
+  const atual=calcDestino?so(calcDestino.value):"";
+  calcExpr=atual?String(parseInt(atual,10)/100):"";
+  montarCalc();
+  document.getElementById("modalCalc").classList.remove("oculto");
+}
+function fecharCalc(){document.getElementById("modalCalc").classList.add("oculto");calcDestino=null;}
+function montarCalc(){
+  chips("chipsCalcModo",["Simples","Científica"],calcCientifica?"Científica":"Simples",
+    m=>{calcCientifica=(m==="Científica");montarCalc();});
+  const cie=document.getElementById("calcCientifica");
+  cie.classList.toggle("oculto",!calcCientifica);
+  cie.innerHTML="";
+  TECLAS_CIENTIFICAS.forEach(([t])=>{
+    const b=document.createElement("button");b.className="op";b.textContent=t;
+    b.onclick=()=>teclaCalc(t);cie.appendChild(b);
+  });
+  const alvo=document.getElementById("calcTeclas");
+  alvo.innerHTML="";
+  TECLAS_BASICAS.forEach(([t,cls])=>{
+    const b=document.createElement("button");b.className=cls;b.textContent=t;
+    b.onclick=()=>teclaCalc(t);alvo.appendChild(b);
+  });
+  mostrarCalc();
+}
+function mostrarCalc(){
+  document.getElementById("calcConta").textContent=calcExpr.replace(/\./g,",")||"";
+  const v=avaliarExpr(calcExpr);
+  document.getElementById("calcVisor").textContent=(v===null)?"—":formatarNum(v);
+}
+function formatarNum(n){
+  if(!isFinite(n)) return "—";
+  const arred=Math.round(n*100)/100;
+  return arred.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function teclaCalc(t){
+  const ultimo=calcExpr.slice(-1);
+  const eOperador=c=>"+-*/^".includes(c);
+  if(t==="C"){calcExpr="";}
+  else if(t==="⌫"){calcExpr=calcExpr.slice(0,-1);}
+  else if(t==="="){const v=avaliarExpr(calcExpr);if(v!==null)calcExpr=String(Math.round(v*1e6)/1e6);}
+  else if(t==="( )"){
+    const abertos=(calcExpr.match(/\(/g)||[]).length-(calcExpr.match(/\)/g)||[]).length;
+    calcExpr+=(abertos>0&&!eOperador(ultimo)&&ultimo!=="(")?")":"(";
+  }
+  else if(t===","){ if(!/[.,]\d*$/.test(calcExpr.split(/[+\-*/^()]/).pop())) calcExpr+="."; }
+  else if(t==="÷"||t==="×"||t==="−"||t==="+"){
+    const op={"÷":"/","×":"*","−":"-","+":"+"}[t];
+    if(eOperador(ultimo)) calcExpr=calcExpr.slice(0,-1)+op;
+    else if(calcExpr||op==="-") calcExpr+=op;
+  }
+  else if(t==="%"){const v=avaliarExpr(calcExpr);if(v!==null)calcExpr=String(v/100);}
+  else if(t==="√"){const v=avaliarExpr(calcExpr);if(v!==null&&v>=0)calcExpr=String(Math.sqrt(v));}
+  else if(t==="x²"){const v=avaliarExpr(calcExpr);if(v!==null)calcExpr=String(v*v);}
+  else if(t==="xʸ"){calcExpr+="^";}
+  else if(t==="1/x"){const v=avaliarExpr(calcExpr);if(v)calcExpr=String(1/v);}
+  else if(t==="π"){calcExpr+=String(Math.PI);}
+  else{calcExpr+=t;}
+  mostrarCalc();
+}
+/* Descida recursiva simples: soma → produto → potência → fator. Devolve null
+   quando a expressão ainda está pela metade (o visor mostra "—"). */
+function avaliarExpr(txt){
+  const s=String(txt||"").replace(/\s/g,"");
+  if(!s) return 0;
+  let i=0;
+  const olhar=()=>s[i];
+  function soma(){
+    let v=produto(); if(v===null) return null;
+    while(olhar()==="+"||olhar()==="-"){
+      const op=s[i++]; const d=produto(); if(d===null) return null;
+      v=(op==="+")?v+d:v-d;
+    }
+    return v;
+  }
+  function produto(){
+    let v=potencia(); if(v===null) return null;
+    while(olhar()==="*"||olhar()==="/"){
+      const op=s[i++]; const d=potencia(); if(d===null) return null;
+      if(op==="/"&&d===0) return null;
+      v=(op==="*")?v*d:v/d;
+    }
+    return v;
+  }
+  function potencia(){
+    const v=fator(); if(v===null) return null;
+    if(olhar()==="^"){ i++; const e=potencia(); if(e===null) return null; return Math.pow(v,e); }
+    return v;
+  }
+  function fator(){
+    if(olhar()==="-"){ i++; const v=fator(); return v===null?null:-v; }
+    if(olhar()==="("){
+      i++; const v=soma(); if(v===null) return null;
+      if(olhar()!==")") return null;
+      i++; return v;
+    }
+    const ini=i;
+    while(i<s.length&&/[\d.]/.test(s[i])) i++;
+    if(i===ini) return null;
+    const n=parseFloat(s.slice(ini,i));
+    return isNaN(n)?null:n;
+  }
+  const v=soma();
+  return (v===null||i<s.length||!isFinite(v))?null:v;
+}
+function usarValorCalc(){
+  const v=avaliarExpr(calcExpr);
+  if(v===null){avisar("A conta está pela metade — falta fechar um parêntese ou um número depois do operador.");return;}
+  const el=calcDestino;
+  if(el){
+    el.value=String(Math.round(Math.abs(v)*100));
+    mascaraValor(el);
+    el.dispatchEvent(new Event("input",{bubbles:true}));
+  }
+  fecharCalc();
+}
+
+/* ============ FREQUÊNCIA ============
+   Quase toda observação começa dizendo de quanto em quanto tempo o serviço
+   acontece, e sempre com a mesma redação. Vira um toque: a frase entra como
+   primeira linha e o que já estava escrito desce. Escolher de novo troca a
+   frequência em vez de empilhar duas. */
+const FREQUENCIAS=["Conforme Agendamento","Trimestral","Bimestral","Mensal",
+  "Quinzenal","Semanal","3x por Semana","2x por Semana","Diária"];
+const RE_FREQ=/^Frequência:\s*[^\n]*?\.\s*\n?/;
+function frequenciaAtual(){
+  const m=String(document.getElementById("edObs").value).match(/^Frequência:\s*([^\n.]*)\./);
+  return m?m[1].trim():null;
+}
+function abrirFrequencia(){
+  chips("chipsFrequencia",FREQUENCIAS,frequenciaAtual(),f=>{aplicarFrequencia(f);fecharFrequencia();});
+  document.getElementById("modalFrequencia").classList.remove("oculto");
+}
+function fecharFrequencia(){document.getElementById("modalFrequencia").classList.add("oculto");}
+function corpoObs(){
+  return document.getElementById("edObs").value.replace(RE_FREQ,"").trim();
+}
+function aplicarFrequencia(f){
+  const el=document.getElementById("edObs");
+  el.value=["Frequência: "+f+".",corpoObs()].filter(Boolean).join("\n");
+  ajustarAltura(el);
+}
+function tirarFrequencia(){
+  const el=document.getElementById("edObs");
+  el.value=corpoObs();
+  ajustarAltura(el);
+  fecharFrequencia();
+}
+
+/* Unidades que respondem por quase tudo. O campo continua livre: são sugestões,
+   não uma lista fechada. */
+const UNIDADES_SUGERIDAS=["Viagem","Equipamento","KG"];
+function montarSugestoesUnidade(){
+  const alvo=document.getElementById("sugestoesUnidade");
+  const campo=document.getElementById("edUnidade");
+  alvo.innerHTML="";
+  UNIDADES_SUGERIDAS.forEach(u=>{
+    const b=document.createElement("button");
+    b.textContent=u;
+    if(campo.value.trim().toLowerCase()===u.toLowerCase()) b.className="ativa";
+    b.onclick=()=>{campo.value=u;montarSugestoesUnidade();};
+    alvo.appendChild(b);
+  });
+}
+
 function salvarEdicaoItem(){
   if(itemEditando===null) return;
   const it=itens[itemEditando];
@@ -1191,7 +1553,8 @@ function ajustarAltura(el){
    for criado ou ajustado aqui fica no localStorage e entra por cima: item com o
    mesmo nome substitui o de fábrica, e "ocultos" some com o que não se usa. */
 const LS_CATALOGO="corpus_catalogo_v1";
-let catalogo={veiculos:[],residuos2:[],residuos1:[],reciclaveis:[],cargos:[],locacoes:[],ocultos:[]};
+let catalogo={veiculos:[],residuos2:[],residuos1:[],reciclaveis:[],cargos:[],locacoes:[],ocultos:[],
+  categorias:{ordem:[],nomes:{},ocultas:[]}};
 function carregarCatalogo(){
   try{
     const s=localStorage.getItem(LS_CATALOGO);
@@ -1235,10 +1598,107 @@ let tipoCatAtual=null, editandoCat=null;
 
 function abrirCatalogo(tipo){
   tipoCatAtual=tipo; editandoCat=null;
-  document.getElementById("tituloCatalogo").textContent=TIPOS_CAT[tipo].titulo;
+  document.getElementById("tituloCatalogo").textContent=
+    (tipo==="categorias")?"Categorias":TIPOS_CAT[tipo].titulo;
   document.getElementById("modalCatalogo").classList.remove("oculto");
   document.getElementById("statusCatalogo").textContent="";
+  // Categoria não se cria do nada, então o formulário de "adicionar" sai de cena
+  document.getElementById("formCatalogo").classList.toggle("oculto",tipo==="categorias");
+  if(tipo==="categorias"){ renderCategorias(); return; }
   renderCamposCatalogo(); renderListaCatalogo();
+}
+
+/* ============ EDITOR DE CATEGORIAS ============
+   Arrastar pela alça ☰ muda a ordem dos chips; o botão do meio esconde a
+   categoria sem apagar nada; renomear troca o texto que aparece no app e que
+   sai escrito na proposta. */
+let arrastoCat=null;
+function renderCategorias(){
+  const c=catsConfig();
+  const alvo=document.getElementById("listaCatalogo");
+  alvo.innerHTML="";
+  const dica=document.createElement("div");
+  dica.className="sub"; dica.style.marginBottom="8px";
+  dica.textContent="Arraste pela alça ☰ pra mudar a ordem dos chips. Esconder tira da tela "+
+    "sem apagar, e renomear troca o nome que aparece no app e sai na proposta.";
+  alvo.appendChild(dica);
+
+  c.ordem.forEach((id,i)=>{
+    const oculta=c.ocultas.includes(id);
+    const div=document.createElement("div");
+    div.className="linha-cat cat-linha"+(oculta?" apagada":"");
+    div.innerHTML=`<div class="cat-topo">
+        <div class="cat-corpo"><div class="nome"></div><div class="sub detalhe"></div></div>
+        <div class="alca" title="Segure e arraste para reordenar">☰</div>
+      </div>
+      <div class="row3" style="margin-top:8px">
+        <button class="btn-mini">✎ renomear</button>
+        <button class="btn-mini"></button>
+        <button class="btn-mini">↺ original</button>
+      </div>`;
+    div.querySelector(".nome").textContent=nomeCategoria(id);
+    const notas=[];
+    if(nomeCategoria(id)!==id) notas.push("original: "+id);
+    if(oculta) notas.push("escondida do app");
+    div.querySelector(".detalhe").textContent=notas.join(" · ");
+    const bts=div.querySelectorAll(".row3 button");
+    bts[0].onclick=()=>renomearCategoria(id);
+    bts[1].textContent=oculta?"👁 mostrar":"🚫 esconder";
+    bts[1].onclick=()=>{
+      if(oculta) c.ocultas=c.ocultas.filter(x=>x!==id);
+      else if(listaCategorias().length<=1){
+        avisar("Precisa sobrar pelo menos uma categoria à vista — sem nenhuma não dá pra montar linha de serviço.");
+        return;
+      } else c.ocultas.push(id);
+      gravarCatalogo(); renderCategorias();
+    };
+    bts[2].disabled=nomeCategoria(id)===id;
+    bts[2].style.opacity=bts[2].disabled?".4":"1";
+    bts[2].onclick=()=>{delete c.nomes[id];gravarCatalogo();renderCategorias();};
+    div.querySelector(".alca").addEventListener("pointerdown",ev=>iniciarArrastoCat(ev,i));
+    alvo.appendChild(div);
+  });
+}
+function renomearCategoria(id){
+  const c=catsConfig();
+  const novo=prompt("Como essa categoria deve aparecer? Vale pro app e pro texto da proposta.",nomeCategoria(id));
+  if(novo===null) return;
+  const limpo=novo.trim().toUpperCase();
+  if(!limpo||limpo===id) delete c.nomes[id]; else c.nomes[id]=limpo;
+  gravarCatalogo(); renderCategorias();
+  document.getElementById("statusCatalogo").textContent="Nome atualizado.";
+}
+function iniciarArrastoCat(ev,indice){
+  ev.preventDefault();
+  arrastoCat={indice,lista:document.getElementById("listaCatalogo")};
+  document.addEventListener("pointermove",moverArrastoCat);
+  document.addEventListener("pointerup",soltarArrastoCat,{once:true});
+  document.addEventListener("pointercancel",soltarArrastoCat,{once:true});
+}
+function moverArrastoCat(ev){
+  if(!arrastoCat) return;
+  const c=catsConfig();
+  const linhas=[...arrastoCat.lista.querySelectorAll(".cat-linha")];
+  for(let j=0;j<linhas.length;j++){
+    if(j===arrastoCat.indice) continue;
+    const r=linhas[j].getBoundingClientRect();
+    if(ev.clientY>r.top&&ev.clientY<r.bottom){
+      const passouMetade=ev.clientY>r.top+r.height/2;
+      const destino=(j>arrastoCat.indice)?(passouMetade?j:j-1):(passouMetade?j+1:j);
+      if(destino!==arrastoCat.indice&&destino>=0&&destino<c.ordem.length){
+        const [x]=c.ordem.splice(arrastoCat.indice,1);
+        c.ordem.splice(destino,0,x);
+        arrastoCat.indice=destino;
+        renderCategorias();
+      }
+      break;
+    }
+  }
+}
+function soltarArrastoCat(){
+  document.removeEventListener("pointermove",moverArrastoCat);
+  arrastoCat=null;
+  gravarCatalogo(); renderCategorias();
 }
 function fecharCatalogo(){
   document.getElementById("modalCatalogo").classList.add("oculto");
@@ -1412,7 +1872,7 @@ function toggleHistorico(){
   historicoAberto=!historicoAberto;
   document.getElementById("historicoCorpo").classList.toggle("oculto",!historicoAberto);
   document.getElementById("setaHistorico").classList.toggle("aberta",historicoAberto);
-  if(historicoAberto) renderHistorico();
+  renderHistorico();
 }
 
 // Chamado depois de gerar os arquivos: grava ou atualiza a proposta em edição.
@@ -1434,7 +1894,7 @@ function salvarPropostaAtual(){
   // Teto pra não estourar a cota do navegador com o tempo
   if(propostas.length>300) propostas=propostas.slice(0,300);
   gravarPropostas(); atualizarBadgeHistorico();
-  if(historicoAberto) renderHistorico();
+  renderHistorico();
 }
 
 function renderHistorico(){
@@ -1511,7 +1971,12 @@ function abrirProposta(id,comoCopia){
   abrirQuebra("",false);abrirQuebra("Coleta",false);
   esconderPassos(2);
   fluxo();montarObjeto();montarChipsColeta();render();
-  if(historicoAberto) renderHistorico();
+  renderHistorico();
+  // Recolhe a lista: quem acabou de abrir uma proposta quer ver a proposta, não
+  // continuar olhando pro histórico ocupando meia tela.
+  historicoAberto=false;
+  document.getElementById("historicoCorpo").classList.add("oculto");
+  document.getElementById("setaHistorico").classList.remove("aberta");
   document.getElementById("statusHistorico").textContent=comoCopia
     ?"Cópia carregada — confira o número antes de gerar."
     :"Proposta aberta pra edição. Gerar de novo atualiza o registro salvo.";
@@ -1592,7 +2057,7 @@ function novaProposta(silencioso){
   abrirQuebra("",false);abrirQuebra("Coleta",false);
   esconderPassos(2);
   fluxo();montarObjeto();montarChipsColeta();render();
-  if(historicoAberto) renderHistorico();
+  renderHistorico();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -1610,11 +2075,112 @@ function quebrarFrases(s){
 }
 function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return a;}
+
+/* ============ ENQUADRAMENTO DA TABELA ============
+   O modelo do Word vinha com larguras fixas, feitas pra uma proposta qualquer.
+   Quando o resíduo era "RSS - Resíduo de Serviços de Saúde (Grupo A, B e E) -
+   Classe I" numa coluna de 2,4 cm, o texto virava um empilhamento de sílabas —
+   e "Unidade" quebrava no meio da palavra no próprio cabeçalho.
+
+   Agora a largura de cada coluna é calculada na hora de gerar, com o texto que
+   REALMENTE vai sair. A medida não é chute: o canvas mede a frase na fonte e no
+   corpo certos e devolve pixels, que viram twips (1 px CSS = 15 twips).
+
+   A conta tem três estágios:
+     1. cada coluna recebe o mínimo pra nunca quebrar uma palavra no meio;
+     2. o que sobra faz cada uma crescer até o ideal (a linha mais longa dela,
+        limitada por um teto — senão uma observação comprida comeria a tabela);
+     3. a folga final vai pras colunas de texto corrido, que é onde espaço
+        sobrando vira leitura melhor, e não pra "Unidade" ficar vazia. */
+const LARG_TOTAL=11052;              // largura da tabela no modelo, em twips
+const PAD_CELULA=250;                // margem interna das células + respiro
+const COLUNAS_TABELA=[
+  {cab:"Descrição",           campo:"descricao",   teto:3700, folga:4},
+  {cab:"Resíduo",             campo:"residuo",     teto:2700, folga:0},
+  {cab:"Unidade",             campo:"unidade",     teto:1150, folga:0},
+  {cab:"Valor Unitário (R$)", campo:"valor",       teto:1750, folga:0},
+  {cab:"Observações",         campo:"observacoes", teto:3900, folga:3}
+];
+let ctxMedida=null;
+function medir(txt,fonte){
+  if(!ctxMedida) ctxMedida=document.createElement("canvas").getContext("2d");
+  ctxMedida.font=fonte;
+  return Math.ceil(ctxMedida.measureText(String(txt||"")).width*15);
+}
+// Maior palavra e maior linha de um texto — a palavra é o que o Word não pode
+// quebrar, a linha é o que ele gostaria de manter inteiro.
+function medidasTexto(txt,fonte){
+  let palavra=0, linha=0;
+  String(txt||"").split("\n").forEach(l=>{
+    linha=Math.max(linha,medir(l,fonte));
+    l.split(/\s+/).forEach(p=>{ if(p) palavra=Math.max(palavra,medir(p,fonte)); });
+  });
+  return {palavra,linha};
+}
+function larguraColunas(itens){
+  const CORPO="10pt Arial", CABECALHO="bold 11pt Arial";
+  const min=[], ideal=[];
+  COLUNAS_TABELA.forEach((c,i)=>{
+    const mc=medidasTexto(c.cab,CABECALHO);
+    let p=mc.palavra, l=mc.linha;
+    (itens||[]).forEach(it=>{
+      const texto=(c.campo==="observacoes")?quebrarFrases(it[c.campo]):it[c.campo];
+      const m=medidasTexto(texto,CORPO);
+      p=Math.max(p,m.palavra); l=Math.max(l,m.linha);
+    });
+    min[i]=p+PAD_CELULA;
+    ideal[i]=Math.max(min[i],Math.min(l+PAD_CELULA,c.teto));
+  });
+
+  // 1) o mínimo é intocável; se nem ele couber, encolhe todo mundo junto
+  let larg=min.slice();
+  let somaMin=larg.reduce((a,b)=>a+b,0);
+  if(somaMin>LARG_TOTAL){
+    larg=larg.map(w=>Math.floor(w*LARG_TOTAL/somaMin));
+  }else{
+    // 2) cresce até o ideal, proporcional se o espaço não der pra todos
+    let sobra=LARG_TOTAL-somaMin;
+    const querem=COLUNAS_TABELA.map((c,i)=>ideal[i]-min[i]);
+    const somaQuerem=querem.reduce((a,b)=>a+b,0);
+    if(somaQuerem>0){
+      const fator=Math.min(1,sobra/somaQuerem);
+      querem.forEach((q,i)=>{const d=Math.floor(q*fator);larg[i]+=d;sobra-=d;});
+    }
+    // 3) o que ainda sobrar vai pro texto corrido
+    const pesos=COLUNAS_TABELA.map(c=>c.folga);
+    const somaPesos=pesos.reduce((a,b)=>a+b,0);
+    if(sobra>0&&somaPesos>0){
+      pesos.forEach((p,i)=>{const d=Math.floor(sobra*p/somaPesos);larg[i]+=d;});
+    }
+  }
+  // sobra de arredondamento cai na maior coluna, pra fechar exatamente a largura
+  const resto=LARG_TOTAL-larg.reduce((a,b)=>a+b,0);
+  if(resto!==0){
+    let maior=0; larg.forEach((w,i)=>{if(w>larg[maior])maior=i;});
+    larg[maior]+=resto;
+  }
+  return larg;
+}
+// Reescreve o tblGrid e todos os tcW da tabela de itens com as larguras novas.
+function aplicarLarguras(xml,larg){
+  const marca=xml.indexOf("{#itens}");
+  if(marca<0) return xml;
+  const ini=xml.lastIndexOf("<w:tbl>",marca), fim=xml.indexOf("</w:tbl>",marca)+8;
+  if(ini<0||fim<8) return xml;
+  let tabela=xml.slice(ini,fim), n=0;
+  tabela=tabela.replace(/<w:gridCol w:w="\d+"\/>/g,()=>`<w:gridCol w:w="${larg[n++%larg.length]}"/>`);
+  n=0;
+  tabela=tabela.replace(/<w:tcW w:w="\d+" w:type="dxa"\/>/g,()=>`<w:tcW w:w="${larg[n++%larg.length]}" w:type="dxa"/>`);
+  return xml.slice(0,ini)+tabela+xml.slice(fim);
+}
 async function preencherDocx(tpl,mapa,loop){
   const zip=await JSZip.loadAsync(b64Bytes(tpl));
   let xml=await zip.file("word/document.xml").async("string");
   for(const[k,v]of Object.entries(mapa)) xml=xml.split("{"+k+"}").join(escXml(v));
   if(xml.includes("{#itens}")){
+    // Antes de multiplicar a linha modelo: com o marcador ainda no lugar dá pra
+    // achar a tabela certa e reescrever as larguras uma vez só.
+    xml=aplicarLarguras(xml,larguraColunas(loop));
     const rows=xml.match(/<w:tr\b[\s\S]*?<\/w:tr>/g)||[];
     const modelo=rows.find(r=>r.includes("{#itens}")&&r.includes("{/itens}"));
     if(modelo){
@@ -1666,7 +2232,15 @@ function mapear(){
   const G=id=>g(id).toUpperCase(); // endereço sempre em caixa alta no documento final
   const end=linhaEnd(G("logradouro"),G("bairro"),G("cidade"),g("uf").toUpperCase(),g("cep"));
   const cu=(g("cidade")&&g("uf"))?`${G("cidade")}/${g("uf").toUpperCase()}`:"";
-  const endC=mesmoEnd?end:linhaEnd(G("logradouroColeta"),G("bairroColeta"),G("cidadeColeta"),g("ufColeta").toUpperCase(),g("cepColeta"));
+  // Duas formas do endereço de coleta, porque os dois documentos pedem coisas
+  // diferentes. Na Proposta, a linha "Locais de Coleta" já traz ", CEP {…}" no
+  // modelo — por isso endC sai SEM o CEP, senão ele aparecia duas vezes. No
+  // Aceite, cidade, estado e CEP têm célula própria logo abaixo, então lá vai só
+  // o logradouro com o bairro.
+  const endC=mesmoEnd?linhaEnd(G("logradouro"),G("bairro"),G("cidade"),g("uf").toUpperCase(),"")
+                     :linhaEnd(G("logradouroColeta"),G("bairroColeta"),G("cidadeColeta"),g("ufColeta").toUpperCase(),"");
+  const endCLocal=mesmoEnd?linhaEnd(G("logradouro"),G("bairro"),"","","")
+                          :linhaEnd(G("logradouroColeta"),G("bairroColeta"),"","","");
   const cuC=mesmoEnd?cu:((g("cidadeColeta")&&g("ufColeta"))?`${G("cidadeColeta")}/${g("ufColeta").toUpperCase()}`:"");
   const d=g("dataProposta")?new Date(g("dataProposta")+"T00:00:00"):new Date();
   // Cliente que não informa Inscrição Estadual é isento — em branco o Aceite
@@ -1676,7 +2250,7 @@ function mapear(){
     razao_social:g("razaoSocial").toUpperCase(),contato_nome:g("solicitante"),telefone:g("telefone"),
     cnpj:g("cnpj"),inscricao_estadual_sufixo:`; IE: ${ie}`,inscricao_estadual:ie,
     endereco_completo:end,endereco_logradouro:G("logradouro"),bairro:G("bairro"),cidade_uf:cu,cep:g("cep"),
-    email:g("email"),email_nfe:g("email"),endereco_coleta:endC,cidade_uf_coleta:cuC,
+    email:g("email"),email_nfe:g("email"),endereco_coleta:endC,endereco_coleta_local:endCLocal,cidade_uf_coleta:cuC,
     cep_coleta:mesmoEnd?g("cep"):g("cepColeta"),proposta_numero:g("proposalNumber"),objeto:objetoTexto(),
     dia:String(d.getDate()).padStart(2,"0"),mes:MESES[d.getMonth()],ano:String(d.getFullYear()),
     data:d.toLocaleDateString("pt-BR")}};
@@ -2049,7 +2623,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-4";
+const APP_VERSION="2026.08.15-5";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
