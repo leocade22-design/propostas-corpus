@@ -1,5 +1,5 @@
 PROPOSTAS CORPUS — cópia completa do aplicativo
-Versão 2026.08.16-2 · gerada em 15/08/2026
+Versão 2026.08.16-4
 
 O QUE É ESTE ZIP
   Todos os arquivos que fazem o aplicativo funcionar. É o app inteiro: não
