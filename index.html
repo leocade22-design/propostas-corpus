@@ -136,6 +136,10 @@
 
   .modal-fundo{position:fixed;inset:0;background:rgba(8,14,10,.66);z-index:100;
     display:flex;align-items:center;justify-content:center;padding:14px;}
+  /* Estes três são chamados de DENTRO de outro modal — o aviso pelo editor de
+     catálogo, a pergunta e o campo de texto por qualquer tela. Sem subir a
+     camada eles abriam atrás e o clique não chegava neles. */
+  #modalPergunta,#modalTexto,#modalAviso{z-index:120;}
   /* Sem cor fixa: no escuro o branco fixo criava aquele contraste que cegava */
   .modal-caixa{background:var(--branco);color:var(--texto);width:100%;max-width:600px;
     max-height:88vh;overflow-y:auto;border-radius:16px;padding:16px;
@@ -298,7 +302,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="cardCliente">
     <h2>Dados do cliente</h2>
 
     <!-- Um caminho só pra preencher: cola o que o cliente mandou (ou só o CNPJ)
@@ -520,6 +524,34 @@
       <button class="btn-principal" onclick="salvarEdicaoItem()">Salvar</button>
     </div>
     <button class="btn-sec btn-full" onclick="fecharEdicaoItem()">Cancelar</button>
+  </div>
+</div>
+
+<!-- Pergunta do próprio app, no lugar do confirm() do navegador — aquele estampa
+     o endereço do site em cima da mensagem, o que numa demo não pega bem -->
+<div class="modal-fundo oculto" id="modalPergunta">
+  <div class="modal-caixa alerta-caixa">
+    <div class="emoji" id="perguntaEmoji">❓</div>
+    <div class="zoeira" id="perguntaTitulo"></div>
+    <div class="motivo centro" id="perguntaTexto"></div>
+    <div class="row2">
+      <button class="btn-sec" id="perguntaNao">Cancelar</button>
+      <button class="btn-principal" id="perguntaSim">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mesma ideia pro prompt(): digitar um texto sem a moldura do navegador -->
+<div class="modal-fundo oculto" id="modalTexto">
+  <div class="modal-caixa alerta-caixa">
+    <div class="emoji">✎</div>
+    <div class="zoeira" id="textoTitulo"></div>
+    <div class="motivo centro" id="textoAjuda"></div>
+    <input type="text" id="textoValor">
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-sec" id="textoNao">Cancelar</button>
+      <button class="btn-principal" id="textoSim">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -1729,9 +1761,11 @@ function renderCategorias(){
     alvo.appendChild(div);
   });
 }
-function renomearCategoria(id){
+async function renomearCategoria(id){
   const c=catsConfig();
-  const novo=prompt("Como essa categoria deve aparecer? Vale pro app e pro texto da proposta.",nomeCategoria(id));
+  const novo=await pedirTexto("Renomear categoria",
+    "Vale pro app e pro texto que sai na proposta. Em branco volta ao nome original.",
+    nomeCategoria(id));
   if(novo===null) return;
   const limpo=novo.trim().toUpperCase();
   if(!limpo||limpo===id) delete c.nomes[id]; else c.nomes[id]=limpo;
@@ -2004,13 +2038,17 @@ function dataBR(iso){
   return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso;
 }
 
-function abrirProposta(id,comoCopia){
+async function abrirProposta(id,comoCopia){
   const p=propostas.find(x=>x.id===id);
   if(!p) return;
   const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
-  if(temAlgo&&!confirm(comoCopia
-      ?"Duplicar esta proposta? O que está preenchido agora se perde."
-      :"Abrir esta proposta? O que está preenchido agora se perde."))return;
+  if(temAlgo){
+    const segue=await perguntar(
+      comoCopia?"Duplicar esta proposta?":"Abrir esta proposta?",
+      "O que está preenchido agora se perde.",
+      {emoji:"📂",sim:comoCopia?"Duplicar":"Abrir"});
+    if(!segue) return;
+  }
 
   CAMPOS_FORM.forEach(campo=>{
     const el=document.getElementById(campo);
@@ -2050,12 +2088,17 @@ function abrirProposta(id,comoCopia){
   document.getElementById("statusHistorico").textContent=comoCopia
     ?"Cópia carregada — confira o número antes de gerar."
     :"Proposta aberta pra edição. Gerar de novo atualiza o registro salvo.";
-  window.scrollTo({top:0,behavior:"smooth"});
+  // Desce até os dados do cliente: com o histórico recolhido, é o card que
+  // interessa e ele fica logo ali embaixo, já preenchido.
+  document.getElementById("cardCliente").scrollIntoView({behavior:"smooth",block:"start"});
 }
-function excluirProposta(id){
+async function excluirProposta(id){
   const p=propostas.find(x=>x.id===id);
   if(!p) return;
-  if(!confirm(`Excluir a proposta ${p.numero||""} — ${p.cliente||""}? Não dá pra desfazer.`))return;
+  const segue=await perguntar("Excluir esta proposta?",
+    [p.numero,p.cliente].filter(Boolean).join(" — ")+"\nNão dá pra desfazer.",
+    {emoji:"🗑️",sim:"Excluir",perigo:true});
+  if(!segue) return;
   propostas=propostas.filter(x=>x.id!==id);
   if(propostaAtualId===id) propostaAtualId=null;
   gravarPropostas(); atualizarBadgeHistorico(); renderHistorico();
@@ -2093,10 +2136,12 @@ function importarPropostas(input){
 // silencioso = quem chamou foi o próprio app, logo depois de gerar os arquivos.
 // Nesse caso não pergunta nada: o que estava preenchido já virou documento e já
 // está guardado no histórico.
-function novaProposta(silencioso){
+async function novaProposta(silencioso){
   if(!silencioso){
     const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
-    if(temAlgo&&!confirm("Começar uma proposta nova? O que estiver preenchido e não foi gerado se perde."))return;
+    if(temAlgo&&!await perguntar("Começar uma proposta nova?",
+        "O que estiver preenchido e ainda não foi gerado se perde.",
+        {emoji:"↺",sim:"Começar nova"})) return;
   }
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;objetoAberto=false;
@@ -2457,6 +2502,47 @@ function avisar(motivo,zoeira){
 }
 function fecharAviso(){document.getElementById("modalAviso").classList.add("oculto");}
 
+/* ============ PERGUNTAR / PEDIR TEXTO ============
+   O confirm() e o prompt() do navegador estampam o endereço do site em cima da
+   mensagem ("leocade22-design.github.io diz"). Funciona, mas numa apresentação
+   parece coisa de página suspeita. Estes fazem o mesmo trabalho com a cara do
+   app — e devolvem uma promessa, então quem chama usa await no lugar do if. */
+function perguntar(titulo,texto,opcoes){
+  opcoes=opcoes||{};
+  return new Promise(resolve=>{
+    const caixa=document.getElementById("modalPergunta");
+    document.getElementById("perguntaEmoji").textContent=opcoes.emoji||"❓";
+    document.getElementById("perguntaTitulo").textContent=titulo;
+    document.getElementById("perguntaTexto").textContent=texto||"";
+    const sim=document.getElementById("perguntaSim");
+    const nao=document.getElementById("perguntaNao");
+    sim.textContent=opcoes.sim||"Confirmar";
+    nao.textContent=opcoes.nao||"Cancelar";
+    sim.className=opcoes.perigo?"btn-rem":"btn-principal";
+    const fechar=r=>{caixa.classList.add("oculto");sim.onclick=null;nao.onclick=null;resolve(r);};
+    sim.onclick=()=>fechar(true);
+    nao.onclick=()=>fechar(false);
+    caixa.classList.remove("oculto");
+  });
+}
+function pedirTexto(titulo,ajuda,valor){
+  return new Promise(resolve=>{
+    const caixa=document.getElementById("modalTexto");
+    document.getElementById("textoTitulo").textContent=titulo;
+    document.getElementById("textoAjuda").textContent=ajuda||"";
+    const campo=document.getElementById("textoValor");
+    campo.value=valor||"";
+    const sim=document.getElementById("textoSim");
+    const nao=document.getElementById("textoNao");
+    const fechar=r=>{caixa.classList.add("oculto");sim.onclick=null;nao.onclick=null;campo.onkeydown=null;resolve(r);};
+    sim.onclick=()=>fechar(campo.value);
+    nao.onclick=()=>fechar(null);
+    campo.onkeydown=ev=>{if(ev.key==="Enter")fechar(campo.value);};
+    caixa.classList.remove("oculto");
+    setTimeout(()=>{campo.focus();campo.select();},50);
+  });
+}
+
 /* ============ TEMA ============ */
 const LS_TEMA="corpus_tema";
 function aplicarTema(t){
@@ -2705,7 +2791,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-9";
+const APP_VERSION="2026.08.16-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
