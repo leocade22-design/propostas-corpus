@@ -15,19 +15,30 @@
 <script src="vendor/jszip.min.js"></script>
 <script src="modelos.js"></script>
 <style>
+  /* Claro por padrão. O escuro mantém o verde da Corpus como cor de marca, só
+     rebaixa o fundo — verde puro sobre preto vibra e cansa a vista. */
   :root{
     --verde:#1E6B3A; --verde-claro:#E8F3EC; --verde-borda:#BFE0CC;
     --cinza:#f4f5f4; --texto:#1f2a24; --suave:#5b6961; --branco:#fff;
     --alerta:#b3261e; --alerta-bg:#fdecea;
+    --campo:#fff; --campo-borda:#d3d9d5; --card-borda:#e2e6e3;
+    --topo:#1E6B3A; --divisor:#eee;
+  }
+  html[data-tema="escuro"]{
+    --verde:#5FBF84; --verde-claro:#16301F; --verde-borda:#2C5B3E;
+    --cinza:#101512; --texto:#E7EDE9; --suave:#9DB0A5; --branco:#18201B;
+    --alerta:#FF8A80; --alerta-bg:#331C1A;
+    --campo:#0E1310; --campo-borda:#34433A; --card-borda:#26332B;
+    --topo:#123322; --divisor:#26332B;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     background:var(--cinza);color:var(--texto);padding-bottom:120px;}
-  header{background:var(--verde);color:#fff;padding:20px 16px;}
+  header{background:var(--topo);color:#fff;padding:20px 16px;}
   header h1{margin:0;font-size:1.25rem;}
   header p{margin:5px 0 0;font-size:.8rem;opacity:.9;}
   .wrap{max-width:640px;margin:0 auto;padding:12px;}
-  .card{background:var(--branco);border:1px solid #e2e6e3;border-radius:12px;
+  .card{background:var(--branco);border:1px solid var(--card-borda);border-radius:12px;
     padding:14px;margin-bottom:12px;}
   .card h2{font-size:.98rem;color:var(--verde);margin:0 0 10px;padding-bottom:7px;
     border-bottom:1px solid var(--verde-borda);}
@@ -38,9 +49,9 @@
   .previa.clicavel:active{opacity:.85;}
   .previa .dica-alterar{display:block;margin-top:4px;font-size:.72rem;color:var(--suave);font-style:italic;}
   label{display:block;font-size:.8rem;color:var(--suave);margin:9px 0 4px;}
-  input,textarea{width:100%;padding:10px 11px;border:1px solid #d3d9d5;border-radius:8px;
-    font-size:.95rem;background:#fff;color:var(--texto);font-family:inherit;}
-  textarea{resize:vertical;min-height:64px;}
+  input,textarea,select{width:100%;padding:10px 11px;border:1px solid var(--campo-borda);
+    border-radius:8px;font-size:.95rem;background:var(--campo);color:var(--texto);font-family:inherit;}
+  textarea{resize:vertical;min-height:64px;overflow:hidden;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:end;}
   .row4{display:grid;grid-template-columns:2fr 2fr 0.8fr 1.4fr;gap:7px;}
   button{cursor:pointer;border:none;border-radius:8px;font-size:.9rem;font-weight:600;padding:11px 15px;}
@@ -50,31 +61,33 @@
   .btn-mini{background:var(--verde-claro);color:var(--verde);padding:6px 10px;font-size:.78rem;}
   .btn-rem{background:var(--alerta-bg);color:var(--alerta);padding:6px 10px;font-size:.78rem;}
   .chips{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 4px;}
-  .chip{background:#fff;border:1.5px solid #d3d9d5;border-radius:20px;padding:9px 14px;
-    font-size:.85rem;font-weight:500;color:var(--texto);line-height:1.2;}
-  .chip.ativo{background:var(--verde);border-color:var(--verde);color:#fff;}
+  .chip{background:var(--campo);border:1.5px solid var(--campo-borda);border-radius:20px;
+    padding:9px 14px;font-size:.85rem;font-weight:500;color:var(--texto);line-height:1.2;}
+  .chip.ativo{background:var(--verde);border-color:var(--verde);
+    color:#fff;}
+  html[data-tema="escuro"] .chip.ativo{color:#0B1710;}
   .oculto{display:none !important;}
-  .etapa{margin-top:12px;padding-top:10px;border-top:1px dashed #dfe5e1;}
+  .etapa{margin-top:12px;padding-top:10px;border-top:1px dashed var(--card-borda);}
   .etapa-titulo{font-size:.78rem;color:var(--suave);text-transform:uppercase;
     letter-spacing:.04em;margin-bottom:6px;}
   .aviso{background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:9px 11px;
     font-size:.78rem;color:#6b5900;margin-top:9px;line-height:1.4;}
+  html[data-tema="escuro"] .aviso{background:#2B2510;border-color:#5C4E1E;color:#E8D9A0;}
   .previa{background:var(--verde-claro);border:1px solid var(--verde-borda);border-radius:8px;
     padding:10px 12px;margin-top:12px;font-size:.85rem;line-height:1.5;}
   .previa b{color:var(--verde);}
   .destacar input{border:2px solid var(--alerta);background:#fffafa;}
   .destacar label{color:var(--alerta);font-weight:600;}
-  table.itens{width:100%;border-collapse:collapse;margin-top:8px;font-size:.8rem;}
-  table.itens td{border-bottom:1px solid #eee;padding:8px 3px;vertical-align:top;}
-  table.itens td.acao{text-align:right;white-space:nowrap;}
   .vazio{color:var(--suave);font-size:.84rem;font-style:italic;padding:8px 0;}
-  .rodape{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e2e6e3;
-    padding:10px 12px;box-shadow:0 -4px 10px rgba(0,0,0,.05);}
+  .rodape{position:fixed;bottom:0;left:0;right:0;background:var(--branco);
+    border-top:1px solid var(--card-borda);padding:10px 12px;box-shadow:0 -4px 10px rgba(0,0,0,.05);}
   .rodape .wrap{padding:0;}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
   .status{font-size:.78rem;text-align:center;margin-top:7px;min-height:15px;color:var(--suave);}
   .badge{display:inline-block;background:var(--verde);color:#fff;border-radius:999px;
-    font-size:.7rem;padding:1px 8px;margin-left:5px;}
+    font-size:.7rem;padding:1px 8px;margin-left:5px;font-weight:700;}
+  /* No escuro o verde é claro: texto branco em cima some, então inverte */
+  html[data-tema="escuro"] .badge{color:#0B1710;}
   .sub{font-size:.72rem;color:var(--suave);margin-top:3px;}
 
   .modal-fundo{position:fixed;inset:0;background:rgba(20,30,25,.55);z-index:100;
@@ -117,9 +130,35 @@
   .linha-valor .obs{margin-top:6px;}
   .linha-valor .obs input{font-size:.8rem;}
 
-  .linha-cat{border:1px solid #e2e6e3;background:#fff;border-radius:10px;
+  .linha-cat{border:1px solid var(--card-borda);background:var(--branco);border-radius:10px;
     padding:10px 12px;margin-bottom:8px;}
   .linha-cat .nome{font-size:.85rem;font-weight:600;}
+
+  /* Linha de custo já na proposta: o card inteiro abre a edição, e a alça ☰
+     à direita reordena sem abrir nada. */
+  .item-prop{display:flex;align-items:stretch;gap:8px;border:1px solid var(--card-borda);
+    background:var(--branco);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+  .item-prop .corpo{flex:1;min-width:0;padding:10px 12px;cursor:pointer;}
+  .item-prop .corpo:active{background:var(--verde-claro);}
+  .item-prop .desc{font-size:.85rem;font-weight:600;line-height:1.3;}
+  .item-prop .meta{font-size:.75rem;color:var(--suave);margin-top:3px;}
+  .item-prop .valor{font-size:.82rem;font-weight:600;color:var(--verde);margin-top:3px;}
+  .item-prop .alca{flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;
+    gap:2px;padding:0 6px;background:var(--verde-claro);border-left:1px solid var(--card-borda);}
+  .item-prop .alca button{background:none;padding:5px 6px;font-size:.85rem;color:var(--verde);line-height:1;}
+  .item-prop .alca button:disabled{opacity:.28;cursor:default;}
+  .item-prop.arrastando{opacity:.45;}
+
+  .titulo-secao{display:flex;align-items:center;gap:8px;margin:14px 0 8px;}
+  .titulo-secao span{font-size:.78rem;color:var(--suave);text-transform:uppercase;letter-spacing:.04em;}
+  .titulo-secao::after{content:"";flex:1;height:1px;background:var(--card-borda);}
+
+  /* Aviso próprio no lugar do alert() do navegador */
+  .alerta-caixa{background:var(--branco);border-radius:14px;max-width:420px;width:100%;
+    padding:18px;text-align:center;}
+  .alerta-caixa .emoji{font-size:2.6rem;line-height:1;}
+  .alerta-caixa .zoeira{font-size:1rem;font-weight:700;color:var(--verde);margin:8px 0 6px;}
+  .alerta-caixa .motivo{font-size:.85rem;color:var(--suave);line-height:1.45;margin-bottom:14px;}
 
   .resultado-ok{background:var(--verde-claro);border:1px solid var(--verde-borda);
     border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:.82rem;text-align:left;}
@@ -134,7 +173,10 @@
       <h1>Gerador de Documentos — Corpus</h1>
       <p>Proposta e Aceite em .docx, gerados no seu aparelho. Nenhum dado sai do celular.</p>
     </div>
-    <button class="btn-mini" style="background:rgba(255,255,255,.18);color:#fff;flex:0 0 auto;white-space:nowrap" onclick="novaProposta()">↺ Nova proposta</button>
+    <div style="display:flex;flex-direction:column;gap:6px;flex:0 0 auto">
+      <button class="btn-mini" style="background:rgba(255,255,255,.18);color:#fff;white-space:nowrap" onclick="novaProposta()">↺ Nova proposta</button>
+      <button class="btn-mini" id="btnTema" style="background:rgba(255,255,255,.18);color:#fff;white-space:nowrap" onclick="alternarTema()">🌙 Escuro</button>
+    </div>
   </div>
 </header>
 
@@ -189,7 +231,7 @@
 
     <!-- Um caminho só pra preencher: cola o que o cliente mandou (ou só o CNPJ)
          e o app extrai o que der do texto e completa o resto na Receita. -->
-    <textarea id="colaTexto" rows="2" placeholder="Cole a mensagem do cliente aqui — ou só o CNPJ."></textarea>
+    <textarea id="colaTexto" rows="2" oninput="ajustarAltura(this)" placeholder="Cole a mensagem do cliente aqui — ou só o CNPJ."></textarea>
     <button class="btn-principal btn-full" onclick="preencherAutomatico()">Preencher automaticamente</button>
     <div class="sub" id="resumoExtracao"></div>
 
@@ -197,14 +239,8 @@
     <input type="text" id="razaoSocial" style="text-transform:uppercase" oninput="conferirRazaoSocial()">
     <div class="sub" id="avisoRazaoSocial"></div>
     <div class="row2">
-      <div>
-        <label>CNPJ</label>
-        <div class="campo-botao">
-          <input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this)">
-          <button class="btn-lupa" onclick="buscarCNPJ()" title="Buscar na Receita">🔍</button>
-        </div>
-      </div>
-      <div><label>Inscrição Estadual</label><input type="text" id="ie" inputmode="numeric"></div>
+      <div><label>CNPJ</label><input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this)"></div>
+      <div><label>Inscrição Estadual</label><input type="text" id="ie" placeholder="ISENTO se em branco"></div>
     </div>
     <div class="sub" id="statusCNPJ"></div>
     <div class="row2">
@@ -213,6 +249,8 @@
     </div>
     <label>E-mail</label>
     <input type="text" id="email" inputmode="email">
+
+    <div class="aviso oculto" id="avisoDivergencia"></div>
 
     <label>Endereço de faturamento / correspondência</label>
     <input type="text" id="enderecoUnico" onblur="quebrarEndereco()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
@@ -275,24 +313,29 @@
     <div class="etapa oculto" id="passo4"></div>
 
     <div id="camposFinais" class="oculto">
+      <!-- Botão logo no topo: com 5 ou 6 veículos marcados, deixá-lo lá embaixo
+           obrigava a rolar a lista inteira só pra confirmar. -->
+      <button class="btn-principal btn-full" onclick="adicionarItens()">+ Adicionar à proposta</button>
       <div class="etapa-titulo" style="margin-top:12px">Valores <span id="contagemLinhas" class="badge">0</span></div>
       <div id="linhasValores"></div>
-      <button class="btn-principal btn-full" onclick="adicionarItens()">+ Adicionar à proposta</button>
     </div>
 
+    <div class="titulo-secao"><span>Na proposta <span class="badge" id="contagemNaProposta">0</span></span></div>
     <div class="vazio" id="listaVazia">Nenhum item adicionado ainda.</div>
-    <table class="itens oculto" id="tabelaItens"><tbody id="corpoItens"></tbody></table>
+    <div id="listaItensProposta"></div>
   </div>
 
   <div class="card">
-    <h2>Downloads</h2>
-    <label>Pasta de destino dos arquivos</label>
-    <div class="row2">
-      <div class="sub" id="pastaAtual" style="align-self:center">Downloads do navegador (padrão)</div>
-      <button class="btn-sec" id="btnEscolherPasta" onclick="escolherPasta()">Escolher pasta</button>
+    <h2 class="clicavel" onclick="toggleDownloads()">Downloads <span class="badge" id="badgePasta">padrão</span><span class="seta" id="setaDownloads">▾</span></h2>
+    <div id="downloadsCorpo" class="oculto">
+      <label>Pasta de destino dos arquivos</label>
+      <div class="row2">
+        <div class="sub" id="pastaAtual" style="align-self:center">Downloads do navegador (padrão)</div>
+        <button class="btn-sec" id="btnEscolherPasta" onclick="escolherPasta()">Escolher pasta</button>
+      </div>
+      <div class="sub" id="avisoPasta">Cada um escolhe a própria pasta uma vez; os próximos arquivos gerados vão direto pra lá. Recurso do Chrome/Edge — no Firefox e Safari os arquivos caem nos Downloads normalmente.</div>
+      <button class="btn-mini" id="btnLimparPasta" onclick="limparPasta()" style="margin-top:8px;display:none">Voltar para Downloads padrão</button>
     </div>
-    <div class="sub" id="avisoPasta">Cada um escolhe a própria pasta uma vez; os próximos arquivos gerados vão direto pra lá. Recurso do Chrome/Edge — no Firefox e Safari os arquivos caem nos Downloads normalmente.</div>
-    <button class="btn-mini" id="btnLimparPasta" onclick="limparPasta()" style="margin-top:8px;display:none">Voltar para Downloads padrão</button>
   </div>
 
   <div class="card">
@@ -323,6 +366,42 @@
      Veículos, resíduos, funções e equipamentos que aparecem nos chips. As listas
      de fábrica vêm no código; o que for criado ou ajustado aqui fica guardado
      neste aparelho e entra por cima delas. -->
+<!-- Edição de uma linha de custo já na proposta -->
+<div class="modal-fundo oculto" id="modalItem">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3>Editar linha de custo</h3>
+      <button class="modal-fechar" onclick="fecharEdicaoItem()">✕</button>
+    </div>
+    <label>Descrição (sai na coluna Descrição)</label>
+    <textarea id="edDescricao" rows="3" oninput="ajustarAltura(this)"></textarea>
+    <div class="sub">Cada linha aqui vira uma quebra de linha dentro da célula do Word.</div>
+    <label>Resíduo</label>
+    <input type="text" id="edResiduo">
+    <div class="row2">
+      <div><label>Valor Unitário (R$)</label><input type="text" id="edValor" inputmode="numeric" oninput="mascaraValor(this)" placeholder="0,00"></div>
+      <div><label>Unidade</label><input type="text" id="edUnidade" placeholder="Viagem, KG, Hora…"></div>
+    </div>
+    <label>Observações</label>
+    <textarea id="edObs" rows="3" oninput="ajustarAltura(this)"></textarea>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-rem" onclick="removerItemEditado()">Remover da proposta</button>
+      <button class="btn-principal" onclick="salvarEdicaoItem()">Salvar</button>
+    </div>
+    <button class="btn-sec btn-full" onclick="fecharEdicaoItem()">Cancelar</button>
+  </div>
+</div>
+
+<!-- Aviso do app, no lugar do alert() cru do navegador -->
+<div class="modal-fundo oculto" id="modalAviso">
+  <div class="modal-caixa alerta-caixa">
+    <div class="emoji" id="avisoEmoji">🤨</div>
+    <div class="zoeira" id="avisoZoeira"></div>
+    <div class="motivo" id="avisoMotivo"></div>
+    <button class="btn-principal" onclick="fecharAviso()">Beleza, entendi</button>
+  </div>
+</div>
+
 <div class="modal-fundo oculto" id="modalCatalogo">
   <div class="modal-caixa">
     <div class="modal-topo">
@@ -612,20 +691,63 @@ function extrairDoTexto(){
   const mT=t.match(/(?:\(?\d{2}\)?[\s-]?)?9?\d{4}[-\s]?\d{4}/);
   if(mT){const el=document.getElementById("telefone");el.value=mT[0];mascaraTelefone(el);achados.push("telefone");}
 
+  // "endereco" fica de fora do preenchimento direto: o cabeçalho tem que sair
+  // igual ao Cartão CNPJ. O que o cliente escreveu é guardado à parte pra ser
+  // comparado depois — divergência costuma ser ponto de coleta diferente.
   const mapa={"nome do solicitante":"solicitante","solicitante":"solicitante","contato":"solicitante",
     "razao social":"razaoSocial","razao":"razaoSocial","empresa":"razaoSocial",
-    "inscricao estadual":"ie","ie":"ie","endereco":"enderecoUnico"};
+    "inscricao estadual":"ie","ie":"ie"};
+  enderecoInformado="";
   t.split(/\r?\n/).forEach(l=>{
     const m=l.match(/^([^:]{2,40}):\s*(.+)$/);
     if(!m)return;
     const k=semAc(m[1]),v=m[2].trim();
+    if(k==="endereco"&&v){enderecoInformado=v;achados.push("endereço do cliente");return;}
     if(mapa[k]&&v){set(mapa[k],v);achados.push(m[1].trim());}
   });
   const rs=document.getElementById("razaoSocial");
   rs.value=rs.value.toUpperCase();
   conferirRazaoSocial();
-  quebrarEndereco();
   return [...new Set(achados)];
+}
+
+/* O endereço que o cliente mandou não entra no cabeçalho — lá vale sempre o
+   Cartão CNPJ. Mas se os dois divergem, ou a coleta é em outro lugar ou o
+   cadastro da Receita está velho; nos dois casos é o Léo que precisa decidir. */
+let enderecoInformado="";
+function compararEnderecos(){
+  const alvo=document.getElementById("avisoDivergencia");
+  if(!alvo) return;
+  const receita=document.getElementById("enderecoUnico").value.trim();
+  if(!enderecoInformado||!receita){alvo.classList.add("oculto");return;}
+  const chave=s=>semAc(s).replace(/[^a-z0-9]/g,"");
+  const a=chave(enderecoInformado), b=chave(receita);
+  // Compara por CEP quando houver; senão, por conter um no outro
+  const cepA=(enderecoInformado.match(/\d{5}-?\d{3}/)||[""])[0].replace("-","");
+  const cepB=(receita.match(/\d{5}-?\d{3}/)||[""])[0].replace("-","");
+  const igual=(cepA&&cepB)?cepA===cepB:(a.includes(b)||b.includes(a));
+  if(igual){alvo.classList.add("oculto");return;}
+  alvo.classList.remove("oculto");
+  alvo.innerHTML="";
+  const t1=document.createElement("div");
+  t1.innerHTML="<strong>O endereço que o cliente passou é diferente do Cartão CNPJ.</strong>"+
+    " O cabeçalho vai com o da Receita. Confira se a coleta é em outro local:";
+  const t2=document.createElement("div");
+  t2.style.marginTop="6px";
+  t2.textContent="Cliente informou: "+enderecoInformado;
+  const b1=document.createElement("button");
+  b1.className="btn-mini"; b1.style.marginTop="8px";
+  b1.textContent="Usar como endereço de coleta";
+  b1.onclick=()=>{
+    mesmoEnd=false;
+    document.getElementById("blocoColeta").classList.remove("oculto");
+    document.getElementById("enderecoColetaUnico").value=enderecoInformado;
+    ultimoEnderecoLido["Coleta"]="";
+    quebrarEnderecoColeta();
+    montarChipsColeta();
+    alvo.classList.add("oculto");
+  };
+  alvo.appendChild(t1);alvo.appendChild(t2);alvo.appendChild(b1);
 }
 
 /* Um botão só: pega o que der do texto colado e, tendo CNPJ, completa o resto
@@ -643,13 +765,26 @@ async function preencherAutomatico(){
       ? "Reconhecido: "+achados.join(", ")+". Consultando a Receita…"
       : "Consultando a Receita…";
     const ok=await buscarCNPJ();
-    campoTexto.value="";
+    campoTexto.value=""; ajustarAltura(campoTexto);
+    if(!ok&&enderecoInformado){
+      // Receita fora do ar: aí o endereço do cliente é melhor que campo vazio
+      document.getElementById("enderecoUnico").value=enderecoInformado;
+      ultimoEnderecoLido[""]="";
+      quebrarEndereco();
+    }
+    compararEnderecos();
     st.textContent=ok
       ? "Preenchido pela Receita"+(achados.length?" + do texto ("+achados.join(", ")+")":"")+". Confira antes de gerar."
       : (achados.length?"Do texto: "+achados.join(", ")+". A Receita não respondeu — confira o endereço à mão.":"");
     return;
   }
-  campoTexto.value="";
+  // Sem CNPJ pra consultar, o endereço do cliente é o que temos
+  if(enderecoInformado){
+    document.getElementById("enderecoUnico").value=enderecoInformado;
+    ultimoEnderecoLido[""]="";
+    quebrarEndereco();
+  }
+  campoTexto.value=""; ajustarAltura(campoTexto);
   st.textContent=achados.length
     ? "Reconhecido: "+achados.join(", ")+". Sem CNPJ completo pra consultar a Receita."
     : "Nada reconhecido — preencha à mão, ou cole um CNPJ pra buscar na Receita.";
@@ -831,9 +966,11 @@ function montarLinhas(){
   return [];
 }
 
-// Valor e observação digitados ficam guardados por chave, pra não se perderem
-// quando a lista é redesenhada ao marcar/desmarcar outro item.
-let valorPorChave={}, obsPorChave={};
+// Valor, unidade e observação digitados ficam guardados por chave, pra não se
+// perderem quando a lista é redesenhada ao marcar/desmarcar outro item. A unidade
+// ficava de fora e era gravada num objeto temporário — por isso o campo "voltava"
+// sozinho e não dava pra digitar nada nele.
+let valorPorChave={}, obsPorChave={}, unidadePorChave={};
 function renderLinhasValores(){
   const linhas=montarLinhas();
   const bloco=document.getElementById("camposFinais");
@@ -857,8 +994,8 @@ function renderLinhasValores(){
     iv.value=valorPorChave[l.chave]||"";
     iv.oninput=()=>{mascaraValor(iv);valorPorChave[l.chave]=iv.value;};
     const iu=div.querySelector('[data-campo="unidade"]');
-    iu.value=l.unidade;
-    iu.oninput=()=>{l.unidade=iu.value;};
+    iu.value=unidadePorChave[l.chave]!==undefined?unidadePorChave[l.chave]:l.unidade;
+    iu.oninput=()=>{unidadePorChave[l.chave]=iu.value;};
     const io=div.querySelector('[data-campo="obs"]');
     io.value=obsPorChave[l.chave]!==undefined?obsPorChave[l.chave]:l.observacoes;
     io.oninput=()=>{obsPorChave[l.chave]=io.value;};
@@ -877,26 +1014,91 @@ function adicionarItens(){
       observacoes:div?div.querySelector('[data-campo="obs"]').value.trim():l.observacoes,
       sel:JSON.parse(JSON.stringify(sel))});
   });
-  sel={};valorPorChave={};obsPorChave={};passoAberto=null;
+  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};passoAberto=null;
   esconderPassos(2);fluxo();render();
 }
-function duplicarItem(i){
-  const it=itens[i];
-  sel=JSON.parse(JSON.stringify(it.sel||{}));
-  valorPorChave={};obsPorChave={};passoAberto=null;
-  fluxo();
-  document.getElementById("camposFinais").scrollIntoView({behavior:"smooth",block:"center"});
-}
 function removerItem(i){itens.splice(i,1);render();}
+// Reordena a linha na proposta — a ordem aqui é a ordem na tabela do Word
+function moverItem(i,passo){
+  const j=i+passo;
+  if(j<0||j>=itens.length) return;
+  const [x]=itens.splice(i,1);
+  itens.splice(j,0,x);
+  render();
+}
+
+/* ============ EDIÇÃO DE UMA LINHA DE CUSTO ============
+   Antes só dava pra duplicar ou remover. Com a multi-seleção, duplicar virou
+   redundante; o que faltava era mexer numa linha já montada sem refazer tudo. */
+let itemEditando=null;
+function abrirEdicaoItem(i){
+  const it=itens[i]; if(!it) return;
+  itemEditando=i;
+  document.getElementById("edDescricao").value=it.descricao||"";
+  document.getElementById("edResiduo").value=it.residuo||"";
+  document.getElementById("edValor").value=it.valor||"";
+  document.getElementById("edUnidade").value=it.unidade||"";
+  document.getElementById("edObs").value=it.observacoes||"";
+  document.getElementById("modalItem").classList.remove("oculto");
+  ["edDescricao","edObs"].forEach(id=>ajustarAltura(document.getElementById(id)));
+}
+function fecharEdicaoItem(){
+  itemEditando=null;
+  document.getElementById("modalItem").classList.add("oculto");
+}
+function salvarEdicaoItem(){
+  if(itemEditando===null) return;
+  const it=itens[itemEditando];
+  it.descricao=document.getElementById("edDescricao").value.trim();
+  it.residuo=document.getElementById("edResiduo").value.trim()||"-";
+  it.valor=document.getElementById("edValor").value.trim();
+  it.unidade=document.getElementById("edUnidade").value.trim();
+  it.observacoes=document.getElementById("edObs").value.trim();
+  fecharEdicaoItem(); render();
+}
+function removerItemEditado(){
+  if(itemEditando===null) return;
+  const i=itemEditando;
+  fecharEdicaoItem();
+  removerItem(i);
+}
+
 function render(){
   document.getElementById("contagemItens").textContent=itens.length;
-  const c=document.getElementById("corpoItens");
-  document.getElementById("tabelaItens").classList.toggle("oculto",!itens.length);
+  document.getElementById("contagemNaProposta").textContent=itens.length;
   document.getElementById("listaVazia").classList.toggle("oculto",!!itens.length);
-  c.innerHTML=itens.map((it,i)=>`<tr><td><b>${it.descricao.replace(/\n/g," ")}</b><br>
-    <span style="color:#5b6961">${it.residuo} • ${it.unidade} • R$ ${it.valor||"—"}</span></td>
-    <td class="acao"><button class="btn-mini" onclick="duplicarItem(${i})">duplicar</button>
-    <button class="btn-rem" onclick="removerItem(${i})">remover</button></td></tr>`).join("");
+  const alvo=document.getElementById("listaItensProposta");
+  alvo.innerHTML="";
+  itens.forEach((it,i)=>{
+    const div=document.createElement("div");
+    div.className="item-prop";
+    div.innerHTML=
+      `<div class="corpo">
+         <div class="desc"></div>
+         <div class="meta"></div>
+         <div class="valor"></div>
+       </div>
+       <div class="alca">
+         <button title="Subir">▲</button>
+         <button title="Descer">▼</button>
+       </div>`;
+    div.querySelector(".desc").textContent=it.descricao.replace(/\n/g," ");
+    div.querySelector(".meta").textContent=
+      [it.residuo&&it.residuo!=="-"?it.residuo:null,it.unidade].filter(Boolean).join(" • ");
+    div.querySelector(".valor").textContent=it.valor?("R$ "+it.valor):"sem valor — toque para preencher";
+    div.querySelector(".corpo").onclick=()=>abrirEdicaoItem(i);
+    const bts=div.querySelectorAll(".alca button");
+    bts[0].disabled=(i===0); bts[0].onclick=()=>moverItem(i,-1);
+    bts[1].disabled=(i===itens.length-1); bts[1].onclick=()=>moverItem(i,1);
+    alvo.appendChild(div);
+  });
+}
+
+// Textarea que cresce com o texto, em vez de esconder o que foi colado
+function ajustarAltura(el){
+  if(!el) return;
+  el.style.height="auto";
+  el.style.height=Math.min(el.scrollHeight,420)+"px";
 }
 
 /* ============ CATÁLOGO EDITÁVEL ============
@@ -1223,7 +1425,9 @@ function novaProposta(){
   if(temAlgo&&!confirm("Começar uma proposta nova? O que estiver preenchido e não foi gerado se perde."))return;
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;objetoAberto=false;
-  mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};
+  mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};unidadePorChave={};
+  enderecoInformado="";
+  document.getElementById("avisoDivergencia").classList.add("oculto");
   propostaAtualId=null;
   ultimoEnderecoLido={"":"","Coleta":""};
   limparResultado();
@@ -1306,23 +1510,26 @@ async function baixar(blob,nome){
   a.href=u;a.download=nome;document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(u),4000);
 }
-// Padrão Google Maps: Logradouro - Bairro, Cidade - UF, CEP
+// Formato do Google Maps: "Logradouro, nº - Bairro, Cidade - UF, CEP"
 function linhaEnd(l,b,c,u,cep){
-  const linha=[l,b?"- "+b:""].filter(Boolean).join(" ");
-  const corpo=[linha,(c&&u)?`${c} - ${u}`:(c||u)].filter(Boolean).join(", ");
+  const corpo=[[l,b].filter(Boolean).join(" - "),
+               (c&&u)?`${c} - ${u}`:(c||u)].filter(Boolean).join(", ");
   return cep?[corpo,cep].filter(Boolean).join(", "):corpo;
 }
 function mapear(){
   const g=id=>document.getElementById(id).value.trim();
   const G=id=>g(id).toUpperCase(); // endereço sempre em caixa alta no documento final
-  const end=linhaEnd(G("logradouro"),G("bairro"),G("cidade"),g("uf").toUpperCase());
+  const end=linhaEnd(G("logradouro"),G("bairro"),G("cidade"),g("uf").toUpperCase(),g("cep"));
   const cu=(g("cidade")&&g("uf"))?`${G("cidade")}/${g("uf").toUpperCase()}`:"";
-  const endC=mesmoEnd?end:linhaEnd(G("logradouroColeta"),G("bairroColeta"),G("cidadeColeta"),g("ufColeta").toUpperCase());
+  const endC=mesmoEnd?end:linhaEnd(G("logradouroColeta"),G("bairroColeta"),G("cidadeColeta"),g("ufColeta").toUpperCase(),g("cepColeta"));
   const cuC=mesmoEnd?cu:((g("cidadeColeta")&&g("ufColeta"))?`${G("cidadeColeta")}/${g("ufColeta").toUpperCase()}`:"");
   const d=g("dataProposta")?new Date(g("dataProposta")+"T00:00:00"):new Date();
+  // Cliente que não informa Inscrição Estadual é isento — em branco o Aceite
+  // sairia com o campo vazio, que o cliente devolve perguntando.
+  const ie=g("ie")||"ISENTO";
   return {rs:g("razaoSocial").toUpperCase(),mapa:{
     razao_social:g("razaoSocial").toUpperCase(),contato_nome:g("solicitante"),telefone:g("telefone"),
-    cnpj:g("cnpj"),inscricao_estadual_sufixo:g("ie")?`; IE: ${g("ie")}`:"",inscricao_estadual:g("ie"),
+    cnpj:g("cnpj"),inscricao_estadual_sufixo:`; IE: ${ie}`,inscricao_estadual:ie,
     endereco_completo:end,endereco_logradouro:G("logradouro"),bairro:G("bairro"),cidade_uf:cu,cep:g("cep"),
     email:g("email"),email_nfe:g("email"),endereco_coleta:endC,cidade_uf_coleta:cuC,
     cep_coleta:mesmoEnd?g("cep"):g("cepColeta"),proposta_numero:g("proposalNumber"),objeto:objetoTexto(),
@@ -1348,18 +1555,31 @@ function marcarGerado(arquivos){
     div.querySelector(".local").textContent="salvo em "+onde;
     const btn=document.createElement("button");
     btn.className="btn-mini"; btn.style.marginTop="8px";
-    btn.textContent="Abrir arquivo";
-    btn.onclick=()=>abrirGerado(i);
-    div.appendChild(btn);
+    // Com pasta escolhida o arquivo já está lá — o botão só serviria pra baixar
+    // de novo. Sem pasta, a única ação útil é repetir o download com o nome certo.
+    if(pastaHandle){
+      const nota=document.createElement("div");
+      nota.className="sub";
+      nota.textContent="Abra pela pasta no seu aparelho — o navegador não tem como abrir o gerenciador de arquivos.";
+      div.appendChild(nota);
+    }else{
+      btn.textContent="Baixar novamente";
+      btn.onclick=()=>abrirGerado(i);
+      div.appendChild(btn);
+    }
     el.appendChild(div);
   });
 }
+// window.open() num blob de .docx fazia o navegador baixar de novo com um nome
+// aleatório. Com <a download> o arquivo ao menos sai com o nome correto.
 function abrirGerado(i){
   const a=ultimosGerados[i];
   if(!a) return;
   const url=URL.createObjectURL(a.blob);
-  window.open(url,"_blank");
-  setTimeout(()=>URL.revokeObjectURL(url),60000);
+  const link=document.createElement("a");
+  link.href=url; link.download=a.nome;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 function limparResultado(){
   ultimosGerados=[];
@@ -1408,6 +1628,14 @@ function atualizarPastaUI(){
   document.getElementById("pastaAtual").textContent=pastaHandle
     ?("📁 "+pastaHandle.name):"Downloads do navegador (padrão)";
   document.getElementById("btnLimparPasta").style.display=pastaHandle?"block":"none";
+  // A pasta escolhida vira o rótulo do card, pra saber pra onde vai sem abrir
+  document.getElementById("badgePasta").textContent=pastaHandle?pastaHandle.name:"padrão";
+}
+let downloadsAberto=false;
+function toggleDownloads(){
+  downloadsAberto=!downloadsAberto;
+  document.getElementById("downloadsCorpo").classList.toggle("oculto",!downloadsAberto);
+  document.getElementById("setaDownloads").classList.toggle("aberta",downloadsAberto);
 }
 async function escolherPasta(){
   if(!("showDirectoryPicker" in window))return;
@@ -1424,11 +1652,42 @@ function limparPasta(){
   atualizarPastaUI();
   document.getElementById("avisoPasta").textContent="Voltou para os Downloads padrão do navegador.";
 }
+/* ============ AVISO DO APP ============
+   A zoeira aparece em destaque, o motivo real logo abaixo em tom neutro — o
+   que importa pra resolver é a segunda linha. */
+const ZOEIRAS=[
+  "Calma, campeão.","Opa, faltou coisa.","Eita, quase.","Xiii, segura aí.",
+  "Peraí, chefe.","Foi mal, mas não dá."
+];
+const EMOJIS=["🤨","😅","🫠","🙃","👀","🧐"];
+function avisar(motivo,zoeira){
+  const i=Math.floor(Math.random()*ZOEIRAS.length);
+  document.getElementById("avisoEmoji").textContent=EMOJIS[i];
+  document.getElementById("avisoZoeira").textContent=zoeira||ZOEIRAS[i];
+  document.getElementById("avisoMotivo").textContent=motivo;
+  document.getElementById("modalAviso").classList.remove("oculto");
+}
+function fecharAviso(){document.getElementById("modalAviso").classList.add("oculto");}
+
+/* ============ TEMA ============ */
+const LS_TEMA="corpus_tema";
+function aplicarTema(t){
+  document.documentElement.setAttribute("data-tema",t);
+  document.getElementById("btnTema").textContent=t==="escuro"?"☀️ Claro":"🌙 Escuro";
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute("content",t==="escuro"?"#123322":"#1E6B3A");
+}
+function alternarTema(){
+  const novo=document.documentElement.getAttribute("data-tema")==="escuro"?"claro":"escuro";
+  localStorage.setItem(LS_TEMA,novo);
+  aplicarTema(novo);
+}
+
 function checar(precisaItens){
   const st=document.getElementById("statusGeracao");
   const {rs,mapa}=mapear();
-  if(!rs){st.textContent="Preencha a Razão Social.";return null;}
-  if(precisaItens&&!itens.length){st.textContent="Adicione ao menos uma linha de serviço.";return null;}
+  if(!rs){st.textContent="";avisar("Sem a Razão Social o documento sai sem o nome do cliente. Preencha o campo lá em cima — ou cole o CNPJ e toque em Preencher automaticamente.");return null;}
+  if(precisaItens&&!itens.length){st.textContent="";avisar("A proposta não tem nenhuma linha de serviço. Escolha uma categoria, marque os itens e toque em “+ Adicionar à proposta”.");return null;}
   return {rs,mapa,st};
 }
 async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
@@ -1478,8 +1737,11 @@ async function buscarCNPJ(){
       document.getElementById("bairro").value=v.bai;
       document.getElementById("cidade").value=v.cid;
       document.getElementById("uf").value=v.uf;
-      if(v.cep){const el=document.getElementById("cep");el.value=v.cep;mascaraCEP(el);}
-      const linha=[v.log,v.bai,(v.cid&&v.uf)?v.cid+" - "+v.uf:v.cid,v.cep].filter(Boolean).join(", ");
+      let cepFmt="";
+      if(v.cep){const el=document.getElementById("cep");el.value=v.cep;mascaraCEP(el);cepFmt=el.value;}
+      // Mesmo formato do Google Maps: "Logradouro, nº - Bairro, Cidade - UF, CEP"
+      const linha=[[v.log,v.bai].filter(Boolean).join(" - "),
+                   (v.cid&&v.uf)?v.cid+" - "+v.uf:v.cid, cepFmt].filter(Boolean).join(", ");
       document.getElementById("enderecoUnico").value=linha;
       // Já veio separado da Receita: marca como lido pra um blur no campo não
       // reprocessar e estragar o que está certo.
@@ -1577,7 +1839,7 @@ function carregarCliente(i){
 async function salvarClienteAtual(){
   const g=id=>document.getElementById(id).value.trim();
   const rs=g("razaoSocial").toUpperCase();
-  if(!rs){alert("Preencha a Razão Social antes de salvar.");return;}
+  if(!rs){avisar("Pra guardar no cofre o cliente precisa ter pelo menos a Razão Social — é por ela que a busca funciona depois.");return;}
   const novo={razaoSocial:rs,cnpj:g("cnpj"),ie:g("ie"),email:g("email"),
     contato:[g("solicitante"),g("telefone")].filter(Boolean).join(" - "),
     endereco:g("enderecoUnico")||g("logradouro")};
@@ -1619,7 +1881,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-1";
+const APP_VERSION="2026.08.15-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -1645,6 +1907,7 @@ if("serviceWorker" in navigator){
 // rodar) derruba o script inteiro com "Cannot access before initialization".
 iniciarPasta();
 carregarPropostas();
+aplicarTema(localStorage.getItem(LS_TEMA)||"claro");
 
 </script>
 </body>
