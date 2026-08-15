@@ -1,8 +1,8 @@
-# Gerador de Documentos — Corpus
+# Propostas CORPUS
 
 Monta a **Proposta** e o **Aceite** em `.docx` a partir dos modelos do Word da
-empresa, direto no celular. Sem servidor, sem login: o documento é montado no
-próprio aparelho e cai na pasta de downloads.
+empresa, direto no celular ou no navegador do PC. Sem servidor, sem login: o
+documento é montado no próprio aparelho.
 
 ## O que ele faz
 
@@ -16,19 +16,43 @@ próprio aparelho e cai na pasta de downloads.
 - **Linha de serviço em etapas** — categoria → classe → modalidade → veículo, com
   a descrição, a unidade e as observações técnicas já preenchidas pelo catálogo
   da Corpus (resíduos Classe I e II, recicláveis, mão de obra, locação).
-- **Proposta e Aceite** — gera um, o outro ou os dois, e compartilha no WhatsApp
-  pelo menu do próprio celular.
+- **Proposta e Aceite** — gera um, o outro ou os dois de uma vez. Cada tipo pode
+  ter a própria pasta de destino (Chrome/Edge), e um popup confirma antes e diz
+  onde o arquivo caiu depois.
+- **Enquadramento calculado na hora** — a largura de cada coluna da tabela é
+  medida com o texto que vai realmente sair, pra nenhuma coluna espremer o
+  conteúdo nem sobrar espaço à toa.
+- **Histórico** — toda proposta gerada fica salva e pode ser reaberta, editada
+  ou duplicada.
+- **Rascunho automático** — o que está preenchido é gravado a cada mudança e
+  volta sozinho se o app for fechado no meio.
 
 ## Onde ficam os dados
 
-No `localStorage` deste aparelho, e em nenhum outro lugar. Trocar de celular,
-limpar os dados do site ou desinstalar o app **apaga o cofre**.
+No `localStorage` **deste aparelho**, e em nenhum outro lugar — nunca no HTML,
+que é público e somente leitura. Celular e PC do trabalho são armazenamentos
+separados, sem sincronia entre eles.
 
-Antes de mexer em qualquer coisa: *Meus clientes* → **Exportar lista**. Guarde o
-JSON, e é por ele que a carteira volta — em outro aparelho, é só **Importar lista**.
+| Chave                  | O que guarda                          | Exportável por        |
+|------------------------|---------------------------------------|-----------------------|
+| `corpus_propostas_v1`  | histórico de propostas geradas        | Propostas salvas → Exportar |
+| `corpus_cofre_v1`      | carteira de clientes, criptografada   | Meus clientes → Exportar lista |
+| `corpus_catalogo_v1`   | catálogo editado e categorias         | *(sem exportação)*    |
+| `corpus_rascunho_v1`   | o preenchimento em andamento          | —                     |
 
-> Em "Limpar armazenamento"/"Limpar dados" nas configurações do Android o cofre
-> some. "Limpar cache" é seguro — só remove os arquivos guardados do app.
+**Atualizar o app não apaga nada.** O `sw.js` troca os arquivos, nunca o
+armazenamento.
+
+**O que apaga:** "limpar dados do site", desinstalar o app da tela inicial, aba
+anônima, e — o mais traiçoeiro — o navegador descartando por falta de espaço em
+disco, já que esse armazenamento é *best-effort*.
+
+> Cuidado com "Limpar armazenamento"/"Limpar dados" nas configurações do Android.
+> "Limpar cache" é seguro: só remove os arquivos guardados do app.
+
+Por isso: exporte depois de cada lote de propostas e guarde o JSON numa pasta com
+backup (rede da empresa, Drive). É o único jeito de sobreviver a trocar de
+aparelho.
 
 ## A lista de clientes não mora aqui
 
@@ -61,6 +85,8 @@ Cliente novo com CNPJ que já existe é atualizado, não duplicado.
 | `modelos.js`           | Os dois `.docx` da Corpus, em base64                      |
 | `vendor/jszip.min.js`  | JSZip 3.10.1, servido pelo próprio site                    |
 | `sw.js` / `manifest.json` | O que faz instalar na tela inicial e rodar offline     |
+| `icons/`               | Os três PNGs do ícone (192, 512 e maskable)              |
+| `ferramentas-icone.py` | Redesenha os três PNGs do ícone; não vai pro navegador   |
 
 ### Como o `.docx` é montado
 
@@ -99,7 +125,7 @@ O service worker exige HTTP — abrir o arquivo direto não serve pra testar
 instalação:
 
 ```
-python3 -m http.server 8099
+python3 -m http.server 8098
 ```
 
 Esse servidor não manda `Cache-Control`, então ele não reproduz o cenário de cache

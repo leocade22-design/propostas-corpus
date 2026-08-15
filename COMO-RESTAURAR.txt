@@ -1,0 +1,38 @@
+PROPOSTAS CORPUS — cópia completa do aplicativo
+Versão 2026.08.16-2 · gerada em 15/08/2026
+
+O QUE É ESTE ZIP
+  Todos os arquivos que fazem o aplicativo funcionar. É o app inteiro: não
+  depende de servidor, de banco de dados nem de internet pra montar os
+  documentos.
+
+O QUE NÃO ESTÁ AQUI
+  Seus dados. As propostas salvas, a carteira de clientes e o catálogo editado
+  ficam no armazenamento do navegador, no aparelho — nunca dentro destes
+  arquivos. Para guardar esses, use dentro do app:
+      Propostas salvas  -> Exportar
+      Meus clientes     -> Exportar lista
+  e guarde os JSON junto deste zip.
+
+PARA VOLTAR A PUBLICAR (o caminho normal)
+  1. Suba o conteúdo da pasta propostas-corpus/ para um repositório no GitHub
+  2. Settings -> Pages -> Source: GitHub Actions
+  3. O arquivo .github/workflows/pages.yml publica sozinho a cada envio
+
+PARA RODAR SEM PUBLICAR NADA
+  Abrir o index.html com dois cliques FUNCIONA para gerar os documentos, mas
+  não instala na tela inicial nem funciona offline — isso exige um servidor.
+  Com Python instalado, dentro da pasta:
+      python3 -m http.server 8098
+  e abrir http://localhost:8098 no navegador.
+
+AO PUBLICAR UMA VERSÃO NOVA
+  Mudar o número nos DOIS arquivos, juntos:
+      sw.js       -> const VERSAO
+      index.html  -> const APP_VERSION
+  É a mudança do sw.js que faz o navegador perceber que existe versão nova.
+
+CONFERIDO ANTES DE FECHAR ESTE ZIP
+  Esta cópia foi servida isolada, com todo o acesso à internet bloqueado, e
+  gerou a Proposta e o Aceite normalmente. Os dois .docx foram abertos e
+  conferidos: XML válido e nenhum campo por preencher.
