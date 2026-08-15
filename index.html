@@ -33,7 +33,9 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-    background:var(--cinza);color:var(--texto);padding-bottom:120px;}
+    /* o rodapé é fixo e tem ~115px; a folga precisa passar disso, senão o último
+       card fica escondido atrás dele */
+    background:var(--cinza);color:var(--texto);padding-bottom:170px;}
   header{background:var(--topo);color:#fff;padding:20px 16px;}
   header h1{margin:0;font-size:1.25rem;}
   header p{margin:5px 0 0;font-size:.8rem;opacity:.9;}
@@ -170,6 +172,9 @@
 
   .linha-cat{border:1px solid var(--card-borda);background:var(--branco);border-radius:10px;
     padding:10px 12px;margin-bottom:8px;}
+  /* Assinatura de quem fez — discreta, no rodapé do "Sobre o app" */
+  .assinatura{margin-top:14px;padding-top:10px;border-top:1px solid var(--card-borda);
+    text-align:right;font-size:.78rem;font-style:italic;color:var(--verde);letter-spacing:.02em;}
   .linha-cat .nome{font-size:.85rem;font-weight:600;}
   /* Linha de categoria: nome à esquerda, alça de arrasto encostada à direita */
   .cat-linha .cat-topo{display:flex;align-items:center;gap:10px;}
@@ -409,6 +414,7 @@
         <button class="btn-sec" onclick="buscarAtualizacao()">Buscar atualização</button>
       </div>
       <div class="status" id="statusApp"></div>
+      <div class="assinatura">by: Leonardo Cade</div>
     </div>
   </div>
 </div>
@@ -2623,7 +2629,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-5";
+const APP_VERSION="2026.08.15-6";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
