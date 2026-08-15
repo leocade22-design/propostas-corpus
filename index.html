@@ -84,6 +84,21 @@
   .modal-topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .modal-topo h3{font-size:1.02rem;color:var(--verde);margin:0;}
   .modal-fechar{background:none;color:var(--suave);font-size:1.1rem;padding:4px 8px;}
+  /* Campo com botão colado do lado (CNPJ + lupa da Receita) */
+  .campo-botao{display:flex;gap:6px;}
+  .campo-botao input{flex:1;min-width:0;}
+  .btn-lupa{flex:0 0 auto;width:46px;padding:0;background:var(--verde-claro);
+    color:var(--verde);border:1px solid var(--verde-borda);font-size:1rem;}
+
+  /* Resumo do que o app entendeu do endereço; abre a separação só se precisar */
+  .resumo-quebra{display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;
+    padding:8px 10px;background:var(--verde-claro);border:1px solid var(--verde-borda);
+    border-radius:8px;font-size:.78rem;line-height:1.35;}
+  .resumo-quebra .txt{flex:1;}
+  .resumo-quebra .acao{flex:0 0 auto;color:var(--suave);font-size:.72rem;white-space:nowrap;}
+  .resumo-quebra.incompleto{background:var(--alerta-bg);border-color:#e8b4b0;color:var(--alerta);}
+  .resumo-quebra.incompleto .acao{color:var(--alerta);}
+
   /* Passo já escolhido vira uma linha só, pra sobrar tela */
   .passo-resumo{display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 12px;
     background:var(--verde-claro);border:1px solid var(--verde-borda);border-radius:8px;}
@@ -170,57 +185,66 @@
   </div>
 
   <div class="card">
-    <h2>Colar dados do cliente</h2>
-    <textarea id="colaTexto" placeholder="Cole aqui a mensagem do cliente — mesmo fora do padrão. CNPJ, CEP, telefone e e-mail são reconhecidos em qualquer formato."></textarea>
-    <button class="btn-sec btn-full" onclick="extrairDoTexto()">Extrair e preencher</button>
-    <div class="sub" id="resumoExtracao"></div>
-  </div>
-
-  <div class="card">
     <h2>Dados do cliente</h2>
+
+    <!-- Um caminho só pra preencher: cola o que o cliente mandou (ou só o CNPJ)
+         e o app extrai o que der do texto e completa o resto na Receita. -->
+    <textarea id="colaTexto" rows="2" placeholder="Cole a mensagem do cliente aqui — ou só o CNPJ."></textarea>
+    <button class="btn-principal btn-full" onclick="preencherAutomatico()">Preencher automaticamente</button>
+    <div class="sub" id="resumoExtracao"></div>
+
     <label>Razão Social</label>
     <input type="text" id="razaoSocial" style="text-transform:uppercase" oninput="conferirRazaoSocial()">
     <div class="sub" id="avisoRazaoSocial"></div>
     <div class="row2">
-      <div><label>CNPJ</label><input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this)"></div>
+      <div>
+        <label>CNPJ</label>
+        <div class="campo-botao">
+          <input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this)">
+          <button class="btn-lupa" onclick="buscarCNPJ()" title="Buscar na Receita">🔍</button>
+        </div>
+      </div>
       <div><label>Inscrição Estadual</label><input type="text" id="ie" inputmode="numeric"></div>
     </div>
+    <div class="sub" id="statusCNPJ"></div>
     <div class="row2">
       <div><label>Contato</label><input type="text" id="solicitante"></div>
       <div><label>Telefone</label><input type="text" id="telefone" inputmode="numeric" oninput="mascaraTelefone(this)" placeholder="27 99999-9999"></div>
     </div>
-    <button class="btn-sec btn-full" onclick="buscarCNPJ()">Buscar dados pelo CNPJ</button>
-    <div class="sub" id="statusCNPJ"></div>
-    <p class="sub" style="margin-top:10px">Preferível usar o botão acima — os campos de endereço abaixo vêm certos e
-      já separados da Receita. Só preencha à mão se a busca não funcionar, e sempre confira contra o Cartão CNPJ.</p>
     <label>E-mail</label>
     <input type="text" id="email" inputmode="email">
-    <label>Endereço completo (preenchimento manual)</label>
-    <input type="text" id="enderecoUnico" onblur="quebrarEndereco()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
-    <div class="sub">A quebra acontece quando você sai do campo — confira os campos abaixo antes de gerar (são eles que valem no documento):</div>
-    <div class="sub" id="avisoEndereco" style="color:var(--alerta)"></div>
-    <div class="row4">
-      <input type="text" id="logradouro" placeholder="Logradouro">
-      <input type="text" id="bairro" placeholder="Bairro">
-      <input type="text" id="uf" placeholder="UF" maxlength="2" style="text-transform:uppercase">
-      <input type="text" id="cep" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this)">
-    </div>
-    <input type="text" id="cidade" placeholder="Cidade" style="margin-top:7px">
-  </div>
 
-  <div class="card">
-    <h2>Endereço de coleta</h2>
-    <div class="chips" id="chipsColeta"></div>
-    <div id="blocoColeta" class="oculto">
-      <label>Endereço de coleta</label>
-      <input type="text" id="enderecoColetaUnico" onblur="quebrarEnderecoColeta()">
-      <div class="row4" style="margin-top:7px">
-        <input type="text" id="logradouroColeta" placeholder="Logradouro">
-        <input type="text" id="bairroColeta" placeholder="Bairro">
-        <input type="text" id="ufColeta" placeholder="UF" maxlength="2" style="text-transform:uppercase">
-        <input type="text" id="cepColeta" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this)">
+    <label>Endereço de faturamento / correspondência</label>
+    <input type="text" id="enderecoUnico" onblur="quebrarEndereco()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
+    <!-- A separação em bairro/cidade/UF/CEP só aparece se você quiser conferir;
+         no dia a dia o resumo já diz o que o app entendeu. -->
+    <div class="resumo-quebra" id="resumoEndereco" onclick="toggleQuebra('')"></div>
+    <div id="quebraEndereco" class="oculto" style="margin-top:7px">
+      <div class="row4">
+        <input type="text" id="logradouro" placeholder="Logradouro" oninput="renderResumoEndereco('')">
+        <input type="text" id="bairro" placeholder="Bairro" oninput="renderResumoEndereco('')">
+        <input type="text" id="uf" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('')">
+        <input type="text" id="cep" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this);renderResumoEndereco('')">
       </div>
-      <input type="text" id="cidadeColeta" placeholder="Cidade" style="margin-top:7px">
+      <input type="text" id="cidade" placeholder="Cidade" style="margin-top:7px" oninput="renderResumoEndereco('')">
+    </div>
+
+    <div class="etapa">
+      <div class="etapa-titulo">Endereço de coleta</div>
+      <div class="chips" id="chipsColeta"></div>
+      <div id="blocoColeta" class="oculto">
+        <input type="text" id="enderecoColetaUnico" onblur="quebrarEnderecoColeta()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
+        <div class="resumo-quebra" id="resumoEnderecoColeta" onclick="toggleQuebra('Coleta')"></div>
+        <div id="quebraEnderecoColeta" class="oculto" style="margin-top:7px">
+          <div class="row4">
+            <input type="text" id="logradouroColeta" placeholder="Logradouro" oninput="renderResumoEndereco('Coleta')">
+            <input type="text" id="bairroColeta" placeholder="Bairro" oninput="renderResumoEndereco('Coleta')">
+            <input type="text" id="ufColeta" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('Coleta')">
+            <input type="text" id="cepColeta" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this);renderResumoEndereco('Coleta')">
+          </div>
+          <input type="text" id="cidadeColeta" placeholder="Cidade" style="margin-top:7px" oninput="renderResumoEndereco('Coleta')">
+        </div>
+      </div>
     </div>
   </div>
 
@@ -372,8 +396,15 @@ const OBJETOS=[
  {n:"ADITIVO CONTRATUAL",sub:false}];
 const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-let itens=[], sel={}, objetoSel=null, subObjetoSel=null, mesmoEnd=true;
-let objetoAberto=true, clientesAberto=false;
+// A esmagadora maioria das propostas é coleta/transporte/destinação em prestação,
+// então já entra escolhido e recolhido — trocar é um toque no card verde.
+const OBJETO_PADRAO="COLETA, TRANSPORTE E DESTINAÇÃO FINAL DE RESÍDUO";
+const SUBOBJETO_PADRAO="PRESTAÇÃO";
+let itens=[], sel={}, objetoSel=OBJETO_PADRAO, subObjetoSel=SUBOBJETO_PADRAO, mesmoEnd=true;
+let objetoAberto=false, clientesAberto=false;
+// Guarda o texto já interpretado, pra sair do campo sem motivo não reprocessar
+// um endereço que a Receita já entregou certinho e separado.
+let ultimoEnderecoLido={"":"","Coleta":""};
 // Passo do wizard que o usuário abriu pra alterar (os demais ficam recolhidos)
 let passoAberto=null;
 
@@ -495,24 +526,61 @@ function conferirRazaoSocial(){
   const temSufixo=/\b(LTDA|ME|EIRELI|S\/?A|EPP|MEI|SS)\.?\s*$/i.test(v);
   el.textContent=temSufixo?"":"Confira se falta LTDA, ME, S.A. ou outro sufixo — confronte com o Cartão CNPJ.";
 }
-function quebrarEndereco(){
-  const r=partirEndereco(document.getElementById("enderecoUnico").value);
-  document.getElementById("logradouro").value=r.logradouro;
-  document.getElementById("bairro").value=r.incerto?"":r.bairro;
-  document.getElementById("cidade").value=r.incerto?"":r.cidade;
-  if(r.uf) document.getElementById("uf").value=r.uf;
-  if(r.cep) document.getElementById("cep").value=r.cep;
-  document.getElementById("avisoEndereco").textContent=r.incerto
-    ?"Não deu pra separar Bairro e Cidade com segurança — preencha os dois campos abaixo à mão (ou use Buscar dados pelo CNPJ)."
-    :"";
+// sufixo "" = endereço de faturamento; "Coleta" = endereço de coleta
+function quebrarGenerico(sufixo){
+  const campoTexto=document.getElementById(sufixo?"enderecoColetaUnico":"enderecoUnico");
+  const texto=campoTexto.value;
+  // A Receita entrega o endereço já separado. Se ninguém mexeu no texto desde
+  // então, reprocessar só estragaria o que veio certo.
+  if(texto===ultimoEnderecoLido[sufixo]){renderResumoEndereco(sufixo);return;}
+  ultimoEnderecoLido[sufixo]=texto;
+  const r=partirEndereco(texto);
+  document.getElementById("logradouro"+sufixo).value=r.logradouro;
+  document.getElementById("bairro"+sufixo).value=r.incerto?"":r.bairro;
+  document.getElementById("cidade"+sufixo).value=r.incerto?"":r.cidade;
+  if(r.uf) document.getElementById("uf"+sufixo).value=r.uf;
+  if(r.cep) document.getElementById("cep"+sufixo).value=r.cep;
+  renderResumoEndereco(sufixo);
+  // Quando não deu pra separar com segurança, abre os campos sozinho: é o único
+  // jeito de o usuário perceber que precisa completar antes de gerar.
+  if(r.incerto) abrirQuebra(sufixo,true);
 }
-function quebrarEnderecoColeta(){
-  const r=partirEndereco(document.getElementById("enderecoColetaUnico").value);
-  document.getElementById("logradouroColeta").value=r.logradouro;
-  document.getElementById("bairroColeta").value=r.incerto?"":r.bairro;
-  document.getElementById("cidadeColeta").value=r.incerto?"":r.cidade;
-  if(r.uf) document.getElementById("ufColeta").value=r.uf;
-  if(r.cep) document.getElementById("cepColeta").value=r.cep;
+function quebrarEndereco(){quebrarGenerico("");}
+function quebrarEnderecoColeta(){quebrarGenerico("Coleta");}
+
+function abrirQuebra(sufixo,abrir){
+  document.getElementById("quebraEndereco"+sufixo).classList.toggle("oculto",!abrir);
+  renderResumoEndereco(sufixo);
+}
+function toggleQuebra(sufixo){
+  const el=document.getElementById("quebraEndereco"+sufixo);
+  abrirQuebra(sufixo,el.classList.contains("oculto"));
+}
+// Mostra numa linha só o que o app entendeu, pra conferir sem abrir nada
+function renderResumoEndereco(sufixo){
+  const g=id=>(document.getElementById(id+sufixo).value||"").trim();
+  const alvo=document.getElementById(sufixo?"resumoEnderecoColeta":"resumoEndereco");
+  if(!alvo) return;
+  const aberto=!document.getElementById("quebraEndereco"+sufixo).classList.contains("oculto");
+  const bairro=g("bairro"), cidade=g("cidade"), uf=g("uf").toUpperCase(), cep=g("cep");
+  const faltando=[];
+  if(!bairro) faltando.push("bairro");
+  if(!cidade) faltando.push("cidade");
+  if(!uf) faltando.push("UF");
+  const temAlgo=g("logradouro")||bairro||cidade||uf||cep;
+
+  let txt;
+  if(!temAlgo) txt="Preencha o endereço acima — a separação aparece aqui.";
+  else if(faltando.length) txt="Falta "+faltando.join(", ")+" — toque para completar (vai no Aceite).";
+  else txt=[bairro,[cidade,uf].filter(Boolean).join("/"),cep?"CEP "+cep:""].filter(Boolean).join(" · ");
+
+  alvo.innerHTML="";
+  const spanTxt=document.createElement("span");
+  spanTxt.className="txt"; spanTxt.textContent=txt;
+  const spanAcao=document.createElement("span");
+  spanAcao.className="acao"; spanAcao.textContent=aberto?"ocultar":"ajustar";
+  alvo.appendChild(spanTxt); alvo.appendChild(spanAcao);
+  alvo.classList.toggle("incompleto",temAlgo&&faltando.length>0);
 }
 /* ============ MEUS CLIENTES (recolhido por padrão) ============ */
 function toggleClientes(){
@@ -557,9 +625,34 @@ function extrairDoTexto(){
   rs.value=rs.value.toUpperCase();
   conferirRazaoSocial();
   quebrarEndereco();
-  document.getElementById("resumoExtracao").textContent =
-    achados.length?("Reconhecido: "+[...new Set(achados)].join(", ")+". Confira o resto."):"Nada reconhecido — preencha à mão.";
-  document.getElementById("colaTexto").value="";
+  return [...new Set(achados)];
+}
+
+/* Um botão só: pega o que der do texto colado e, tendo CNPJ, completa o resto
+   na Receita — que devolve razão social e endereço já certos e separados.
+   Antes eram dois caminhos parecidos ("Extrair e preencher" e "Buscar pelo
+   CNPJ") que faziam metade do trabalho cada um. */
+async function preencherAutomatico(){
+  const st=document.getElementById("resumoExtracao");
+  const campoTexto=document.getElementById("colaTexto");
+  const achados=campoTexto.value.trim()?extrairDoTexto():[];
+
+  const doc=so(document.getElementById("cnpj").value);
+  if(doc.length===14){
+    st.textContent=achados.length
+      ? "Reconhecido: "+achados.join(", ")+". Consultando a Receita…"
+      : "Consultando a Receita…";
+    const ok=await buscarCNPJ();
+    campoTexto.value="";
+    st.textContent=ok
+      ? "Preenchido pela Receita"+(achados.length?" + do texto ("+achados.join(", ")+")":"")+". Confira antes de gerar."
+      : (achados.length?"Do texto: "+achados.join(", ")+". A Receita não respondeu — confira o endereço à mão.":"");
+    return;
+  }
+  campoTexto.value="";
+  st.textContent=achados.length
+    ? "Reconhecido: "+achados.join(", ")+". Sem CNPJ completo pra consultar a Receita."
+    : "Nada reconhecido — preencha à mão, ou cole um CNPJ pra buscar na Receita.";
 }
 
 /* ============ OBJETO ============ */
@@ -587,7 +680,9 @@ function montarObjeto(){
   const previaEl=document.getElementById("previaObjeto");
   previaEl.classList.toggle("oculto",!objetoSel);
   previaEl.innerHTML=objetoSel
-    ?`<b>Objeto:</b> ${objetoTexto()}`+(recolhido?'<span class="dica-alterar">toque para alterar</span>':'')
+    ?`<b>Objeto:</b> ${objetoTexto()}`
+      +(recolhido?'<span class="dica-alterar">▾ toque para trocar o objeto</span>'
+                 :'<span class="dica-alterar">▴ toque para recolher</span>')
     :"";
 }
 function toggleObjeto(){
@@ -942,6 +1037,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
   carregarCatalogo();
   fluxo();montarObjeto();montarChipsColeta();render();
+  renderResumoEndereco("");renderResumoEndereco("Coleta");
 })();
 
 /* ============ PROPOSTAS SALVAS ============
@@ -1072,6 +1168,10 @@ function abrirProposta(id,comoCopia){
 
   document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
   conferirRazaoSocial();
+  // Endereço vem salvo já separado — marca como lido pra não reprocessar
+  ultimoEnderecoLido={"":document.getElementById("enderecoUnico").value,
+                      "Coleta":document.getElementById("enderecoColetaUnico").value};
+  abrirQuebra("",false);abrirQuebra("Coleta",false);
   esconderPassos(2);
   fluxo();montarObjeto();montarChipsColeta();render();
   if(historicoAberto) renderHistorico();
@@ -1122,9 +1222,10 @@ function novaProposta(){
   const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
   if(temAlgo&&!confirm("Começar uma proposta nova? O que estiver preenchido e não foi gerado se perde."))return;
 
-  itens=[];sel={};objetoSel=null;subObjetoSel=null;objetoAberto=true;
+  itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;objetoAberto=false;
   mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};
   propostaAtualId=null;
+  ultimoEnderecoLido={"":"","Coleta":""};
   limparResultado();
 
   ["razaoSocial","cnpj","ie","solicitante","telefone","email","enderecoUnico",
@@ -1142,6 +1243,7 @@ function novaProposta(){
   const mm=String(h.getMonth()+1).padStart(2,"0");
   document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
 
+  abrirQuebra("",false);abrirQuebra("Coleta",false);
   esconderPassos(2);
   fluxo();montarObjeto();montarChipsColeta();render();
   if(historicoAberto) renderHistorico();
@@ -1350,7 +1452,7 @@ async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="
 async function buscarCNPJ(){
   const st=document.getElementById("statusCNPJ");
   const num=so(document.getElementById("cnpj").value);
-  if(num.length!==14){st.textContent="Digite o CNPJ completo (14 dígitos).";return;}
+  if(num.length!==14){st.textContent="Digite o CNPJ completo (14 dígitos).";return false;}
   st.textContent="Consultando...";
   const fontes=[
     {url:"https://brasilapi.com.br/api/cnpj/v1/"+num, map:d=>({
@@ -1377,16 +1479,21 @@ async function buscarCNPJ(){
       document.getElementById("cidade").value=v.cid;
       document.getElementById("uf").value=v.uf;
       if(v.cep){const el=document.getElementById("cep");el.value=v.cep;mascaraCEP(el);}
-      document.getElementById("enderecoUnico").value=
-        [v.log,v.bai,(v.cid&&v.uf)?v.cid+" - "+v.uf:v.cid,v.cep].filter(Boolean).join(", ");
+      const linha=[v.log,v.bai,(v.cid&&v.uf)?v.cid+" - "+v.uf:v.cid,v.cep].filter(Boolean).join(", ");
+      document.getElementById("enderecoUnico").value=linha;
+      // Já veio separado da Receita: marca como lido pra um blur no campo não
+      // reprocessar e estragar o que está certo.
+      ultimoEnderecoLido[""]=linha;
+      renderResumoEndereco("");
       if(v.tel&&!document.getElementById("telefone").value){
         const el=document.getElementById("telefone");el.value=v.tel;mascaraTelefone(el);}
       if(v.em&&!document.getElementById("email").value) document.getElementById("email").value=v.em.toLowerCase();
-      st.textContent="Preenchido pela Receita. Confira antes de gerar.";
-      return;
+      st.textContent="Endereço de faturamento preenchido pela Receita.";
+      return true;
     }catch(e){}
   }
   st.textContent="Não consegui consultar (sem internet ou serviço fora do ar). Preencha à mão.";
+  return false;
 }
 
 /* ============ COFRE DE CLIENTES (criptografia real AES-GCM) ============ */
@@ -1462,6 +1569,7 @@ function carregarCliente(i){
   document.getElementById("solicitante").value=contato.replace(/\s*[-–]\s*.*$/,"").trim();
   if(mt){const elt=document.getElementById("telefone");elt.value=mt[1];mascaraTelefone(elt);}
   document.getElementById("enderecoUnico").value=c.endereco||"";
+  ultimoEnderecoLido[""]="";  // força reinterpretar o endereço que veio do cofre
   quebrarEndereco();
   document.getElementById("statusCNPJ").textContent="Carregado do cofre.";
   window.scrollTo({top:0,behavior:"smooth"});
@@ -1511,7 +1619,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.14-3";
+const APP_VERSION="2026.08.15-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
