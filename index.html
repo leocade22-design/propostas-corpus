@@ -179,7 +179,7 @@
   .linha-valor .campos{display:grid;grid-template-columns:1.2fr 1fr;gap:8px;}
   .linha-valor input{padding:8px 10px;font-size:.9rem;}
   .linha-valor .obs{margin-top:6px;}
-  .linha-valor .obs input{font-size:.8rem;}
+  .linha-valor .obs textarea{font-size:.8rem;min-height:0;padding:8px 10px;}
 
   .linha-cat{border:1px solid var(--card-borda);background:var(--branco);border-radius:10px;
     padding:10px 12px;margin-bottom:8px;}
@@ -392,11 +392,14 @@
     <div class="etapa oculto" id="passo4"></div>
 
     <div id="camposFinais" class="oculto">
-      <!-- Botão logo no topo: com 5 ou 6 veículos marcados, deixá-lo lá embaixo
-           obrigava a rolar a lista inteira só pra confirmar. -->
-      <button class="btn-principal btn-full" onclick="adicionarItens()">+ Adicionar à proposta</button>
-      <div class="etapa-titulo" style="margin-top:12px">Valores <span id="contagemLinhas" class="badge">0</span></div>
+      <div class="etapa-titulo">Valores <span id="contagemLinhas" class="badge">0</span></div>
       <div id="linhasValores"></div>
+      <!-- Um botão só, e no fim: a ordem natural é escolher, preencher e então
+           adicionar. Lá em cima ele vinha antes dos campos que precisam ser
+           preenchidos, e com vários itens marcados ficava longe de onde se
+           termina de digitar. -->
+      <button class="btn-principal btn-full" style="margin-top:12px"
+              onclick="adicionarItens()">+ Adicionar à proposta</button>
     </div>
 
     <div class="titulo-secao"><span>Na proposta <span class="badge" id="contagemNaProposta">0</span></span></div>
@@ -514,9 +517,11 @@
     </div>
     <!-- As três de sempre a um toque; o campo continua aceitando qualquer texto -->
     <div class="sugestoes" id="sugestoesUnidade"></div>
+    <!-- O atalho ao lado do rótulo muda conforme a linha: frequência só faz
+         sentido em coleta e transporte, NR só em mão de obra. Ver atalhoDaLinha() -->
     <div class="rotulo-acao">
       <label>Observações</label>
-      <button class="link-acao" onclick="abrirFrequencia()">incluir frequência?</button>
+      <button class="link-acao oculto" id="atalhoObs"></button>
     </div>
     <textarea id="edObs" rows="3" oninput="ajustarAltura(this)"></textarea>
     <div class="row2" style="margin-top:12px">
@@ -551,6 +556,20 @@
     <div class="row2" style="margin-top:12px">
       <button class="btn-sec" id="textoNao">Cancelar</button>
       <button class="btn-principal" id="textoSim">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- NRs do profissional: viram uma frase no fim das Observações da mão de obra -->
+<div class="modal-fundo oculto" id="modalNR">
+  <div class="modal-caixa alerta-caixa">
+    <div class="emoji">🦺</div>
+    <div class="zoeira">Normas que o profissional tem</div>
+    <div class="motivo centro">Marque as que valem. Entra como uma frase no fim das Observações.</div>
+    <div class="chips" id="chipsNR" style="justify-content:center"></div>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-sec" onclick="fecharNR()">Cancelar</button>
+      <button class="btn-principal" onclick="aplicarNR()">Aplicar</button>
     </div>
   </div>
 </div>
@@ -1218,7 +1237,7 @@ function montarLinhas(){
       return {chave:"veic:"+nome, nome,
         descricao:`${nomeCategoria(c)}\n${cl} - ${sel.mod} -\n${nome}`, residuo:"-",
         unidade:UNI_MOD[sel.mod]||"",
-        observacoes:(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:(v.c||"")};
+        obsBase:(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:(v.c||"")};
     });
   }
   if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
@@ -1227,7 +1246,7 @@ function montarLinhas(){
       const r=listaResiduos(sel.classe).find(x=>x.n===nome)||{n:nome,o:""};
       return {chave:"res:"+nome, nome,
         descricao:`${nomeCategoria(c)} - ${sel.classe}\n– ${sel.uni}`,
-        residuo:r.n, unidade:sel.uni.replace("POR ",""), observacoes:r.o||""};
+        residuo:r.n, unidade:sel.uni.replace("POR ",""), obsBase:r.o||""};
     });
   }
   if(c==="RECICLÁVEIS MISTOS"){
@@ -1235,24 +1254,24 @@ function montarLinhas(){
     return sel.residuos.map(nome=>{
       const r=listaReciclaveis().find(x=>x.n===nome)||{n:nome,o:""};
       return {chave:"reci:"+nome, nome, descricao:nomeCategoria(c),
-        residuo:r.n, unidade:sel.uni.replace("POR ",""), observacoes:r.o||""};
+        residuo:r.n, unidade:sel.uni.replace("POR ",""), obsBase:r.o||""};
     });
   }
   if(c==="MÃO DE OBRA"){
     if(!sel.cargos||!sel.cargos.length) return [];
     return sel.cargos.map(nome=>({chave:"cargo:"+nome, nome,
-      descricao:"MDO - "+nome, residuo:"-", unidade:"Diária", observacoes:""}));
+      descricao:"MDO - "+nome, residuo:"-", unidade:"Diária", obsBase:""}));
   }
   if(c==="LOCAÇÃO / DISPONIBILIZAÇÃO"){
     if(!sel.locs||!sel.locs.length) return [];
     return sel.locs.map(nome=>{
       const l=listaLocacoes().find(x=>x.n===nome)||{n:nome,d:nome};
       return {chave:"loc:"+nome, nome, descricao:l.d, residuo:"-",
-        unidade:"Un.", observacoes:OBS_LOC};
+        unidade:"Un.", obsBase:OBS_LOC};
     });
   }
   if(c==="MANUTENÇÃO DE ÁREAS VERDES"||c==="LIMPEZA INDUSTRIAL"){
-    return [{chave:"cat:"+c, nome:nomeCategoria(c), descricao:nomeCategoria(c), residuo:"-", unidade:"", observacoes:""}];
+    return [{chave:"cat:"+c, nome:nomeCategoria(c), descricao:nomeCategoria(c), residuo:"-", unidade:"", obsBase:""}];
   }
   return [];
 }
@@ -1262,6 +1281,10 @@ function montarLinhas(){
 // ficava de fora e era gravada num objeto temporário — por isso o campo "voltava"
 // sozinho e não dava pra digitar nada nele.
 let valorPorChave={}, obsPorChave={}, unidadePorChave={};
+// Guarda a última observação que o app montou sozinho. É por ela que se sabe se
+// o texto na tela ainda é automático — e portanto pode ser refeito quando a
+// unidade muda — ou se foi escrito à mão e não se mexe mais nele.
+let obsAutoPorChave={};
 function renderLinhasValores(){
   const linhas=montarLinhas();
   const bloco=document.getElementById("camposFinais");
@@ -1283,7 +1306,10 @@ function renderLinhasValores(){
          <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
        </div>
        <div class="sugestoes na-linha" data-campo="unidades"></div>
-       <div class="obs"><label>Observações</label><input type="text" data-campo="obs"></div>`;
+       <!-- textarea, não input: a observação sai em mais de uma linha ("Valor por
+            quilo destinado." e o tratamento embaixo) e input engole o \n -->
+       <div class="obs"><label>Observações</label>
+         <textarea rows="2" data-campo="obs" oninput="ajustarAltura(this)"></textarea></div>`;
     div.querySelector(".nome").textContent=l.nome;
     const iv=div.querySelector('[data-campo="valor"]');
     iv.value=valorPorChave[l.chave]||"";
@@ -1292,11 +1318,25 @@ function renderLinhasValores(){
     const iu=div.querySelector('[data-campo="unidade"]');
     iu.value=unidadePorChave[l.chave]!==undefined?unidadePorChave[l.chave]:l.unidade;
     const chips=div.querySelector('[data-campo="unidades"]');
-    iu.oninput=()=>{unidadePorChave[l.chave]=iu.value;montarChipsUnidade(chips,iu,l.chave,u=>{unidadePorChave[l.chave]=u;});};
-    montarChipsUnidade(chips,iu,l.chave,u=>{unidadePorChave[l.chave]=u;});
     const io=div.querySelector('[data-campo="obs"]');
-    io.value=obsPorChave[l.chave]!==undefined?obsPorChave[l.chave]:l.observacoes;
+
+    // Refaz a observação quando a unidade muda — mas só se ela ainda for a que o
+    // app escreveu. Texto ajustado à mão fica como está.
+    const aplicarObs=()=>{
+      const nova=comporObs(l.chave,iu.value,l.obsBase);
+      const atual=obsPorChave[l.chave];
+      if(atual===undefined||atual===obsAutoPorChave[l.chave]){
+        io.value=nova; obsPorChave[l.chave]=nova; ajustarAltura(io);
+      }
+      obsAutoPorChave[l.chave]=nova;
+    };
+    const trocouUnidade=u=>{unidadePorChave[l.chave]=u;aplicarObs();};
+    iu.oninput=()=>{trocouUnidade(iu.value);montarChipsUnidade(chips,iu,l.chave,trocouUnidade);};
+    montarChipsUnidade(chips,iu,l.chave,trocouUnidade);
+    aplicarObs();
+    if(obsPorChave[l.chave]!==undefined) io.value=obsPorChave[l.chave];
     io.oninput=()=>{obsPorChave[l.chave]=io.value;};
+    ajustarAltura(io);
     alvo.appendChild(div);
   });
 }
@@ -1311,10 +1351,12 @@ function adicionarItens(){
     itens.push({chave:l.chave, descricao:l.descricao, residuo:l.residuo,
       unidade:div?div.querySelector('[data-campo="unidade"]').value.trim():l.unidade,
       valor:div?div.querySelector('[data-campo="valor"]').value.trim():"",
-      observacoes:div?div.querySelector('[data-campo="obs"]').value.trim():l.observacoes,
+      observacoes:div?div.querySelector('[data-campo="obs"]').value.trim()
+                     :comporObs(l.chave,l.unidade,l.obsBase),
+      obsBase:l.obsBase||"",
       sel:JSON.parse(JSON.stringify(sel))});
   });
-  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};passoAberto=null;
+  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};passoAberto=null;
   esconderPassos(2);fluxo();render();
 }
 function removerItem(i){itens.splice(i,1);render();}
@@ -1339,8 +1381,10 @@ function abrirEdicaoItem(i){
   document.getElementById("edValor").value=it.valor||"";
   document.getElementById("edUnidade").value=it.unidade||"";
   document.getElementById("edObs").value=it.observacoes||"";
+  obsAutoModal=comporObs(it.chave,it.unidade,it.obsBase);
   document.getElementById("modalItem").classList.remove("oculto");
   montarSugestoesUnidade();
+  montarAtalhoObs();
   ["edDescricao","edObs"].forEach(id=>ajustarAltura(document.getElementById(id)));
 }
 function fecharEdicaoItem(){
@@ -1517,20 +1561,125 @@ function tirarFrequencia(){
   fecharFrequencia();
 }
 
+/* ============ NRs DA MÃO DE OBRA ============
+   Jardineiro que poda árvore alta e quem entra em caixa d'água ou fossa precisam
+   de norma específica, e isso pesa no preço — vale estar escrito na proposta.
+   A frase entra no fim das Observações e é reescrita inteira a cada aplicação,
+   então marcar de novo troca em vez de empilhar. */
+const NORMAS=[
+  {id:"35",rot:"NR-35 altura",   texto:"trabalho em altura"},
+  {id:"33",rot:"NR-33 confinado",texto:"espaço confinado"},
+  {id:"10",rot:"NR-10 elétrica", texto:"serviços em eletricidade"},
+  {id:"12",rot:"NR-12 máquinas", texto:"segurança em máquinas"},
+  {id:"11",rot:"NR-11 movimentação",texto:"movimentação de cargas"}
+];
+const RE_NR=/\s*Profissional com [^\n]*\.\s*$/;
+let nrEscolhidas=[];
+function abrirNR(){
+  const texto=document.getElementById("edObs").value;
+  nrEscolhidas=NORMAS.filter(n=>new RegExp("NR-"+n.id+"\\b").test(texto)).map(n=>n.id);
+  montarChipsNR();
+  document.getElementById("modalNR").classList.remove("oculto");
+}
+function fecharNR(){document.getElementById("modalNR").classList.add("oculto");}
+function montarChipsNR(){
+  const alvo=document.getElementById("chipsNR");
+  alvo.innerHTML="";
+  NORMAS.forEach(n=>{
+    const b=document.createElement("button");
+    b.className="chip"+(nrEscolhidas.includes(n.id)?" ativo":"");
+    b.textContent=n.rot;
+    b.onclick=()=>{
+      nrEscolhidas=nrEscolhidas.includes(n.id)
+        ?nrEscolhidas.filter(x=>x!==n.id):nrEscolhidas.concat(n.id);
+      montarChipsNR();
+    };
+    alvo.appendChild(b);
+  });
+}
+function aplicarNR(){
+  const el=document.getElementById("edObs");
+  const corpo=el.value.replace(RE_NR,"").trim();
+  const marcadas=NORMAS.filter(n=>nrEscolhidas.includes(n.id));
+  let frase="";
+  if(marcadas.length){
+    const partes=marcadas.map(n=>`NR-${n.id} (${n.texto})`);
+    const lista=partes.length>1
+      ? partes.slice(0,-1).join(", ")+" e "+partes[partes.length-1]
+      : partes[0];
+    frase="Profissional com "+lista+".";
+  }
+  el.value=[corpo,frase].filter(Boolean).join("\n");
+  ajustarAltura(el);
+  fecharNR();
+}
+
+/* O atalho ao lado de "Observações" depende do que a linha é: perguntar
+   frequência numa linha de destinação não faz sentido (quem tem periodicidade é
+   a coleta), e NR só existe em mão de obra. Nos demais tipos ele some. */
+function montarAtalhoObs(){
+  const item=(itemEditando!==null)?itens[itemEditando]:null;
+  const tipo=tipoLinha(item&&item.chave);
+  const botao=document.getElementById("atalhoObs");
+  if(tipo==="veic"){
+    botao.textContent="incluir frequência?";
+    botao.onclick=abrirFrequencia;
+    botao.classList.remove("oculto");
+  }else if(tipo==="cargo"){
+    botao.textContent="incluir NRs?";
+    botao.onclick=abrirNR;
+    botao.classList.remove("oculto");
+  }else{
+    botao.classList.add("oculto");
+    botao.onclick=null;
+  }
+}
+
 /* A unidade sugerida depende do que a linha é. Em resíduo o quilo responde por
    quase tudo, mas volume grande fecha por tonelada — e trocar isso não pode
    obrigar a voltar lá no passo da modalidade. O campo continua livre: são
    sugestões, não lista fechada. O prefixo da chave já diz o tipo da linha. */
 const UNIDADES_POR_TIPO={
-  veic:["Viagem","Hora","Equipamento"],
+  veic:["Viagem","Hora","Diária"],
   res:["KG","Tonelada","Unidade","M³"],
   reci:["KG","Tonelada","Unidade"],
   cargo:["Diária","Mensal","Hora"],
   loc:["Un.","Mensal","Diária"],
   cat:["Serviço","Mensal","Hora"]
 };
+function tipoLinha(chave){return String(chave||"").split(":")[0];}
 function unidadesSugeridas(chave){
-  return UNIDADES_POR_TIPO[String(chave||"").split(":")[0]]||["Viagem","KG","Tonelada"];
+  return UNIDADES_POR_TIPO[tipoLinha(chave)]||["Viagem","KG","Tonelada"];
+}
+
+/* ============ OBSERVAÇÃO QUE SEGUE A UNIDADE ============
+   Em destinação e em mão de obra a primeira frase da observação é sempre a
+   mesma, e depende só da unidade cobrada. Deixar isso na mão é onde nasce a
+   proposta com "Valor por quilo" numa linha vendida por tonelada.
+
+   O metro cúbico fica de fora de propósito: ali o preço existe porque o
+   destinador parceiro só recebe por volume, e a frase "valor por metro cúbico
+   destinado" prometeria uma precisão que a operação não tem. Nesse caso sai só
+   o tratamento. */
+const FRASE_POR_UNIDADE={
+  res:{  "kg":"Valor por quilo destinado.",
+         "tonelada":"Valor por tonelada destinada.",
+         "unidade":"Valor por unidade destinada.",
+         "un.":"Valor por unidade destinada." },
+  cargo:{"hora":"Valor por hora de MDO dedicada.",
+         "diária":"Valor por diária de MDO dedicada.",
+         "diaria":"Valor por diária de MDO dedicada.",
+         "mensal":"Valor mensal por MDO dedicada." }
+};
+FRASE_POR_UNIDADE.reci=FRASE_POR_UNIDADE.res;
+function fraseDaUnidade(chave,unidade){
+  const tabela=FRASE_POR_UNIDADE[tipoLinha(chave)];
+  if(!tabela) return "";
+  return tabela[String(unidade||"").trim().toLowerCase()]||"";
+}
+// Junta a frase da unidade com o texto de fábrica do catálogo, uma por linha.
+function comporObs(chave,unidade,base){
+  return [fraseDaUnidade(chave,unidade),String(base||"").trim()].filter(Boolean).join("\n");
 }
 // Serve pros dois lugares que têm campo de unidade: a linha do assistente e o
 // editor da linha que já está na proposta.
@@ -1548,10 +1697,21 @@ function montarChipsUnidade(alvo,campo,chave,aoTrocar){
     alvo.appendChild(b);
   });
 }
+// No editor vale a mesma regra da linha do assistente: trocar a unidade refaz a
+// observação, desde que ela ainda seja a que o app escreveu.
+let obsAutoModal="";
 function montarSugestoesUnidade(){
   const item=(itemEditando!==null)?itens[itemEditando]:null;
-  montarChipsUnidade(document.getElementById("sugestoesUnidade"),
-    document.getElementById("edUnidade"), item&&item.chave);
+  const campo=document.getElementById("edUnidade");
+  montarChipsUnidade(document.getElementById("sugestoesUnidade"),campo,item&&item.chave,u=>{
+    if(!item) return;
+    const obs=document.getElementById("edObs");
+    const nova=comporObs(item.chave,u,item.obsBase);
+    if(!obs.value.trim()||obs.value.trim()===obsAutoModal.trim()){
+      obs.value=nova; ajustarAltura(obs);
+    }
+    obsAutoModal=nova;
+  });
 }
 
 function salvarEdicaoItem(){
@@ -2057,7 +2217,7 @@ async function abrirProposta(id,comoCopia){
   itens=JSON.parse(JSON.stringify(p.itens||[]));
   objetoSel=p.objetoSel||null; subObjetoSel=p.subObjetoSel||null;
   mesmoEnd=p.mesmoEnd!==false;
-  sel={}; valorPorChave={}; obsPorChave={}; passoAberto=null; objetoAberto=false;
+  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; passoAberto=null; objetoAberto=false;
   limparResultado();
 
   if(comoCopia){
@@ -2145,7 +2305,7 @@ async function novaProposta(silencioso){
   }
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;objetoAberto=false;
-  mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};unidadePorChave={};
+  mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
   enderecoInformado="";
   document.getElementById("avisoDivergencia").classList.add("oculto");
   propostaAtualId=null;
@@ -2791,7 +2951,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.16-3";
+const APP_VERSION="2026.08.16-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
