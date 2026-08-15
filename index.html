@@ -90,10 +90,12 @@
   html[data-tema="escuro"] .badge{color:#0B1710;}
   .sub{font-size:.72rem;color:var(--suave);margin-top:3px;}
 
-  .modal-fundo{position:fixed;inset:0;background:rgba(20,30,25,.55);z-index:100;
-    display:flex;align-items:flex-end;justify-content:center;padding:0;}
-  .modal-caixa{background:#fff;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;
-    border-radius:16px 16px 0 0;padding:16px;}
+  .modal-fundo{position:fixed;inset:0;background:rgba(8,14,10,.66);z-index:100;
+    display:flex;align-items:center;justify-content:center;padding:14px;}
+  /* Sem cor fixa: no escuro o branco fixo criava aquele contraste que cegava */
+  .modal-caixa{background:var(--branco);color:var(--texto);width:100%;max-width:600px;
+    max-height:88vh;overflow-y:auto;border-radius:16px;padding:16px;
+    border:1px solid var(--card-borda);box-shadow:0 10px 40px rgba(0,0,0,.35);}
   .modal-topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .modal-topo h3{font-size:1.02rem;color:var(--verde);margin:0;}
   .modal-fechar{background:none;color:var(--suave);font-size:1.1rem;padding:4px 8px;}
@@ -104,10 +106,11 @@
     color:var(--verde);border:1px solid var(--verde-borda);font-size:1rem;}
 
   /* Resumo do que o app entendeu do endereço; abre a separação só se precisar */
-  .resumo-quebra{display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:6px;
+  .resumo-quebra{display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-top:6px;
     padding:8px 10px;background:var(--verde-claro);border:1px solid var(--verde-borda);
-    border-radius:8px;font-size:.78rem;line-height:1.35;}
-  .resumo-quebra .txt{flex:1;}
+    border-radius:8px;font-size:.78rem;line-height:1.45;}
+  /* Endereço inteiro, quebrando em quantas linhas precisar */
+  .resumo-quebra .txt{flex:1;white-space:pre-line;word-break:break-word;}
   .resumo-quebra .acao{flex:0 0 auto;color:var(--suave);font-size:.72rem;white-space:nowrap;}
   .resumo-quebra.incompleto{background:var(--alerta-bg);border-color:#e8b4b0;color:var(--alerta);}
   .resumo-quebra.incompleto .acao{color:var(--alerta);}
@@ -143,11 +146,13 @@
   .item-prop .desc{font-size:.85rem;font-weight:600;line-height:1.3;}
   .item-prop .meta{font-size:.75rem;color:var(--suave);margin-top:3px;}
   .item-prop .valor{font-size:.82rem;font-weight:600;color:var(--verde);margin-top:3px;}
-  .item-prop .alca{flex:0 0 auto;display:flex;flex-direction:column;justify-content:center;
-    gap:2px;padding:0 6px;background:var(--verde-claro);border-left:1px solid var(--card-borda);}
-  .item-prop .alca button{background:none;padding:5px 6px;font-size:.85rem;color:var(--verde);line-height:1;}
-  .item-prop .alca button:disabled{opacity:.28;cursor:default;}
-  .item-prop.arrastando{opacity:.45;}
+  /* Alça de arrastar: segurar e mover a linha, como no MeuFinanceiro */
+  .item-prop .alca{flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    padding:0 12px;background:var(--verde-claro);border-left:1px solid var(--card-borda);
+    color:var(--verde);font-size:1.1rem;cursor:grab;touch-action:none;user-select:none;}
+  .item-prop .alca:active{cursor:grabbing;}
+  .item-prop.arrastando{opacity:.5;border-color:var(--verde);}
+  .item-prop.alvo-solta{border-top:3px solid var(--verde);}
 
   .titulo-secao{display:flex;align-items:center;gap:8px;margin:14px 0 8px;}
   .titulo-secao span{font-size:.78rem;color:var(--suave);text-transform:uppercase;letter-spacing:.04em;}
@@ -158,7 +163,11 @@
     padding:18px;text-align:center;}
   .alerta-caixa .emoji{font-size:2.6rem;line-height:1;}
   .alerta-caixa .zoeira{font-size:1rem;font-weight:700;color:var(--verde);margin:8px 0 6px;}
-  .alerta-caixa .motivo{font-size:.85rem;color:var(--suave);line-height:1.45;margin-bottom:14px;}
+  /* pre-line porque o resumo da confirmação e a lista de arquivos gerados vêm
+     com "\n" — sem isso tudo vira um parágrafo só e não dá pra ler de relance */
+  .alerta-caixa .motivo{font-size:.85rem;color:var(--suave);line-height:1.45;margin-bottom:14px;
+    white-space:pre-line;word-break:break-word;text-align:left;}
+  .alerta-caixa .motivo.centro{text-align:center;}
 
   .resultado-ok{background:var(--verde-claro);border:1px solid var(--verde-borda);
     border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:.82rem;text-align:left;}
@@ -301,7 +310,6 @@
       </div>
     </div>
     <div class="previa clicavel" id="previaObjeto" style="margin-top:9px" onclick="toggleObjeto()"></div>
-    <div class="aviso">PO sugerido pelo padrão 10+mês+sequência. Confira no seu controle antes de enviar.</div>
   </div>
 
   <div class="card">
@@ -328,37 +336,66 @@
   <div class="card">
     <h2 class="clicavel" onclick="toggleDownloads()">Downloads <span class="badge" id="badgePasta">padrão</span><span class="seta" id="setaDownloads">▾</span></h2>
     <div id="downloadsCorpo" class="oculto">
-      <label>Pasta de destino dos arquivos</label>
+      <!-- Duas pastas: Proposta e Aceite têm destinos próprios, e "gerar os dois"
+           manda cada arquivo pra sua pasta. -->
+      <label>Pasta das Propostas</label>
       <div class="row2">
         <div class="sub" id="pastaAtual" style="align-self:center">Downloads do navegador (padrão)</div>
-        <button class="btn-sec" id="btnEscolherPasta" onclick="escolherPasta()">Escolher pasta</button>
+        <button class="btn-sec" id="btnEscolherPasta" onclick="escolherPasta('proposta')">Escolher</button>
       </div>
-      <div class="sub" id="avisoPasta">Cada um escolhe a própria pasta uma vez; os próximos arquivos gerados vão direto pra lá. Recurso do Chrome/Edge — no Firefox e Safari os arquivos caem nos Downloads normalmente.</div>
+      <label style="margin-top:12px">Pasta dos Aceites</label>
+      <div class="row2">
+        <div class="sub" id="pastaAceiteAtual" style="align-self:center">Downloads do navegador (padrão)</div>
+        <button class="btn-sec" id="btnEscolherPastaAceite" onclick="escolherPasta('aceite')">Escolher</button>
+      </div>
+      <div class="sub" id="avisoPasta">Cada um escolhe as próprias pastas uma vez; os próximos arquivos vão direto pra lá. Recurso do Chrome/Edge — no Firefox e Safari os arquivos caem nos Downloads normalmente.</div>
       <button class="btn-mini" id="btnLimparPasta" onclick="limparPasta()" style="margin-top:8px;display:none">Voltar para Downloads padrão</button>
     </div>
   </div>
 
   <div class="card">
-    <h2>Sobre o app</h2>
-    <div class="sub">Roda offline depois de instalado. Nada é enviado para servidor —
-      só a busca por CNPJ, quando você toca no botão, sai do aparelho.</div>
-    <div class="row2" style="margin-top:9px">
-      <div class="sub">versão <span id="verApp">–</span></div>
-      <button class="btn-sec" onclick="buscarAtualizacao()">Buscar atualização</button>
+    <h2 class="clicavel" onclick="toggleSobre()">Sobre o app<span class="seta" id="setaSobre">▾</span></h2>
+    <div id="sobreCorpo" class="oculto">
+      <div class="row2">
+        <div class="sub">versão <span id="verApp">–</span></div>
+        <button class="btn-sec" onclick="buscarAtualizacao()">Buscar atualização</button>
+      </div>
+      <div class="status" id="statusApp"></div>
     </div>
-    <div class="status" id="statusApp"></div>
   </div>
 </div>
 
 <div class="rodape">
   <div class="wrap">
-    <div class="row3" style="margin-bottom:7px">
-      <button class="btn-sec" onclick="gerarProposta()">Só Proposta</button>
-      <button class="btn-sec" onclick="gerarAceite()">Só Aceite</button>
-      <button class="btn-principal" onclick="gerarAmbos()">Gerar os dois</button>
+    <div class="row2" style="margin-bottom:6px">
+      <button class="btn-principal" onclick="pedirConfirmacao('proposta')">Gerar Proposta</button>
+      <button class="btn-principal" onclick="pedirConfirmacao('aceite')">Gerar Aceite</button>
     </div>
-    <div id="resultadoGeracao" class="oculto"></div>
+    <button class="btn-sec btn-mini" style="width:100%" onclick="pedirConfirmacao('ambos')">gerar os dois de uma vez</button>
     <div class="status" id="statusGeracao"></div>
+  </div>
+</div>
+
+<!-- Confirmação antes de gerar -->
+<div class="modal-fundo oculto" id="modalConfirma">
+  <div class="modal-caixa alerta-caixa">
+    <div class="emoji">📄</div>
+    <div class="zoeira" id="confTitulo"></div>
+    <div class="motivo" id="confResumo"></div>
+    <div class="row2">
+      <button class="btn-sec" onclick="fecharConfirma()">Cancelar</button>
+      <button class="btn-principal" id="confOk">Gerar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmação depois de gerar -->
+<div class="modal-fundo oculto" id="modalPronto">
+  <div class="modal-caixa alerta-caixa">
+    <div class="emoji">✅</div>
+    <div class="zoeira" id="prontoTitulo">Documento gerado</div>
+    <div class="motivo" id="prontoDetalhe"></div>
+    <button class="btn-principal" onclick="fecharPronto()">OK</button>
   </div>
 </div>
 
@@ -397,7 +434,7 @@
   <div class="modal-caixa alerta-caixa">
     <div class="emoji" id="avisoEmoji">🤨</div>
     <div class="zoeira" id="avisoZoeira"></div>
-    <div class="motivo" id="avisoMotivo"></div>
+    <div class="motivo centro" id="avisoMotivo"></div>
     <button class="btn-principal" onclick="fecharAviso()">Beleza, entendi</button>
   </div>
 </div>
@@ -486,6 +523,12 @@ let objetoAberto=false, clientesAberto=false;
 let ultimoEnderecoLido={"":"","Coleta":""};
 // Passo do wizard que o usuário abriu pra alterar (os demais ficam recolhidos)
 let passoAberto=null;
+// Declarados aqui em cima, e não junto das funções de rascunho lá embaixo, porque
+// o render() da carga inicial já chama agendarRascunho() — com "let" declarado
+// depois, isso estoura "Cannot access 'timerRascunho' before initialization" e
+// leva o script inteiro junto.
+const LS_RASCUNHO="corpus_rascunho_v1";
+let timerRascunho=null;
 
 /* ============ CHIPS ============ */
 function chips(cont,opcoes,ativo,onPick){
@@ -648,10 +691,14 @@ function renderResumoEndereco(sufixo){
   if(!uf) faltando.push("UF");
   const temAlgo=g("logradouro")||bairro||cidade||uf||cep;
 
+  // Mostra o endereço inteiro, do jeito que vai sair no documento. Ocupa mais de
+  // uma linha quando precisar — é melhor ler tudo aqui do que abrir os campos
+  // só pra conferir o logradouro.
   let txt;
   if(!temAlgo) txt="Preencha o endereço acima — a separação aparece aqui.";
-  else if(faltando.length) txt="Falta "+faltando.join(", ")+" — toque para completar (vai no Aceite).";
-  else txt=[bairro,[cidade,uf].filter(Boolean).join("/"),cep?"CEP "+cep:""].filter(Boolean).join(" · ");
+  else if(faltando.length) txt=linhaEnd(g("logradouro"),bairro,cidade,uf,cep)
+    +"\nFalta "+faltando.join(", ")+" — toque para completar (vai no Aceite).";
+  else txt=linhaEnd(g("logradouro"),bairro,cidade,uf,cep);
 
   alvo.innerHTML="";
   const spanTxt=document.createElement("span");
@@ -765,7 +812,6 @@ async function preencherAutomatico(){
       ? "Reconhecido: "+achados.join(", ")+". Consultando a Receita…"
       : "Consultando a Receita…";
     const ok=await buscarCNPJ();
-    campoTexto.value=""; ajustarAltura(campoTexto);
     if(!ok&&enderecoInformado){
       // Receita fora do ar: aí o endereço do cliente é melhor que campo vazio
       document.getElementById("enderecoUnico").value=enderecoInformado;
@@ -784,7 +830,6 @@ async function preencherAutomatico(){
     ultimoEnderecoLido[""]="";
     quebrarEndereco();
   }
-  campoTexto.value=""; ajustarAltura(campoTexto);
   st.textContent=achados.length
     ? "Reconhecido: "+achados.join(", ")+". Sem CNPJ completo pra consultar a Receita."
     : "Nada reconhecido — preencha à mão, ou cole um CNPJ pra buscar na Receita.";
@@ -798,16 +843,15 @@ function objetoCompleto(){
 }
 function montarObjeto(){
   chips("chipsObjeto",OBJETOS.map(o=>o.n),objetoSel,op=>{
-    objetoSel=op;subObjetoSel=null;
-    const o=OBJETOS.find(x=>x.n===op);
-    document.getElementById("blocoSubObjeto").classList.toggle("oculto",!o.sub);
-    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;objetoAberto=false;montarObjeto();});
+    objetoSel=op;subObjetoSel=null;objetoAberto=true;
     montarObjeto();
   });
-  if(objetoSel){
-    const o=OBJETOS.find(x=>x.n===objetoSel);
-    if(o.sub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;objetoAberto=false;montarObjeto();});
-  }
+  // O tipo de serviço e a subcategoria (PRESTAÇÃO/LIMPEZA) aparecem juntos:
+  // abrir o Objeto mostra os dois de uma vez, sem um segundo toque.
+  const obj=objetoSel?OBJETOS.find(x=>x.n===objetoSel):null;
+  const temSub=!!(obj&&obj.sub);
+  document.getElementById("blocoSubObjeto").classList.toggle("oculto",!temSub);
+  if(temSub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;objetoAberto=false;montarObjeto();});
   // Só recolhe quando a escolha está completa — enquanto falta a subcategoria,
   // as opções continuam visíveis mesmo com objetoAberto=false.
   const recolhido=!objetoAberto&&objetoCompleto();
@@ -1078,20 +1122,61 @@ function render(){
          <div class="meta"></div>
          <div class="valor"></div>
        </div>
-       <div class="alca">
-         <button title="Subir">▲</button>
-         <button title="Descer">▼</button>
-       </div>`;
+       <div class="alca" title="Segure e arraste para reordenar">☰</div>`;
     div.querySelector(".desc").textContent=it.descricao.replace(/\n/g," ");
     div.querySelector(".meta").textContent=
       [it.residuo&&it.residuo!=="-"?it.residuo:null,it.unidade].filter(Boolean).join(" • ");
     div.querySelector(".valor").textContent=it.valor?("R$ "+it.valor):"sem valor — toque para preencher";
     div.querySelector(".corpo").onclick=()=>abrirEdicaoItem(i);
-    const bts=div.querySelectorAll(".alca button");
-    bts[0].disabled=(i===0); bts[0].onclick=()=>moverItem(i,-1);
-    bts[1].disabled=(i===itens.length-1); bts[1].onclick=()=>moverItem(i,1);
+    div.querySelector(".alca").addEventListener("pointerdown",ev=>iniciarArrasto(ev,i));
     alvo.appendChild(div);
   });
+  agendarRascunho();
+}
+
+/* Arrasta pela alça ☰. Usa pointer events, então o mesmo código serve pro dedo
+   no celular e pro mouse no PC — e o touch-action:none da alça impede a página
+   de rolar junto enquanto se arrasta. */
+let arrasto=null;
+function iniciarArrasto(ev,indice){
+  ev.preventDefault();
+  const lista=document.getElementById("listaItensProposta");
+  const cartao=lista.children[indice];
+  arrasto={indice, lista, cartao};
+  cartao.classList.add("arrastando");
+  cartao.setPointerCapture&&cartao.setPointerCapture(ev.pointerId);
+  document.addEventListener("pointermove",moverArrasto);
+  document.addEventListener("pointerup",soltarArrasto,{once:true});
+  document.addEventListener("pointercancel",soltarArrasto,{once:true});
+}
+function moverArrasto(ev){
+  if(!arrasto) return;
+  const {lista}=arrasto;
+  // Vê sobre qual cartão o dedo está e troca de lugar assim que passa do meio
+  for(let j=0;j<lista.children.length;j++){
+    if(j===arrasto.indice) continue;
+    const r=lista.children[j].getBoundingClientRect();
+    if(ev.clientY>r.top && ev.clientY<r.bottom){
+      const passouMetade = ev.clientY > r.top + r.height/2;
+      const destino = (j>arrasto.indice) ? (passouMetade?j:j-1) : (passouMetade?j+1:j);
+      if(destino!==arrasto.indice && destino>=0 && destino<itens.length){
+        const [x]=itens.splice(arrasto.indice,1);
+        itens.splice(destino,0,x);
+        arrasto.indice=destino;
+        render();
+        const novo=lista.children[destino];
+        if(novo) novo.classList.add("arrastando");
+        arrasto.cartao=novo;
+      }
+      break;
+    }
+  }
+}
+function soltarArrasto(){
+  document.removeEventListener("pointermove",moverArrasto);
+  if(arrasto&&arrasto.cartao) arrasto.cartao.classList.remove("arrastando");
+  arrasto=null;
+  render();
 }
 
 // Textarea que cresce com o texto, em vez de esconder o que foi colado
@@ -1252,6 +1337,56 @@ const CAMPOS_FORM=["razaoSocial","cnpj","ie","solicitante","telefone","email","e
   "enderecoColetaUnico","logradouroColeta","bairroColeta","ufColeta","cepColeta","cidadeColeta",
   "proposalNumber","dataProposta"];
 let propostas=[], propostaAtualId=null, historicoAberto=false;
+
+/* ============ RASCUNHO EM ANDAMENTO ============
+   Minimizar o app, o navegador descartar a aba pra liberar memória ou o celular
+   matar o processo — em qualquer um desses casos o preenchimento sumia. Agora
+   ele é gravado a cada mudança e volta sozinho ao abrir.
+   (LS_RASCUNHO e timerRascunho estão declarados lá em cima, junto de `itens` —
+   veja o comentário de lá.) */
+function salvarRascunho(){
+  try{
+    const form={}; CAMPOS_FORM.forEach(id=>{const el=document.getElementById(id); form[id]=el?el.value:"";});
+    const vazio=!itens.length && !Object.entries(form).some(([k,v])=>
+      v && v.trim() && k!=="proposalNumber" && k!=="dataProposta");
+    if(vazio){localStorage.removeItem(LS_RASCUNHO);return;}
+    localStorage.setItem(LS_RASCUNHO,JSON.stringify({
+      form, itens, objetoSel, subObjetoSel, mesmoEnd, propostaAtualId,
+      enderecoInformado, quando:Date.now()
+    }));
+  }catch(e){}
+}
+function agendarRascunho(){
+  clearTimeout(timerRascunho);
+  timerRascunho=setTimeout(salvarRascunho,400);
+}
+function limparRascunho(){
+  clearTimeout(timerRascunho);
+  try{localStorage.removeItem(LS_RASCUNHO);}catch(e){}
+}
+function restaurarRascunho(){
+  let d=null;
+  try{
+    const s=localStorage.getItem(LS_RASCUNHO);
+    if(s) d=JSON.parse(s);
+  }catch(e){}
+  if(!d||!d.form) return false;
+  CAMPOS_FORM.forEach(id=>{const el=document.getElementById(id); if(el&&d.form[id]!==undefined) el.value=d.form[id];});
+  itens=Array.isArray(d.itens)?d.itens:[];
+  objetoSel=d.objetoSel||OBJETO_PADRAO;
+  subObjetoSel=d.subObjetoSel||SUBOBJETO_PADRAO;
+  mesmoEnd=d.mesmoEnd!==false;
+  propostaAtualId=d.propostaAtualId||null;
+  enderecoInformado=d.enderecoInformado||"";
+  objetoAberto=false;
+  ultimoEnderecoLido={"":document.getElementById("enderecoUnico").value,
+                      "Coleta":document.getElementById("enderecoColetaUnico").value};
+  document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
+  conferirRazaoSocial();
+  fluxo();montarObjeto();montarChipsColeta();render();
+  renderResumoEndereco("");renderResumoEndereco("Coleta");
+  return true;
+}
 
 function carregarPropostas(){
   try{
@@ -1420,9 +1555,14 @@ function importarPropostas(input){
 /* ============ NOVA PROPOSTA ============ */
 // Zera o formulário sem recarregar a página — recarregar funcionaria também,
 // mas aí o cofre de clientes fecha de novo e pede a senha à toa.
-function novaProposta(){
-  const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
-  if(temAlgo&&!confirm("Começar uma proposta nova? O que estiver preenchido e não foi gerado se perde."))return;
+// silencioso = quem chamou foi o próprio app, logo depois de gerar os arquivos.
+// Nesse caso não pergunta nada: o que estava preenchido já virou documento e já
+// está guardado no histórico.
+function novaProposta(silencioso){
+  if(!silencioso){
+    const temAlgo=itens.length||document.getElementById("razaoSocial").value.trim();
+    if(temAlgo&&!confirm("Começar uma proposta nova? O que estiver preenchido e não foi gerado se perde."))return;
+  }
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;objetoAberto=false;
   mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};unidadePorChave={};
@@ -1431,11 +1571,13 @@ function novaProposta(){
   propostaAtualId=null;
   ultimoEnderecoLido={"":"","Coleta":""};
   limparResultado();
+  limparRascunho();
 
   ["razaoSocial","cnpj","ie","solicitante","telefone","email","enderecoUnico",
-   "logradouro","bairro","uf","cep","cidade",
+   "logradouro","bairro","uf","cep","cidade","colaTexto",
    "enderecoColetaUnico","logradouroColeta","bairroColeta","ufColeta","cepColeta","cidadeColeta"]
     .forEach(id=>{document.getElementById(id).value="";});
+  ajustarAltura(document.getElementById("colaTexto"));
   document.getElementById("statusCNPJ").textContent="";
   document.getElementById("resumoExtracao").textContent="";
   document.getElementById("avisoRazaoSocial").textContent="";
@@ -1492,23 +1634,26 @@ async function preencherDocx(tpl,mapa,loop){
   return await zip.generateAsync({type:"blob",
     mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
 }
-async function baixar(blob,nome){
-  if(pastaHandle){
+// tipo: "proposta" ou "aceite" — cada um tem a própria pasta de destino
+async function baixar(blob,nome,tipo){
+  const alca=(tipo==="aceite")?pastaAceite:pastaHandle;
+  if(alca){
     try{
-      let perm=await pastaHandle.queryPermission({mode:"readwrite"});
-      if(perm!=="granted") perm=await pastaHandle.requestPermission({mode:"readwrite"});
+      let perm=await alca.queryPermission({mode:"readwrite"});
+      if(perm!=="granted") perm=await alca.requestPermission({mode:"readwrite"});
       if(perm==="granted"){
-        const fh=await pastaHandle.getFileHandle(nome,{create:true});
+        const fh=await alca.getFileHandle(nome,{create:true});
         const ws=await fh.createWritable();
         await ws.write(blob);
         await ws.close();
-        return;
+        return alca.name;
       }
     }catch(e){ console.warn("Pasta escolhida indisponível, caiu para Downloads:",e); }
   }
   const u=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=u;a.download=nome;document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(u),4000);
+  return null;
 }
 // Formato do Google Maps: "Logradouro, nº - Bairro, Cidade - UF, CEP"
 function linhaEnd(l,b,c,u,cep){
@@ -1536,56 +1681,26 @@ function mapear(){
     dia:String(d.getDate()).padStart(2,"0"),mes:MESES[d.getMonth()],ano:String(d.getFullYear()),
     data:d.toLocaleDateString("pt-BR")}};
 }
-/* Depois de gerar, mostra o que saiu e pra onde foi, com botão de abrir o
-   arquivo. Abrir a PASTA em si o navegador não permite — nenhum site consegue
-   pedir pro sistema abrir o explorador de arquivos, é barreira de segurança.
-   O que dá é abrir o documento gerado, e é o que o botão faz. */
+/* Depois de gerar, um popup no meio da tela confirma o que saiu e pra onde foi.
+   Antes isso ficava no rodapé, que crescia e escondia o conteúdo. Abrir a PASTA
+   o navegador não permite a nenhum site — nem instalado como app — então o texto
+   diz onde procurar em vez de prometer o que não dá. */
 let ultimosGerados=[];
-function marcarGerado(arquivos){
+function mostrarPronto(arquivos){
   ultimosGerados=arquivos;
-  const el=document.getElementById("resultadoGeracao");
-  el.classList.remove("oculto");
-  el.innerHTML="";
-  const onde=pastaHandle?("📁 "+pastaHandle.name):"📁 Downloads do navegador";
-  arquivos.forEach((a,i)=>{
-    const div=document.createElement("div");
-    div.className="resultado-ok";
-    div.innerHTML=`<div class="arquivo"></div><div class="sub local"></div>`;
-    div.querySelector(".arquivo").textContent="✓ "+a.nome;
-    div.querySelector(".local").textContent="salvo em "+onde;
-    const btn=document.createElement("button");
-    btn.className="btn-mini"; btn.style.marginTop="8px";
-    // Com pasta escolhida o arquivo já está lá — o botão só serviria pra baixar
-    // de novo. Sem pasta, a única ação útil é repetir o download com o nome certo.
-    if(pastaHandle){
-      const nota=document.createElement("div");
-      nota.className="sub";
-      nota.textContent="Abra pela pasta no seu aparelho — o navegador não tem como abrir o gerenciador de arquivos.";
-      div.appendChild(nota);
-    }else{
-      btn.textContent="Baixar novamente";
-      btn.onclick=()=>abrirGerado(i);
-      div.appendChild(btn);
-    }
-    el.appendChild(div);
-  });
+  const linhas=arquivos.map(a=>"• "+a.nome+"\n   em "+(a.pasta?("📁 "+a.pasta):"📁 Downloads do navegador"));
+  document.getElementById("prontoTitulo").textContent=
+    arquivos.length>1?"Documentos gerados":"Documento gerado";
+  document.getElementById("prontoDetalhe").textContent=linhas.join("\n\n");
+  document.getElementById("modalPronto").classList.remove("oculto");
 }
-// window.open() num blob de .docx fazia o navegador baixar de novo com um nome
-// aleatório. Com <a download> o arquivo ao menos sai com o nome correto.
-function abrirGerado(i){
-  const a=ultimosGerados[i];
-  if(!a) return;
-  const url=URL.createObjectURL(a.blob);
-  const link=document.createElement("a");
-  link.href=url; link.download=a.nome;
-  document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  setTimeout(()=>URL.revokeObjectURL(url),4000);
+function fecharPronto(){
+  document.getElementById("modalPronto").classList.add("oculto");
+  // Fecha o ciclo: some tudo pro próximo lançamento. A proposta já está salva
+  // no histórico, então dá pra voltar nela por lá se precisar ajustar.
+  novaProposta(true);
 }
-function limparResultado(){
-  ultimosGerados=[];
-  const el=document.getElementById("resultadoGeracao");
-  el.classList.add("oculto"); el.innerHTML="";
-}
+function limparResultado(){ ultimosGerados=[]; }
 
 /* ============ PASTA DE DESTINO (File System Access API — Chrome/Edge) ============ */
 const IDB_NOME="corpus_fs",IDB_LOJA="alcas";
@@ -1612,43 +1727,60 @@ async function idbSet(chave,valor){
     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
   });
 }
-let pastaHandle=null;
+let pastaHandle=null, pastaAceite=null;
 async function iniciarPasta(){
   if(!("showDirectoryPicker" in window)){
-    document.getElementById("btnEscolherPasta").disabled=true;
-    document.getElementById("btnEscolherPasta").textContent="Sem suporte neste navegador";
+    ["btnEscolherPasta","btnEscolherPastaAceite"].forEach(id=>{
+      const b=document.getElementById(id);
+      if(b){b.disabled=true;b.textContent="Sem suporte";}
+    });
     return;
   }
   try{
     const h=await idbGet("pasta");
-    if(h){pastaHandle=h;atualizarPastaUI();}
+    if(h) pastaHandle=h;
+    const ha=await idbGet("pastaAceite");
+    if(ha) pastaAceite=ha;
+    atualizarPastaUI();
   }catch(e){}
 }
 function atualizarPastaUI(){
   document.getElementById("pastaAtual").textContent=pastaHandle
     ?("📁 "+pastaHandle.name):"Downloads do navegador (padrão)";
-  document.getElementById("btnLimparPasta").style.display=pastaHandle?"block":"none";
-  // A pasta escolhida vira o rótulo do card, pra saber pra onde vai sem abrir
-  document.getElementById("badgePasta").textContent=pastaHandle?pastaHandle.name:"padrão";
+  document.getElementById("pastaAceiteAtual").textContent=pastaAceite
+    ?("📁 "+pastaAceite.name):"Downloads do navegador (padrão)";
+  document.getElementById("btnLimparPasta").style.display=(pastaHandle||pastaAceite)?"block":"none";
+  // As pastas escolhidas viram o rótulo do card, pra saber o destino sem abrir
+  const nomes=[pastaHandle&&pastaHandle.name,pastaAceite&&pastaAceite.name].filter(Boolean);
+  document.getElementById("badgePasta").textContent=nomes.length?nomes.join(" · "):"padrão";
 }
-let downloadsAberto=false;
+let downloadsAberto=false, sobreAberto=false;
 function toggleDownloads(){
   downloadsAberto=!downloadsAberto;
   document.getElementById("downloadsCorpo").classList.toggle("oculto",!downloadsAberto);
   document.getElementById("setaDownloads").classList.toggle("aberta",downloadsAberto);
 }
-async function escolherPasta(){
-  if(!("showDirectoryPicker" in window))return;
+function toggleSobre(){
+  sobreAberto=!sobreAberto;
+  document.getElementById("sobreCorpo").classList.toggle("oculto",!sobreAberto);
+  document.getElementById("setaSobre").classList.toggle("aberta",sobreAberto);
+}
+async function escolherPasta(tipo){
+  if(!("showDirectoryPicker" in window)){
+    avisar("Escolher pasta é um recurso do Chrome e do Edge. Neste navegador os arquivos caem nos Downloads normalmente.");
+    return;
+  }
   try{
-    pastaHandle=await window.showDirectoryPicker({mode:"readwrite"});
-    await idbSet("pasta",pastaHandle);
+    const h=await window.showDirectoryPicker({mode:"readwrite"});
+    if(tipo==="aceite"){ pastaAceite=h; await idbSet("pastaAceite",h); }
+    else { pastaHandle=h; await idbSet("pasta",h); }
     atualizarPastaUI();
-    document.getElementById("avisoPasta").textContent="Pronto — os próximos arquivos gerados vão direto pra essa pasta, sem passar pelos Downloads.";
+    document.getElementById("avisoPasta").textContent="Pronto — os próximos arquivos vão direto pra essa pasta, sem passar pelos Downloads.";
   }catch(e){ /* usuário cancelou a escolha */ }
 }
 function limparPasta(){
-  pastaHandle=null;
-  idbSet("pasta",null);
+  pastaHandle=null; pastaAceite=null;
+  idbSet("pasta",null); idbSet("pastaAceite",null);
   atualizarPastaUI();
   document.getElementById("avisoPasta").textContent="Voltou para os Downloads padrão do navegador.";
 }
@@ -1690,21 +1822,57 @@ function checar(precisaItens){
   if(precisaItens&&!itens.length){st.textContent="";avisar("A proposta não tem nenhuma linha de serviço. Escolha uma categoria, marque os itens e toque em “+ Adicionar à proposta”.");return null;}
   return {rs,mapa,st};
 }
-async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
+/* Confirma antes de gerar: mostra número, cliente e quantas linhas vão sair.
+   É a última chance de ver que o PO está errado antes do arquivo existir. */
+let acaoPendente=null;
+function pedirConfirmacao(tipo){
+  const c=checar(tipo!=="aceite");
+  if(!c) return;
+  const qtd=itens.length;
+  const titulo=tipo==="proposta"?"Gerar a Proposta?":tipo==="aceite"?"Gerar o Aceite?":"Gerar Proposta e Aceite?";
+  const linhas=[`Nº ${c.mapa.proposta_numero}`, c.rs];
+  if(tipo!=="aceite") linhas.push(`${qtd} ${qtd===1?"linha de serviço":"linhas de serviço"}`);
+  document.getElementById("confTitulo").textContent=titulo;
+  document.getElementById("confResumo").textContent=linhas.join("\n");
+  acaoPendente=tipo;
+  document.getElementById("modalConfirma").classList.remove("oculto");
+}
+function fecharConfirma(){
+  acaoPendente=null;
+  document.getElementById("modalConfirma").classList.add("oculto");
+}
+document.getElementById("confOk").onclick=()=>{
+  const tipo=acaoPendente;
+  fecharConfirma();
+  if(tipo==="proposta") gerarProposta();
+  else if(tipo==="aceite") gerarAceite();
+  else if(tipo==="ambos") gerarAmbos();
+};
+
+async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const b=await preencherDocx(TPL_P,c.mapa,itens);
     const n=`${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);salvarPropostaAtual();c.st.textContent="Proposta pronta e salva no histórico.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
-async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";limparResultado();
+    const pasta=await baixar(b,n,"proposta");
+    salvarPropostaAtual();c.st.textContent="";
+    mostrarPronto([{blob:b,nome:n,pasta}]);
+  }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
+async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
   try{const b=await preencherDocx(TPL_A,c.mapa,null);
     const n=`Aceite de Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
-    await baixar(b,n);marcarGerado([{blob:b,nome:n}]);salvarPropostaAtual();c.st.textContent="Aceite pronto e salvo no histórico.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
-async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";limparResultado();
+    const pasta=await baixar(b,n,"aceite");
+    salvarPropostaAtual();c.st.textContent="";
+    mostrarPronto([{blob:b,nome:n,pasta}]);
+  }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
+async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
     const nomeP=`${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
-    await baixar(bp,nomeP);await baixar(ba,nomeA);
-    marcarGerado([{blob:bp,nome:nomeP},{blob:ba,nome:nomeA}]);salvarPropostaAtual();
-    c.st.textContent="Prontos e salvos no histórico. Confira antes de enviar.";}catch(e){console.error(e);c.st.textContent="Erro ao gerar.";}}
+    // Cada um vai pra sua pasta
+    const pp=await baixar(bp,nomeP,"proposta");
+    const pa=await baixar(ba,nomeA,"aceite");
+    salvarPropostaAtual();c.st.textContent="";
+    mostrarPronto([{blob:bp,nome:nomeP,pasta:pp},{blob:ba,nome:nomeA,pasta:pa}]);
+  }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
 
 
 /* ============ BUSCA CNPJ (consulta externa, sob demanda) ============ */
@@ -1881,7 +2049,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-3";
+const APP_VERSION="2026.08.15-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -1908,6 +2076,13 @@ if("serviceWorker" in navigator){
 iniciarPasta();
 carregarPropostas();
 aplicarTema(localStorage.getItem(LS_TEMA)||"claro");
+
+// Grava enquanto digita e, principalmente, na hora em que o app sai da frente —
+// que é o momento em que o navegador pode descartar a página.
+document.addEventListener("input",agendarRascunho);
+document.addEventListener("visibilitychange",()=>{ if(document.hidden) salvarRascunho(); });
+window.addEventListener("pagehide",salvarRascunho);
+restaurarRascunho();
 
 </script>
 </body>
