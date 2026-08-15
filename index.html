@@ -172,9 +172,16 @@
 
   .linha-cat{border:1px solid var(--card-borda);background:var(--branco);border-radius:10px;
     padding:10px 12px;margin-bottom:8px;}
-  /* Assinatura de quem fez — discreta, no rodapé do "Sobre o app" */
-  .assinatura{margin-top:14px;padding-top:10px;border-top:1px solid var(--card-borda);
-    text-align:right;font-size:.78rem;font-style:italic;color:var(--verde);letter-spacing:.02em;}
+  /* "Sobre o app": o resumo em cima, e a versão dividindo a última linha com a
+     assinatura — uma em cada ponta. Buscar atualização é só um link discreto. */
+  .sobre-passos{margin:0 0 10px;padding-left:22px;}
+  .sobre-passos li{font-size:.82rem;color:var(--suave);line-height:1.5;margin-bottom:7px;}
+  .sobre-passos li::marker{color:var(--verde);font-weight:700;}
+  .sobre-atualizar{text-align:right;margin-top:10px;}
+  .rodape-sobre{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    margin-top:12px;padding-top:10px;border-top:1px solid var(--card-borda);}
+  .assinatura{font-size:.78rem;font-style:italic;color:var(--verde);letter-spacing:.02em;
+    white-space:nowrap;}
   .linha-cat .nome{font-size:.85rem;font-weight:600;}
   /* Linha de categoria: nome à esquerda, alça de arrasto encostada à direita */
   .cat-linha .cat-topo{display:flex;align-items:center;gap:10px;}
@@ -409,12 +416,27 @@
   <div class="card">
     <h2 class="clicavel" onclick="toggleSobre()">Sobre o app<span class="seta" id="setaSobre">▾</span></h2>
     <div id="sobreCorpo" class="oculto">
-      <div class="row2">
-        <div class="sub">versão <span id="verApp">–</span></div>
-        <button class="btn-sec" onclick="buscarAtualizacao()">Buscar atualização</button>
+      <ol class="sobre-passos">
+        <li>Cole a mensagem do cliente — ou só o CNPJ. O resto o app busca na Receita
+            e separa em razão social, endereço, contato e telefone.</li>
+        <li>Escolha o objeto e monte as linhas de serviço. Dá pra marcar vários
+            veículos ou resíduos de uma vez: sai uma linha pra cada.</li>
+        <li>Preencha valor, unidade e observações. A frequência entra num toque e a
+            calculadora fica ali no campo do valor.</li>
+        <li>Gere a Proposta, o Aceite ou os dois. Cada um vai pra sua pasta, e a
+            proposta fica guardada pra você reabrir e editar depois.</li>
+      </ol>
+      <div class="sub">Também tem catálogo editável de veículos, resíduos, funções e
+        equipamentos, cofre de clientes com senha e modo escuro. Funciona sem internet,
+        e nada do que você digita sai deste aparelho.</div>
+      <div class="sobre-atualizar">
+        <button class="link-acao" onclick="buscarAtualizacao()">buscar atualização</button>
       </div>
       <div class="status" id="statusApp"></div>
-      <div class="assinatura">by: Leonardo Cade</div>
+      <div class="rodape-sobre">
+        <span class="sub">versão <span id="verApp">–</span></span>
+        <span class="assinatura">by: Leonardo Cade</span>
+      </div>
     </div>
   </div>
 </div>
@@ -2629,7 +2651,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-6";
+const APP_VERSION="2026.08.15-7";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
