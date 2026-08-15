@@ -86,7 +86,7 @@ Cliente novo com CNPJ que já existe é atualizado, não duplicado.
 | `vendor/jszip.min.js`  | JSZip 3.10.1, servido pelo próprio site                    |
 | `sw.js` / `manifest.json` | O que faz instalar na tela inicial e rodar offline     |
 | `icons/`               | Os três PNGs do ícone (192, 512 e maskable)              |
-| `ferramentas-icone.py` | Redesenha os três PNGs do ícone; não vai pro navegador   |
+| `ferramentas-icone.py` | Refaz os três PNGs do ícone a partir do logo em `modelos.js` |
 
 ### Como o `.docx` é montado
 
