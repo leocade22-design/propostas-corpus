@@ -66,9 +66,16 @@
   /* Campo de valor com a calculadora encostada na borda direita */
   .campo-calc{position:relative;}
   .campo-calc input{padding-right:38px;}
-  .campo-calc .abre-calc{position:absolute;right:1px;top:1px;bottom:1px;width:34px;padding:0;
-    background:none;border:none;font-size:1rem;color:var(--suave);opacity:.75;}
-  .campo-calc .abre-calc:active{opacity:1;}
+  .campo-calc .abre-calc{position:absolute;right:1px;top:1px;bottom:1px;width:36px;padding:0;
+    background:none;border:none;color:var(--suave);opacity:.75;
+    display:flex;align-items:center;justify-content:center;}
+  .campo-calc .abre-calc:active{opacity:1;color:var(--verde);}
+  /* Sugestões dentro da linha do assistente: o fundo do card já é verde claro,
+     então ali os chips precisam do fundo do campo pra não sumirem. */
+  .sugestoes.na-linha{margin-top:7px;}
+  .sugestoes.na-linha button{background:var(--campo);border-color:var(--campo-borda);
+    color:var(--suave);font-size:.74rem;padding:4px 10px;}
+  .sugestoes.na-linha button.ativa{background:var(--verde);color:#fff;border-color:var(--verde);}
 
   /* Calculadora */
   .calc-caixa{max-width:420px;}
@@ -496,7 +503,7 @@
         <label>Valor Unitário (R$)</label>
         <div class="campo-calc">
           <input type="text" id="edValor" inputmode="numeric" oninput="mascaraValor(this)" placeholder="0,00">
-          <button class="abre-calc" title="Calculadora" onclick="abrirCalc('edValor')">🖩</button>
+          <button class="abre-calc" id="btnCalcItem" title="Calculadora" onclick="abrirCalc('edValor')"></button>
         </div>
       </div>
       <div><label>Unidade</label><input type="text" id="edUnidade" placeholder="Viagem, KG, Hora…"></div>
@@ -648,6 +655,15 @@ let passoAberto=null;
 // leva o script inteiro junto.
 const LS_RASCUNHO="corpus_rascunho_v1";
 let timerRascunho=null;
+// Desenho em SVG no lugar do emoji de calculadora: em muitos celulares aquele
+// caractere não existe na fonte e aparece como quadradinho vazio. Assim o ícone
+// é sempre o mesmo, em qualquer aparelho, e acompanha a cor do tema.
+const ICONE_CALC='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">'+
+  '<rect x="4.5" y="2.5" width="15" height="19" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/>'+
+  '<rect x="7.6" y="5.6" width="8.8" height="3.4" rx="1" fill="currentColor"/>'+
+  '<circle cx="8.6" cy="13.2" r="1.1" fill="currentColor"/><circle cx="12" cy="13.2" r="1.1" fill="currentColor"/>'+
+  '<circle cx="15.4" cy="13.2" r="1.1" fill="currentColor"/><circle cx="8.6" cy="17.2" r="1.1" fill="currentColor"/>'+
+  '<circle cx="12" cy="17.2" r="1.1" fill="currentColor"/><circle cx="15.4" cy="17.2" r="1.1" fill="currentColor"/></svg>';
 
 /* ============ CHIPS ============ */
 function chips(cont,opcoes,ativo,onPick){
@@ -1230,10 +1246,11 @@ function renderLinhasValores(){
          <div><label>Valor Unitário (R$)</label>
            <div class="campo-calc">
              <input type="text" inputmode="numeric" placeholder="0,00" data-campo="valor">
-             <button class="abre-calc" title="Calculadora">🖩</button>
+             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
            </div></div>
          <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
        </div>
+       <div class="sugestoes na-linha" data-campo="unidades"></div>
        <div class="obs"><label>Observações</label><input type="text" data-campo="obs"></div>`;
     div.querySelector(".nome").textContent=l.nome;
     const iv=div.querySelector('[data-campo="valor"]');
@@ -1242,7 +1259,9 @@ function renderLinhasValores(){
     div.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
     const iu=div.querySelector('[data-campo="unidade"]');
     iu.value=unidadePorChave[l.chave]!==undefined?unidadePorChave[l.chave]:l.unidade;
-    iu.oninput=()=>{unidadePorChave[l.chave]=iu.value;};
+    const chips=div.querySelector('[data-campo="unidades"]');
+    iu.oninput=()=>{unidadePorChave[l.chave]=iu.value;montarChipsUnidade(chips,iu,l.chave,u=>{unidadePorChave[l.chave]=u;});};
+    montarChipsUnidade(chips,iu,l.chave,u=>{unidadePorChave[l.chave]=u;});
     const io=div.querySelector('[data-campo="obs"]');
     io.value=obsPorChave[l.chave]!==undefined?obsPorChave[l.chave]:l.observacoes;
     io.oninput=()=>{obsPorChave[l.chave]=io.value;};
@@ -1255,7 +1274,9 @@ function adicionarItens(){
   const alvo=document.getElementById("linhasValores");
   linhas.forEach((l,i)=>{
     const div=alvo.children[i];
-    itens.push({descricao:l.descricao, residuo:l.residuo,
+    // a chave viaja junto: é por ela que o editor sabe se a linha é veículo,
+    // resíduo ou função, e sugere a unidade certa
+    itens.push({chave:l.chave, descricao:l.descricao, residuo:l.residuo,
       unidade:div?div.querySelector('[data-campo="unidade"]').value.trim():l.unidade,
       valor:div?div.querySelector('[data-campo="valor"]').value.trim():"",
       observacoes:div?div.querySelector('[data-campo="obs"]').value.trim():l.observacoes,
@@ -1464,20 +1485,41 @@ function tirarFrequencia(){
   fecharFrequencia();
 }
 
-/* Unidades que respondem por quase tudo. O campo continua livre: são sugestões,
-   não uma lista fechada. */
-const UNIDADES_SUGERIDAS=["Viagem","Equipamento","KG"];
-function montarSugestoesUnidade(){
-  const alvo=document.getElementById("sugestoesUnidade");
-  const campo=document.getElementById("edUnidade");
+/* A unidade sugerida depende do que a linha é. Em resíduo o quilo responde por
+   quase tudo, mas volume grande fecha por tonelada — e trocar isso não pode
+   obrigar a voltar lá no passo da modalidade. O campo continua livre: são
+   sugestões, não lista fechada. O prefixo da chave já diz o tipo da linha. */
+const UNIDADES_POR_TIPO={
+  veic:["Viagem","Hora","Equipamento"],
+  res:["KG","Tonelada","Unidade","M³"],
+  reci:["KG","Tonelada","Unidade"],
+  cargo:["Diária","Mensal","Hora"],
+  loc:["Un.","Mensal","Diária"],
+  cat:["Serviço","Mensal","Hora"]
+};
+function unidadesSugeridas(chave){
+  return UNIDADES_POR_TIPO[String(chave||"").split(":")[0]]||["Viagem","KG","Tonelada"];
+}
+// Serve pros dois lugares que têm campo de unidade: a linha do assistente e o
+// editor da linha que já está na proposta.
+function montarChipsUnidade(alvo,campo,chave,aoTrocar){
   alvo.innerHTML="";
-  UNIDADES_SUGERIDAS.forEach(u=>{
+  unidadesSugeridas(chave).forEach(u=>{
     const b=document.createElement("button");
     b.textContent=u;
     if(campo.value.trim().toLowerCase()===u.toLowerCase()) b.className="ativa";
-    b.onclick=()=>{campo.value=u;montarSugestoesUnidade();};
+    b.onclick=()=>{
+      campo.value=u;
+      if(aoTrocar) aoTrocar(u);
+      montarChipsUnidade(alvo,campo,chave,aoTrocar);
+    };
     alvo.appendChild(b);
   });
+}
+function montarSugestoesUnidade(){
+  const item=(itemEditando!==null)?itens[itemEditando]:null;
+  montarChipsUnidade(document.getElementById("sugestoesUnidade"),
+    document.getElementById("edUnidade"), item&&item.chave);
 }
 
 function salvarEdicaoItem(){
@@ -2651,7 +2693,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-7";
+const APP_VERSION="2026.08.15-8";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -2675,6 +2717,7 @@ if("serviceWorker" in navigator){
 // Só agora, no fim do arquivo, é que a pasta de destino e o histórico terminaram
 // de declarar suas const/let — chamar isso mais cedo (antes da própria declaração
 // rodar) derruba o script inteiro com "Cannot access before initialization".
+document.getElementById("btnCalcItem").innerHTML=ICONE_CALC;
 iniciarPasta();
 carregarPropostas();
 aplicarTema(localStorage.getItem(LS_TEMA)||"claro");
