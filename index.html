@@ -2164,12 +2164,16 @@ function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
         sobrando vira leitura melhor, e não pra "Unidade" ficar vazia. */
 const LARG_TOTAL=11052;              // largura da tabela no modelo, em twips
 const PAD_CELULA=250;                // margem interna das células + respiro
+// O "\n" em Valor Unitário é a quebra fixa que existe no modelo — o cabeçalho
+// sai sempre em duas linhas certas. `inteiro` diz que essa coluna reserva a
+// LINHA inteira do cabeçalho, e não só a maior palavra: é o que impede
+// "Valor Unitário" de virar "Valor / Unitário / (R$)" quando a tabela aperta.
 const COLUNAS_TABELA=[
-  {cab:"Descrição",           campo:"descricao",   teto:3700, folga:4},
-  {cab:"Resíduo",             campo:"residuo",     teto:2700, folga:0},
-  {cab:"Unidade",             campo:"unidade",     teto:1150, folga:0},
-  {cab:"Valor Unitário (R$)", campo:"valor",       teto:1750, folga:0},
-  {cab:"Observações",         campo:"observacoes", teto:3900, folga:3}
+  {cab:"Descrição",            campo:"descricao",   teto:3700, folga:4},
+  {cab:"Resíduo",              campo:"residuo",     teto:2700, folga:0},
+  {cab:"Unidade",              campo:"unidade",     teto:1150, folga:0},
+  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0, inteiro:true},
+  {cab:"Observações",          campo:"observacoes", teto:3900, folga:3}
 ];
 let ctxMedida=null;
 function medir(txt,fonte){
@@ -2189,10 +2193,18 @@ function medidasTexto(txt,fonte){
 }
 function larguraColunas(itens){
   const CORPO="10pt Arial", CABECALHO="bold 11pt Arial";
+  // O cabeçalho sai em Arial Black, que é uns 18% mais larga que o Arial negrito.
+  // Medir com o fator em vez de pedir a fonte ao canvas é de propósito: nem todo
+  // navegador tem Arial Black instalada, e aí a medida sairia curta e a palavra
+  // quebraria justamente no cabeçalho.
+  const PESO_CABECALHO=1.18;
   const min=[], ideal=[];
   COLUNAS_TABELA.forEach((c,i)=>{
     const mc=medidasTexto(c.cab,CABECALHO);
-    let p=mc.palavra, l=mc.linha;
+    const larguraCab=Math.ceil(mc.linha*PESO_CABECALHO);
+    // numa coluna "inteira" o cabeçalho todo é intocável; nas outras basta não
+    // partir palavra
+    let p=c.inteiro?larguraCab:Math.ceil(mc.palavra*PESO_CABECALHO), l=larguraCab;
     (itens||[]).forEach(it=>{
       const texto=(c.campo==="observacoes")?quebrarFrases(it[c.campo]):it[c.campo];
       const m=medidasTexto(texto,CORPO);
@@ -2693,7 +2705,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.15-8";
+const APP_VERSION="2026.08.15-9";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
