@@ -1310,6 +1310,11 @@ function renderLinhasValores(){
             quilo destinado." e o tratamento embaixo) e input engole o \n -->
        <div class="obs"><label>Observações</label>
          <textarea rows="2" data-campo="obs" oninput="ajustarAltura(this)"></textarea></div>`;
+    // Anexa ANTES de mexer em qualquer coisa. Um elemento fora do documento não
+    // tem altura de verdade — scrollHeight vem zerado ou com o mínimo do CSS —
+    // e é por isso que a caixa de observação nascia cortada e só se corrigia
+    // depois de alguma interação forçar um novo cálculo com o card já na tela.
+    alvo.appendChild(div);
     div.querySelector(".nome").textContent=l.nome;
     const iv=div.querySelector('[data-campo="valor"]');
     iv.value=valorPorChave[l.chave]||"";
@@ -1337,7 +1342,6 @@ function renderLinhasValores(){
     if(obsPorChave[l.chave]!==undefined) io.value=obsPorChave[l.chave];
     io.oninput=()=>{obsPorChave[l.chave]=io.value;};
     ajustarAltura(io);
-    alvo.appendChild(div);
   });
 }
 function adicionarItens(){
@@ -1677,8 +1681,39 @@ function fraseDaUnidade(chave,unidade){
   if(!tabela) return "";
   return tabela[String(unidade||"").trim().toLowerCase()]||"";
 }
+
+/* Veículo é diferente dos outros três: o catálogo já embute a frase da unidade
+   DENTRO do texto de fábrica ("Valor por viagem realizada. Coleta
+   compartilhada."), porque cada veículo tem seu próprio texto pra "por viagem"
+   (campo c) e "por hora" (campo e). Trocar a unidade não pode simplesmente
+   empilhar mais uma frase em cima — precisa trocar só a primeira, mantendo o
+   detalhe do veículo (a segunda frase em diante) intacto.
+   Todo texto de fábrica de veículo começa com "Valor por ... ." — é essa
+   primeira frase que sai, e o resto (Coleta compartilhada., Máx de 5 ton. por
+   caixa. etc.) continua embaixo. */
+const RE_VALOR_POR_INICIAL=/^Valor por [^.]*\.\s*/;
+function detalheVeiculo(base){
+  return String(base||"").replace(RE_VALOR_POR_INICIAL,"").trim();
+}
+function fraseVeiculo(unidade,detalhe){
+  const u=String(unidade||"").trim().toLowerCase();
+  if(u==="viagem") return "Valor por viagem realizada.";
+  if(u==="diária"||u==="diaria") return "Valor por diária dedicada.";
+  if(u==="hora"){
+    // Não repete "cobrança mínima" se o detalhe do veículo já falar nisso —
+    // Caminhão Vácuo e primos já trazem essa condição no próprio catálogo.
+    return /cobran[çc]a\s*m[íi]nima/i.test(detalhe)
+      ? "Valor por hora dedicada."
+      : "Valor por hora dedicada. Cobrança mínima: 3h.";
+  }
+  return "";
+}
 // Junta a frase da unidade com o texto de fábrica do catálogo, uma por linha.
 function comporObs(chave,unidade,base){
+  if(tipoLinha(chave)==="veic"){
+    const detalhe=detalheVeiculo(base);
+    return [fraseVeiculo(unidade,detalhe),detalhe].filter(Boolean).join("\n");
+  }
   return [fraseDaUnidade(chave,unidade),String(base||"").trim()].filter(Boolean).join("\n");
 }
 // Serve pros dois lugares que têm campo de unidade: a linha do assistente e o
@@ -2361,24 +2396,24 @@ function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
    REALMENTE vai sair. A medida não é chute: o canvas mede a frase na fonte e no
    corpo certos e devolve pixels, que viram twips (1 px CSS = 15 twips).
 
-   A conta tem três estágios:
-     1. cada coluna recebe o mínimo pra nunca quebrar uma palavra no meio;
-     2. o que sobra faz cada uma crescer até o ideal (a linha mais longa dela,
-        limitada por um teto — senão uma observação comprida comeria a tabela);
-     3. a folga final vai pras colunas de texto corrido, que é onde espaço
-        sobrando vira leitura melhor, e não pra "Unidade" ficar vazia. */
+   Descrição, Resíduo, Unidade e Valor são rótulos curtos e estruturados —
+   "CLASSE II - POR EQUIPAMENTO -", "Sucata Metálica" — e essas GARANTEM a
+   própria linha inteira até um teto; não abrem mão de espaço por nenhum
+   outro motivo. Só Observações é texto corrido (prosa), e é ela quem cede
+   quando o total não cabe na largura fixa da página: uma frase comprida
+   quebrando em duas linhas é normal de se ler; um rótulo curto quebrando no
+   meio, não. */
 const LARG_TOTAL=11052;              // largura da tabela no modelo, em twips
-const PAD_CELULA=250;                // margem interna das células + respiro
+const PAD_CELULA=300;                // margem interna das células + respiro contra
+                                      // kerning e margens que o canvas não replica 100%
 // O "\n" em Valor Unitário é a quebra fixa que existe no modelo — o cabeçalho
-// sai sempre em duas linhas certas. `inteiro` diz que essa coluna reserva a
-// LINHA inteira do cabeçalho, e não só a maior palavra: é o que impede
-// "Valor Unitário" de virar "Valor / Unitário / (R$)" quando a tabela aperta.
+// sai sempre em duas linhas certas.
 const COLUNAS_TABELA=[
-  {cab:"Descrição",            campo:"descricao",   teto:3700, folga:4},
+  {cab:"Descrição",            campo:"descricao",   teto:4800, folga:4},
   {cab:"Resíduo",              campo:"residuo",     teto:2700, folga:0},
   {cab:"Unidade",              campo:"unidade",     teto:1150, folga:0},
-  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0, inteiro:true},
-  {cab:"Observações",          campo:"observacoes", teto:3900, folga:3}
+  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0},
+  {cab:"Observações",          campo:"observacoes", teto:3900, folga:3, prosa:true}
 ];
 let ctxMedida=null;
 function medir(txt,fonte){
@@ -2386,8 +2421,9 @@ function medir(txt,fonte){
   ctxMedida.font=fonte;
   return Math.ceil(ctxMedida.measureText(String(txt||"")).width*15);
 }
-// Maior palavra e maior linha de um texto — a palavra é o que o Word não pode
-// quebrar, a linha é o que ele gostaria de manter inteiro.
+// Maior palavra e maior linha de um texto — a palavra é o piso absoluto (nunca
+// se quebra uma palavra no meio), a linha é o que a coluna gostaria de mostrar
+// inteira.
 function medidasTexto(txt,fonte){
   let palavra=0, linha=0;
   String(txt||"").split("\n").forEach(l=>{
@@ -2400,51 +2436,67 @@ function larguraColunas(itens){
   const CORPO="10pt Arial", CABECALHO="bold 11pt Arial";
   // O cabeçalho sai em Arial Black, que é uns 18% mais larga que o Arial negrito.
   // Medir com o fator em vez de pedir a fonte ao canvas é de propósito: nem todo
-  // navegador tem Arial Black instalada, e aí a medida sairia curta e a palavra
+  // navegador tem Arial Black instalada, e aí a medida sairia curta e a linha
   // quebraria justamente no cabeçalho.
   const PESO_CABECALHO=1.18;
-  const min=[], ideal=[];
-  COLUNAS_TABELA.forEach((c,i)=>{
+  const dados=COLUNAS_TABELA.map(c=>{
     const mc=medidasTexto(c.cab,CABECALHO);
-    const larguraCab=Math.ceil(mc.linha*PESO_CABECALHO);
-    // numa coluna "inteira" o cabeçalho todo é intocável; nas outras basta não
-    // partir palavra
-    let p=c.inteiro?larguraCab:Math.ceil(mc.palavra*PESO_CABECALHO), l=larguraCab;
+    let linha=Math.ceil(mc.linha*PESO_CABECALHO), palavra=Math.ceil(mc.palavra*PESO_CABECALHO);
     (itens||[]).forEach(it=>{
       const texto=(c.campo==="observacoes")?quebrarFrases(it[c.campo]):it[c.campo];
       const m=medidasTexto(texto,CORPO);
-      p=Math.max(p,m.palavra); l=Math.max(l,m.linha);
+      linha=Math.max(linha,m.linha); palavra=Math.max(palavra,m.palavra);
     });
-    min[i]=p+PAD_CELULA;
-    ideal[i]=Math.max(min[i],Math.min(l+PAD_CELULA,c.teto));
+    return {linha,palavra};
   });
+  // A garantia de cada coluna: a própria linha mais longa, até o teto. O piso
+  // da prosa é mais baixo — a maior PALAVRA, não a maior linha — porque frase
+  // pode quebrar, palavra não.
+  const garantia=COLUNAS_TABELA.map((c,i)=>Math.min(dados[i].linha,c.teto)+PAD_CELULA);
+  const piso=COLUNAS_TABELA.map((c,i)=>c.prosa?dados[i].palavra+PAD_CELULA:garantia[i]);
+  const iProsa=COLUNAS_TABELA.findIndex(c=>c.prosa);
 
-  // 1) o mínimo é intocável; se nem ele couber, encolhe todo mundo junto
-  let larg=min.slice();
-  let somaMin=larg.reduce((a,b)=>a+b,0);
-  if(somaMin>LARG_TOTAL){
-    larg=larg.map(w=>Math.floor(w*LARG_TOTAL/somaMin));
-  }else{
-    // 2) cresce até o ideal, proporcional se o espaço não der pra todos
-    let sobra=LARG_TOTAL-somaMin;
-    const querem=COLUNAS_TABELA.map((c,i)=>ideal[i]-min[i]);
-    const somaQuerem=querem.reduce((a,b)=>a+b,0);
-    if(somaQuerem>0){
-      const fator=Math.min(1,sobra/somaQuerem);
-      querem.forEach((q,i)=>{const d=Math.floor(q*fator);larg[i]+=d;sobra-=d;});
-    }
-    // 3) o que ainda sobrar vai pro texto corrido
-    const pesos=COLUNAS_TABELA.map(c=>c.folga);
-    const somaPesos=pesos.reduce((a,b)=>a+b,0);
-    if(sobra>0&&somaPesos>0){
-      pesos.forEach((p,i)=>{const d=Math.floor(sobra*p/somaPesos);larg[i]+=d;});
+  const totalEstrutural=garantia.reduce((s,w,i)=>s+(COLUNAS_TABELA[i].prosa?0:w),0);
+  const pisoProsa=iProsa>=0?piso[iProsa]:0;
+
+  let larg;
+  if(totalEstrutural+pisoProsa>LARG_TOTAL){
+    // Aperto de verdade: mesmo dando pra prosa só o mínimo que não quebra
+    // palavra, as colunas estruturais juntas não cabem. Acontece quando duas
+    // delas são compridas ao mesmo tempo — Descrição *e* Resíduo longos na
+    // mesma proposta, por exemplo um resíduo com nome extenso. Aqui não sobra
+    // o que priorizar: encolhe as estruturais proporcional entre si (a prosa
+    // já está no piso, não dá mais pra tirar dela sem quebrar palavra).
+    const fator=(LARG_TOTAL-pisoProsa)/totalEstrutural;
+    larg=COLUNAS_TABELA.map((c,i)=>c.prosa?pisoProsa:Math.max(1,Math.floor(garantia[i]*fator)));
+  } else {
+    // Caso normal: as estruturais recebem a garantia inteira, sempre. O que
+    // sobra da largura da página é que decide quanto a prosa mostra sem
+    // quebrar (pode ser tudo, se sobrar espaço — ou só o piso, se não sobrar).
+    larg=garantia.slice();
+    if(iProsa>=0){
+      const espacoProsa=LARG_TOTAL-totalEstrutural;
+      larg[iProsa]=Math.max(piso[iProsa],Math.min(garantia[iProsa],espacoProsa));
     }
   }
-  // sobra de arredondamento cai na maior coluna, pra fechar exatamente a largura
+
+  let usado=larg.reduce((a,b)=>a+b,0);
+  if(usado<LARG_TOTAL){
+    // Sobrou espaço depois de garantir todo mundo: quem tem `folga` cresce
+    // mais, e pode passar do próprio teto — aqui não tem mais risco de quebra,
+    // é só deixar a coluna respirar.
+    let sobra=LARG_TOTAL-usado;
+    const pesos=COLUNAS_TABELA.map(c=>c.folga);
+    const somaPesos=pesos.reduce((a,b)=>a+b,0);
+    if(sobra>0&&somaPesos>0) pesos.forEach((p,i)=>{larg[i]+=Math.floor(sobra*p/somaPesos);});
+  }
+  // Sobra de arredondamento: some na prosa se ela tiver de onde dar (ainda
+  // acima do próprio piso); senão, na maior coluna. Nunca deixa ninguém abaixo
+  // do que já foi garantido pros dois calculados acima.
   const resto=LARG_TOTAL-larg.reduce((a,b)=>a+b,0);
   if(resto!==0){
-    let maior=0; larg.forEach((w,i)=>{if(w>larg[maior])maior=i;});
-    larg[maior]+=resto;
+    if(iProsa>=0&&larg[iProsa]+resto>=piso[iProsa]) larg[iProsa]+=resto;
+    else{ let maior=0; larg.forEach((w,i)=>{if(w>larg[maior])maior=i;}); larg[maior]+=resto; }
   }
   return larg;
 }
@@ -2951,7 +3003,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.16-4";
+const APP_VERSION="2026.08.16-5";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
