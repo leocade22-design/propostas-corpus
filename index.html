@@ -316,7 +316,7 @@
     <div class="sub" id="avisoRazaoSocial"></div>
     <div class="row2">
       <div><label>CNPJ</label><input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this)"></div>
-      <div><label>Inscrição Estadual</label><input type="text" id="ie" placeholder="ISENTO se em branco"></div>
+      <div><label>Inscrição Estadual</label><input type="text" id="ie" inputmode="numeric" oninput="mascaraIE(this)" placeholder="ISENTO se em branco"></div>
     </div>
     <div class="sub" id="statusCNPJ"></div>
     <div class="row2">
@@ -340,7 +340,7 @@
       </div>
       <div class="linha-cep" style="margin-top:7px">
         <input type="text" id="cidade" placeholder="Cidade" oninput="renderResumoEndereco('')">
-        <input type="text" id="uf" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('')">
+        <input type="text" id="uf" placeholder="UF" maxlength="2" style="text-transform:uppercase" oninput="renderResumoEndereco('');mascaraIE(document.getElementById('ie'))">
         <input type="text" id="cep" placeholder="CEP" inputmode="numeric" oninput="mascaraCEP(this);renderResumoEndereco('');buscarPorCEP('')">
       </div>
     </div>
@@ -800,6 +800,47 @@ function mascaraTelefone(el){let v=so(el.value).slice(0,11);
 function mascaraCEP(el){let v=so(el.value).slice(0,8);
   if(v.length>5)v=v.slice(0,5)+"-"+v.slice(5);
   el.value=v;}
+/* Inscrição Estadual: cada estado define sua própria quantidade de dígitos e
+   pontuação — não existe uma máscara única. Só entram aqui os estados com
+   formato confirmado; os demais ficam só com os dígitos, sem separador
+   chutado (errar a posição de um traço num documento oficial é pior do que
+   não formatar). */
+const MASCARAS_IE={
+  ES:{grupos:[8,1], seps:["-"]},
+  RJ:{grupos:[2,3,2,1], seps:[".",".","-"]},
+  SP:{grupos:[3,3,3,3], seps:[".",".","."]},
+  MG:{grupos:[3,3,3,4], seps:[".",".","/"]},
+  DF:{grupos:[2,3,3,3,2], seps:[".",".","/","-"]},
+  AC:{grupos:[2,3,3,3,2], seps:[".",".","/","-"]},
+  GO:{grupos:[2,3,3,1], seps:[".",".","-"]},
+  MS:{grupos:[2,3,3,1], seps:[".",".","-"]},
+  AM:{grupos:[2,3,3,1], seps:[".",".","-"]},
+  CE:{grupos:[2,3,3,1], seps:[".",".","-"]},
+  SC:{grupos:[3,3,3], seps:[".","."]},
+  PR:{grupos:[8,2], seps:["-"]},
+};
+function aplicaGruposIE(v,cfg){
+  let out="",i=0;
+  cfg.grupos.forEach((n,idx)=>{
+    const parte=v.slice(i,i+n); i+=n;
+    if(parte) out+=(idx>0&&out?cfg.seps[idx-1]:"")+parte;
+  });
+  return out;
+}
+function mascaraIE(el){
+  const uf=(document.getElementById("uf")?.value||"").toUpperCase().trim();
+  if(uf==="BA"){
+    // Bahia tem duas contagens: começa com 9 → 7+2 dígitos; começa com 0-8 → 6+2.
+    let v=so(el.value);
+    v=v.slice(0,v[0]==="9"?9:8);
+    el.value=aplicaGruposIE(v,v[0]==="9"?{grupos:[7,2],seps:["-"]}:{grupos:[6,2],seps:["-"]});
+    return;
+  }
+  const cfg=MASCARAS_IE[uf];
+  const max=cfg?cfg.grupos.reduce((a,b)=>a+b,0):14;
+  const v=so(el.value).slice(0,max);
+  el.value=cfg?aplicaGruposIE(v,cfg):v; // sem UF reconhecida: mantém só os dígitos
+}
 function mascaraValor(el){let v=so(el.value);
   if(!v){el.value="";return;}
   v=(parseInt(v,10)/100).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
@@ -846,7 +887,8 @@ function quebrarGenerico(sufixo){
   document.getElementById("logradouro"+sufixo).value=r.logradouro;
   document.getElementById("bairro"+sufixo).value=r.incerto?"":r.bairro;
   document.getElementById("cidade"+sufixo).value=r.incerto?"":r.cidade;
-  if(r.uf) document.getElementById("uf"+sufixo).value=r.uf;
+  if(r.uf){document.getElementById("uf"+sufixo).value=r.uf;
+    if(!sufixo) mascaraIE(document.getElementById("ie"));}
   if(r.cep) document.getElementById("cep"+sufixo).value=r.cep;
   renderResumoEndereco(sufixo);
   // Só o CEP colado já resolve: a base dos Correios devolve rua, bairro, cidade
@@ -2396,24 +2438,26 @@ function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
    REALMENTE vai sair. A medida não é chute: o canvas mede a frase na fonte e no
    corpo certos e devolve pixels, que viram twips (1 px CSS = 15 twips).
 
-   Descrição, Resíduo, Unidade e Valor são rótulos curtos e estruturados —
-   "CLASSE II - POR EQUIPAMENTO -", "Sucata Metálica" — e essas GARANTEM a
-   própria linha inteira até um teto; não abrem mão de espaço por nenhum
-   outro motivo. Só Observações é texto corrido (prosa), e é ela quem cede
-   quando o total não cabe na largura fixa da página: uma frase comprida
-   quebrando em duas linhas é normal de se ler; um rótulo curto quebrando no
-   meio, não. */
+   Resíduo, Unidade e Valor são rótulos curtos e estruturados — "Sucata
+   Metálica", "KG", "R$ 293.400,00" — e essas GARANTEM a própria linha
+   inteira até um teto; não abrem mão de espaço por nenhum outro motivo.
+   Observações é normalmente o texto mais importante da linha (é ela que
+   carrega a explicação do preço) e por isso também é GARANTIDA, com um teto
+   generoso — é a coluna que deve ficar mais larga na prática. Quem cede
+   quando o total não cabe na largura fixa da página é Descrição: um rótulo
+   como "CLASSE II - POR EQUIPAMENTO -" quebrando em duas linhas é normal de
+   se ler; a explicação em Observações espremida numa coluna estreita, não. */
 const LARG_TOTAL=11052;              // largura da tabela no modelo, em twips
 const PAD_CELULA=300;                // margem interna das células + respiro contra
                                       // kerning e margens que o canvas não replica 100%
 // O "\n" em Valor Unitário é a quebra fixa que existe no modelo — o cabeçalho
 // sai sempre em duas linhas certas.
 const COLUNAS_TABELA=[
-  {cab:"Descrição",            campo:"descricao",   teto:4800, folga:4},
+  {cab:"Descrição",            campo:"descricao",   teto:3200, folga:1, prosa:true},
   {cab:"Resíduo",              campo:"residuo",     teto:2700, folga:0},
   {cab:"Unidade",              campo:"unidade",     teto:1150, folga:0},
   {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0},
-  {cab:"Observações",          campo:"observacoes", teto:3900, folga:3, prosa:true}
+  {cab:"Observações",          campo:"observacoes", teto:5200, folga:4}
 ];
 let ctxMedida=null;
 function medir(txt,fonte){
@@ -2460,11 +2504,12 @@ function larguraColunas(itens){
   let larg;
   if(totalEstrutural+pisoProsa>LARG_TOTAL){
     // Aperto de verdade: mesmo dando pra prosa só o mínimo que não quebra
-    // palavra, as colunas estruturais juntas não cabem. Acontece quando duas
-    // delas são compridas ao mesmo tempo — Descrição *e* Resíduo longos na
-    // mesma proposta, por exemplo um resíduo com nome extenso. Aqui não sobra
-    // o que priorizar: encolhe as estruturais proporcional entre si (a prosa
-    // já está no piso, não dá mais pra tirar dela sem quebrar palavra).
+    // palavra, as colunas estruturais juntas não cabem. Acontece quando
+    // Observações e Resíduo são compridos ao mesmo tempo — por exemplo uma
+    // observação longa com um resíduo de nome extenso na mesma proposta.
+    // Aqui não sobra o que priorizar: encolhe as estruturais proporcional
+    // entre si (a prosa já está no piso, não dá mais pra tirar dela sem
+    // quebrar palavra).
     const fator=(LARG_TOTAL-pisoProsa)/totalEstrutural;
     larg=COLUNAS_TABELA.map((c,i)=>c.prosa?pisoProsa:Math.max(1,Math.floor(garantia[i]*fator)));
   } else {
@@ -2857,6 +2902,7 @@ async function buscarCNPJ(){
       document.getElementById("bairro").value=v.bai;
       document.getElementById("cidade").value=v.cid;
       document.getElementById("uf").value=v.uf;
+      mascaraIE(document.getElementById("ie"));
       let cepFmt="";
       if(v.cep){const el=document.getElementById("cep");el.value=v.cep;mascaraCEP(el);cepFmt=el.value;}
       // Mesmo formato do Google Maps: "Logradouro, nº - Bairro, Cidade - UF, CEP"
@@ -3001,7 +3047,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.16-6";
+const APP_VERSION="2026.08.18-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
