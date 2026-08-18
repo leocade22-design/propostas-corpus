@@ -2433,15 +2433,13 @@ function medidasTexto(txt,fonte){
   return {palavra,linha};
 }
 function larguraColunas(itens){
+  // Cabeçalho e corpo na mesma família (Arial) — só o peso e o corpo mudam.
+  // Sem fator de compensação: Arial mede igual em qualquer navegador, porque
+  // resolve pra Liberation Sans, que é metricamente compatível.
   const CORPO="10pt Arial", CABECALHO="bold 11pt Arial";
-  // O cabeçalho sai em Arial Black, que é uns 18% mais larga que o Arial negrito.
-  // Medir com o fator em vez de pedir a fonte ao canvas é de propósito: nem todo
-  // navegador tem Arial Black instalada, e aí a medida sairia curta e a linha
-  // quebraria justamente no cabeçalho.
-  const PESO_CABECALHO=1.18;
   const dados=COLUNAS_TABELA.map(c=>{
     const mc=medidasTexto(c.cab,CABECALHO);
-    let linha=Math.ceil(mc.linha*PESO_CABECALHO), palavra=Math.ceil(mc.palavra*PESO_CABECALHO);
+    let linha=mc.linha, palavra=mc.palavra;
     (itens||[]).forEach(it=>{
       const texto=(c.campo==="observacoes")?quebrarFrases(it[c.campo]):it[c.campo];
       const m=medidasTexto(texto,CORPO);
@@ -3003,7 +3001,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.16-5";
+const APP_VERSION="2026.08.16-6";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
