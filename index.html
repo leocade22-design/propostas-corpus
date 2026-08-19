@@ -1221,16 +1221,23 @@ function fluxo(){
 
   } else if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
     sel.residuos=sel.residuos||[];
-    renderPasso("passo2","Classe",["CLASSE II","CLASSE I"],sel.classe,
-      v=>{sel.classe=v;sel.residuos=[];passoAberto=null;fluxo();});
-    if(sel.classe) renderPasso("passo3","Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,
+    // Marca as duas — proposta grande costuma levar resíduo das duas classes, e
+    // sem isso o Léo teria que fechar tudo, trocar a classe e recomeçar o passo
+    // de resíduos duas vezes pra montar a mesma linha de serviço.
+    sel.classes=sel.classes||[];
+    renderPasso("passo2","Classe",["CLASSE II","CLASSE I"],sel.classes,
+      v=>{alternar(sel.classes,v);sel.residuos=[];fluxo();},{multi:true});
+    if(sel.classes.length) renderPasso("passo3","Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,
       v=>{sel.uni=v;passoAberto=null;fluxo();});
     else esconderPassos(3);
-    if(sel.classe&&sel.uni){
-      const tipo=sel.classe==="CLASSE II"?"residuos2":"residuos1";
-      renderPasso("passo4","Resíduos",listaResiduos(sel.classe).map(r=>r.n),sel.residuos,
+    if(sel.classes.length&&sel.uni){
+      const listaCombinada=sel.classes.flatMap(cl=>listaResiduos(cl));
+      // Com as duas classes marcadas não dá pra saber qual catálogo abrir pra
+      // editar — some o atalho "editar lista" nesse caso; com uma só, continua.
+      const tipo=sel.classes.length===1?(sel.classes[0]==="CLASSE II"?"residuos2":"residuos1"):null;
+      renderPasso("passo4","Resíduos",listaCombinada.map(r=>r.n),sel.residuos,
         v=>{alternar(sel.residuos,v);fluxo();},
-        {multi:true,gerenciar:()=>abrirCatalogo(tipo)});
+        {multi:true,gerenciar:tipo?()=>abrirCatalogo(tipo):undefined});
     } else esconderPassos(4);
 
   } else if(c==="RECICLÁVEIS MISTOS"){
@@ -1295,11 +1302,16 @@ function montarLinhas(){
     });
   }
   if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
-    if(!sel.classe||!sel.uni||!sel.residuos||!sel.residuos.length) return [];
+    if(!sel.classes||!sel.classes.length||!sel.uni||!sel.residuos||!sel.residuos.length) return [];
+    // Com as duas classes marcadas, cada resíduo pode vir de uma diferente — o
+    // nome já é único entre as duas (todo item do catálogo carrega "- Classe
+    // I"/"- Classe II" no próprio nome), então dá pra achar a classe certa de
+    // cada um em vez de usar uma única classe pra linha inteira.
     return sel.residuos.map(nome=>{
-      const r=listaResiduos(sel.classe).find(x=>x.n===nome)||{n:nome,o:""};
+      const cl=listaResiduos("CLASSE II").some(x=>x.n===nome)?"CLASSE II":"CLASSE I";
+      const r=listaResiduos(cl).find(x=>x.n===nome)||{n:nome,o:""};
       return {chave:"res:"+nome, nome,
-        descricao:`${nomeCategoria(c)} - ${sel.classe}\n– ${sel.uni}`,
+        descricao:`${nomeCategoria(c)} - ${cl}\n– ${sel.uni}`,
         residuo:quebrarClasseResiduo(r.n), unidade:sel.uni.replace("POR ",""), obsBase:r.o||""};
     });
   }
@@ -1390,8 +1402,8 @@ function renderLinhasValores(){
       obsAutoPorChave[l.chave]=nova;
     };
     const trocouUnidade=u=>{unidadePorChave[l.chave]=u;aplicarObs();};
-    iu.oninput=()=>{trocouUnidade(iu.value);montarChipsUnidade(chips,iu,l.chave,trocouUnidade);};
-    montarChipsUnidade(chips,iu,l.chave,trocouUnidade);
+    iu.oninput=()=>{trocouUnidade(iu.value);montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);};
+    montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);
     aplicarObs();
     if(obsPorChave[l.chave]!==undefined) io.value=obsPorChave[l.chave];
     io.oninput=()=>{obsPorChave[l.chave]=io.value;};
@@ -1706,7 +1718,15 @@ const UNIDADES_POR_TIPO={
   cat:["Serviço","Mensal","Hora"]
 };
 function tipoLinha(chave){return String(chave||"").split(":")[0];}
-function unidadesSugeridas(chave){
+// Em veículo, Hora/Diária só fazem sentido "por equipamento" (aluguel do
+// equipamento por tempo) — "por coleta" é sempre por viagem, sem opção. A
+// modalidade não vem separada no item já adicionado, mas a descrição sempre
+// carrega o literal "POR COLETA"/"POR EQUIPAMENTO" (é assim que o modelo do
+// Word também mostra), então é dali que se lê pra saber qual mostrar.
+function unidadesSugeridas(chave,descricao){
+  if(tipoLinha(chave)==="veic"){
+    return /POR EQUIPAMENTO/.test(descricao||"")?["Hora","Diária"]:["Viagem"];
+  }
   return UNIDADES_POR_TIPO[tipoLinha(chave)]||["Viagem","KG","Tonelada"];
 }
 
@@ -1772,16 +1792,16 @@ function comporObs(chave,unidade,base){
 }
 // Serve pros dois lugares que têm campo de unidade: a linha do assistente e o
 // editor da linha que já está na proposta.
-function montarChipsUnidade(alvo,campo,chave,aoTrocar){
+function montarChipsUnidade(alvo,campo,chave,aoTrocar,descricao){
   alvo.innerHTML="";
-  unidadesSugeridas(chave).forEach(u=>{
+  unidadesSugeridas(chave,descricao).forEach(u=>{
     const b=document.createElement("button");
     b.textContent=u;
     if(campo.value.trim().toLowerCase()===u.toLowerCase()) b.className="ativa";
     b.onclick=()=>{
       campo.value=u;
       if(aoTrocar) aoTrocar(u);
-      montarChipsUnidade(alvo,campo,chave,aoTrocar);
+      montarChipsUnidade(alvo,campo,chave,aoTrocar,descricao);
     };
     alvo.appendChild(b);
   });
@@ -1800,7 +1820,7 @@ function montarSugestoesUnidade(){
       obs.value=nova; ajustarAltura(obs);
     }
     obsAutoModal=nova;
-  });
+  },item&&item.descricao);
 }
 
 function salvarEdicaoItem(){
@@ -3090,7 +3110,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.18-3";
+const APP_VERSION="2026.08.18-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
