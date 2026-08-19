@@ -2453,11 +2453,11 @@ const PAD_CELULA=300;                // margem interna das células + respiro co
 // O "\n" em Valor Unitário é a quebra fixa que existe no modelo — o cabeçalho
 // sai sempre em duas linhas certas.
 const COLUNAS_TABELA=[
-  {cab:"Descrição",            campo:"descricao",   teto:3200, folga:1, prosa:true},
+  {cab:"Descrição",            campo:"descricao",   teto:4200, folga:1, prosa:true, pisoMin:2600},
   {cab:"Resíduo",              campo:"residuo",     teto:2700, folga:0},
   {cab:"Unidade",              campo:"unidade",     teto:1150, folga:0},
   {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0},
-  {cab:"Observações",          campo:"observacoes", teto:5200, folga:4}
+  {cab:"Observações",          campo:"observacoes", teto:4600, folga:3}
 ];
 let ctxMedida=null;
 function medir(txt,fonte){
@@ -2492,10 +2492,16 @@ function larguraColunas(itens){
     return {linha,palavra};
   });
   // A garantia de cada coluna: a própria linha mais longa, até o teto. O piso
-  // da prosa é mais baixo — a maior PALAVRA, não a maior linha — porque frase
-  // pode quebrar, palavra não.
+  // nunca é menor que a maior PALAVRA — nenhuma coluna quebra uma palavra no
+  // meio, nem sob aperto. A prosa (Descrição) tem um piso mais generoso que
+  // isso, `pisoMin`: calibrado pelos trechos típicos ("CLASSE II - POR
+  // EQUIPAMENTO -" etc.), garante que ela normalmente caiba em poucas linhas
+  // mesmo quando outro item da mesma proposta tem um segmento fora do comum
+  // (ex.: "DESTINAÇÃO FINAL DE RESÍDUOS - CLASSE II") — sem esse piso, o
+  // aperto de verdade abaixo travava a prosa só na palavra, bem menor do que
+  // o razoável.
   const garantia=COLUNAS_TABELA.map((c,i)=>Math.min(dados[i].linha,c.teto)+PAD_CELULA);
-  const piso=COLUNAS_TABELA.map((c,i)=>c.prosa?dados[i].palavra+PAD_CELULA:garantia[i]);
+  const piso=COLUNAS_TABELA.map((c,i)=>Math.max(dados[i].palavra,c.pisoMin||0)+PAD_CELULA);
   const iProsa=COLUNAS_TABELA.findIndex(c=>c.prosa);
 
   const totalEstrutural=garantia.reduce((s,w,i)=>s+(COLUNAS_TABELA[i].prosa?0:w),0);
@@ -2503,15 +2509,23 @@ function larguraColunas(itens){
 
   let larg;
   if(totalEstrutural+pisoProsa>LARG_TOTAL){
-    // Aperto de verdade: mesmo dando pra prosa só o mínimo que não quebra
-    // palavra, as colunas estruturais juntas não cabem. Acontece quando
-    // Observações e Resíduo são compridos ao mesmo tempo — por exemplo uma
-    // observação longa com um resíduo de nome extenso na mesma proposta.
-    // Aqui não sobra o que priorizar: encolhe as estruturais proporcional
-    // entre si (a prosa já está no piso, não dá mais pra tirar dela sem
-    // quebrar palavra).
+    // Aperto de verdade: mesmo dando pra prosa só o piso, as colunas
+    // estruturais juntas não cabem. Acontece quando Observações e Resíduo são
+    // compridos ao mesmo tempo — por exemplo uma observação longa com um
+    // resíduo de nome extenso na mesma proposta. Encolhe as estruturais
+    // proporcional entre si, mas nenhuma passa do próprio piso de palavra —
+    // senão o aperto tira de uma coluna curta (Unidade, Valor) o espaço que
+    // a palavra dela mesma precisa, o que nunca deveria ceder.
     const fator=(LARG_TOTAL-pisoProsa)/totalEstrutural;
-    larg=COLUNAS_TABELA.map((c,i)=>c.prosa?pisoProsa:Math.max(1,Math.floor(garantia[i]*fator)));
+    larg=COLUNAS_TABELA.map((c,i)=>c.prosa?pisoProsa:Math.max(piso[i],Math.floor(garantia[i]*fator)));
+    // O clamp no piso pode ter feito a soma passar de novo da largura da
+    // página — tira a diferença só da prosa, a única que ainda tem de onde
+    // ceder sem arrancar uma coluna do próprio piso de palavra.
+    const excedente=larg.reduce((a,b)=>a+b,0)-LARG_TOTAL;
+    if(excedente>0&&iProsa>=0){
+      const corte=Math.min(excedente,larg[iProsa]-piso[iProsa]);
+      larg[iProsa]-=corte;
+    }
   } else {
     // Caso normal: as estruturais recebem a garantia inteira, sempre. O que
     // sobra da largura da página é que decide quanto a prosa mostra sem
@@ -3047,7 +3061,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.18-1";
+const APP_VERSION="2026.08.18-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
