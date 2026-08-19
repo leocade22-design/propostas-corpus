@@ -2496,10 +2496,20 @@ async function importarDest(input){
   try{
     let novos;
     if(/\.json$/i.test(arq.name)){
+      // Backup do próprio app: volta inteiro, inclusive as junções feitas à mão.
+      // Sem isso, restaurar um backup devolvia os preços mas jogava fora o
+      // trabalho de casar as nomenclaturas dos parceiros.
       const j=JSON.parse(await arq.text());
       novos=Array.isArray(j)?j:(j.precos||[]);
-      if(j&&j.bdi!==undefined) dest.bdi=Number(j.bdi)||dest.bdi;
+      if(j&&!Array.isArray(j)){
+        if(j.bdi!==undefined) dest.bdi=Number(j.bdi)||dest.bdi;
+        if(Array.isArray(j.juntas)) dest.juntas=j.juntas;
+        if(Array.isArray(j.separadas)) dest.separadas=j.separadas;
+      }
     }else{
+      // Planilha nova do parceiro: os preços são substituídos, mas as junções
+      // continuam valendo — elas são por NOME de resíduo, então sobrevivem a um
+      // reajuste de preço sem precisar refazer nada.
       novos=planilhaParaPrecos(await lerXlsx(arq));
     }
     if(!novos.length){ st.textContent="Nenhuma linha de preço encontrada no arquivo."; return; }
@@ -3669,7 +3679,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.19-2";
+const APP_VERSION="2026.08.19-3";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
