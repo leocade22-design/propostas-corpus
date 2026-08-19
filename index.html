@@ -171,15 +171,32 @@
   .passo-resumo .passo-valor{font-size:.85rem;font-weight:600;color:var(--verde);flex:1;line-height:1.3;}
   .passo-resumo .passo-editar{font-size:.72rem;color:var(--suave);flex:0 0 auto;}
   .chip-gerenciar{border-style:dashed;color:var(--suave);}
-  .dest-bloco{margin-bottom:10px;}
-  .dest-nome{font-size:.78rem;font-weight:700;color:var(--verde);
-    border-bottom:1px solid var(--campo-borda);padding-bottom:3px;margin-bottom:4px;}
-  .dest-linha{display:flex;justify-content:space-between;gap:10px;padding:3px 0;
-    border-bottom:1px dotted var(--campo-borda);}
-  .dest-res{font-size:.76rem;flex:1;}
-  .dest-val{font-size:.72rem;text-align:right;white-space:nowrap;flex:0 0 auto;}
-  .dest-val .custo{color:var(--suave);display:block;}
-  .dest-val .venda{color:var(--verde);font-weight:600;display:block;}
+  .dest-barra{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    flex-wrap:wrap;margin-bottom:6px;}
+  .dest-visao{display:flex;gap:4px;}
+  .dest-visao button{background:var(--campo);border:1.5px solid var(--campo-borda);
+    border-radius:14px;padding:4px 10px;font-size:.72rem;color:inherit;}
+  .dest-visao button.ativa{background:var(--verde);border-color:var(--verde);color:#fff;}
+  html[data-tema="escuro"] .dest-visao button.ativa{color:#0B1710;}
+  /* A tabela cruzada não cabe na largura do celular — ela rola só dentro desta
+     caixa, pra página em si nunca rolar de lado. */
+  .dest-rolagem{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .dest-tab{border-collapse:collapse;font-size:.7rem;width:max-content;min-width:100%;}
+  .dest-tab th,.dest-tab td{border:1px solid var(--campo-borda);padding:4px 6px;}
+  .dest-tab thead th{background:var(--verde-claro);color:var(--verde);font-size:.66rem;
+    font-weight:700;white-space:nowrap;position:sticky;top:0;}
+  /* A coluna do resíduo fica presa à esquerda: rolando pros parceiros da direita
+     ainda dá pra saber de que linha é o preço. */
+  .dest-tab tbody th{background:var(--branco);text-align:left;font-weight:600;
+    font-size:.7rem;position:sticky;left:0;z-index:1;max-width:150px;cursor:pointer;}
+  .dest-tab tbody th.sel{background:var(--verde);color:#fff;}
+  html[data-tema="escuro"] .dest-tab tbody th.sel{color:#0B1710;}
+  .dest-juntou{font-size:.62rem;opacity:.7;padding:0 3px;}
+  .dest-tab td{text-align:right;white-space:nowrap;}
+  .dest-tab td.vazia{color:var(--suave);text-align:center;}
+  .dest-tab td.melhor{background:var(--verde-claro);}
+  .dest-tab td.melhor .n{color:var(--verde);font-weight:700;}
+  .dest-tab td .u{color:var(--suave);font-size:.62rem;}
   /* Sugestão de custo dentro do card de valor da linha */
   .dest-sug{margin-top:6px;}
   .dest-sug .titulo{font-size:.7rem;color:var(--suave);margin-bottom:3px;}
@@ -1407,9 +1424,15 @@ let obsAutoPorChave={};
    obrigaria a mexer na planilha toda vez que um parceiro renomeia algo), o
    app pontua a semelhança e mostra os candidatos em ordem — quem decide é
    sempre o Léo, clicando. Nada é preenchido sozinho. */
+/* A palavra "classe" sai fora: ela aparece em quase todo nome dos dois lados e
+   não distingue nada — pior, inflava a semelhança entre coisas diferentes
+   ("ENTULHO - CLASSE A (LIMPO)" x "ENTULHO - CLASSE C (REJEITO)" pareciam o
+   mesmo resíduo só por compartilhar a palavra). O que vem depois dela (I, II,
+   A, B, AB, C) cai sozinho no filtro de tamanho, então o que sobra pra comparar
+   é só o nome de verdade: "limpo" x "rejeito". */
 function tokensResiduo(s){
   return semAc(String(s||""))
-    .replace(/\bclasse\s+(ii?[ab]?|i)\b/g," ")   // "- Classe II" não distingue nada aqui
+    .replace(/\bclasses?\b/g," ")
     .split(/[^a-z0-9]+/).filter(t=>t.length>2);
 }
 // "reciclavel" x "reciclaveis", "solido" x "solidos": um é começo do outro.
@@ -2079,6 +2102,14 @@ function ajustarAltura(el){
 const LS_CATALOGO="corpus_catalogo_v1";
 let catalogo={veiculos:[],residuos2:[],residuos1:[],reciclaveis:[],cargos:[],locacoes:[],ocultos:[],
   categorias:{ordem:[],nomes:{},ocultas:[]}};
+
+/* Tabela de custos dos destinadores. Declarada aqui em cima, e não junto das
+   suas funções lá embaixo, porque a inicialização do app chama carregarDest()
+   antes daquele ponto do arquivo — e `let` só passa a existir na linha em que
+   é declarado. Ficando lá embaixo, a leitura do que estava salvo falhava calada
+   e a tabela voltava vazia a cada abertura do app. */
+const LS_DEST="corpus_destinadores_v1";
+let dest={bdi:63,precos:[],juntas:[],separadas:[]}, destAberto=false;
 function carregarCatalogo(){
   try{
     const s=localStorage.getItem(LS_CATALOGO);
@@ -2324,13 +2355,14 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
    comercial, e este app mora num repositório público — então o dado real entra
    por importação da planilha do Léo, no aparelho dele, e fica só lá. Mesmo
    princípio do cofre de clientes. */
-const LS_DEST="corpus_destinadores_v1";
-let dest={bdi:63,precos:[]}, destAberto=false;
+// LS_DEST e `dest` são declarados lá em cima, junto do resto do estado, e não
+// aqui — a inicialização do app chama carregarDest() antes deste ponto do
+// arquivo, e `let`/`const` não existem antes da linha que os declara.
 function carregarDest(){
   try{
     const s=localStorage.getItem(LS_DEST);
-    if(s) dest=Object.assign({bdi:63,precos:[]},JSON.parse(s));
-  }catch(e){}
+    if(s) dest=Object.assign({bdi:63,precos:[],juntas:[],separadas:[]},JSON.parse(s));
+  }catch(e){ console.warn("destinadores: não deu pra ler o que estava salvo",e); }
 }
 function gravarDest(){
   try{localStorage.setItem(LS_DEST,JSON.stringify(dest));}
@@ -2489,6 +2521,91 @@ function exportarDest(){
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
+/* ---- Agrupamento de resíduos entre destinadores ----
+   Cada parceiro batiza o resíduo do seu jeito: o que num é "SÓLIDO
+   CONTAMINADO" no outro é "SÓLIDOS CONTAMINADOS". Pra comparar preço lado a
+   lado eles precisam virar UMA linha só.
+
+   O critério aqui é bem mais rígido que o das sugestões de preço na proposta,
+   e de propósito: lá um palpite ruim só oferece uma opção a mais pro Léo
+   ignorar; aqui ele juntaria dois resíduos diferentes na mesma linha e
+   apontaria o "mais barato" errado.
+
+   A regra é exigir os MESMOS termos dos dois lados, tolerando só variação de
+   singular/plural. Juntar por "a maioria dos termos bate" parecia razoável e
+   não é: uma palavra a mais quase sempre é justamente o que separa duas
+   coisas — "LODO DE ETE" x "LODO DE ETE HIDRATADO" (R$ 115) x "DESIDRATADO"
+   (R$ 68,43) são três produtos, e "LÂMPADAS FLUORESCENTES" x "... QUEBRADA"
+   são cobrados até em unidades diferentes. Sendo rígido, o erro que sobra é
+   deixar linha repetida — visível na tela e resolvida com dois toques em
+   "juntar" —, nunca fundir calado o que não devia. */
+function mesmoResiduo(a,b){
+  const ta=tokensResiduo(a), tb=tokensResiduo(b);
+  if(!ta.length||!tb.length||ta.length!==tb.length) return false;
+  return ta.every(x=>tb.some(y=>tokenCasa(x,y)))
+      && tb.every(y=>ta.some(x=>tokenCasa(x,y)));
+}
+function parSeparado(a,b){
+  return (dest.separadas||[]).some(par=>(par[0]===a&&par[1]===b)||(par[0]===b&&par[1]===a));
+}
+function gruposResiduos(){
+  const nomes=[...new Set(dest.precos.map(p=>p.r))];
+  const pai={}; nomes.forEach(n=>pai[n]=n);
+  const acha=n=>{ while(pai[n]!==n) n=pai[n]=pai[pai[n]]; return n; };
+  const une=(a,b)=>{ const ra=acha(a), rb=acha(b); if(ra!==rb) pai[ra]=rb; };
+  for(let i=0;i<nomes.length;i++)
+    for(let j=i+1;j<nomes.length;j++)
+      if(!parSeparado(nomes[i],nomes[j])&&mesmoResiduo(nomes[i],nomes[j])) une(nomes[i],nomes[j]);
+  // O que o Léo juntou na mão vale acima de qualquer palpite do app
+  (dest.juntas||[]).forEach(g=>{
+    const presentes=g.filter(n=>pai[n]!==undefined);
+    for(let i=1;i<presentes.length;i++) une(presentes[0],presentes[i]);
+  });
+  const grupos={};
+  nomes.forEach(n=>{ const r=acha(n); (grupos[r]=grupos[r]||[]).push(n); });
+  // Rótulo do grupo: o nome mais curto costuma ser o mais limpo ("FOSSA" em vez
+  // de "FOSSA SÉPTICA - CLASSE II — COLETA DEDICADA")
+  return Object.values(grupos).map(g=>({
+    nomes:g.slice().sort((a,b)=>a.length-b.length),
+    rotulo:g.slice().sort((a,b)=>a.length-b.length)[0]
+  })).sort((a,b)=>a.rotulo.localeCompare(b.rotulo,"pt-BR"));
+}
+let destVendo="custo", destSelecao=[];
+function alternarVisaoDest(v){ destVendo=v; renderDest(); }
+function selecionarGrupo(rotulo){
+  const i=destSelecao.indexOf(rotulo);
+  if(i>=0) destSelecao.splice(i,1); else destSelecao.push(rotulo);
+  renderDest();
+}
+function juntarSelecionados(){
+  const grupos=gruposResiduos().filter(g=>destSelecao.includes(g.rotulo));
+  if(grupos.length<2) return;
+  const todos=grupos.flatMap(g=>g.nomes);
+  // Juntar desfaz qualquer "separar" anterior entre esses nomes
+  dest.separadas=(dest.separadas||[]).filter(par=>!(todos.includes(par[0])&&todos.includes(par[1])));
+  dest.juntas=(dest.juntas||[]).filter(g=>!g.some(n=>todos.includes(n)));
+  dest.juntas.push(todos);
+  destSelecao=[]; gravarDest(); renderDest(); renderLinhasValores();
+}
+function separarGrupo(rotulo){
+  const g=gruposResiduos().find(x=>x.rotulo===rotulo);
+  if(!g||g.nomes.length<2) return;
+  dest.juntas=(dest.juntas||[]).filter(j=>!j.some(n=>g.nomes.includes(n)));
+  dest.separadas=dest.separadas||[];
+  for(let i=0;i<g.nomes.length;i++)
+    for(let j=i+1;j<g.nomes.length;j++)
+      dest.separadas.push([g.nomes[i],g.nomes[j]]);
+  destSelecao=[]; gravarDest(); renderDest(); renderLinhasValores();
+}
+/* Massa vira sempre TON pra comparar (a planilha é em tonelada e é assim que o
+   Léo quer manter). UN e M³ não têm conversão possível entre si nem pra massa —
+   sem densidade, "94,50/m³" e "90,00/ton" não são comparáveis, então cada um
+   fica na sua unidade e o "mais barato" só é apontado entre iguais. */
+function emTonelada(p){
+  const u=normUnid(p.u);
+  if(u==="KG") return {v:p.v*1000,u:"TON"};
+  return {v:p.v,u:u||"–"};
+}
 function renderDest(){
   const el=document.getElementById("listaDest");
   if(!el) return;
@@ -2501,30 +2618,105 @@ function renderDest(){
     return;
   }
   const busca=semAc(document.getElementById("buscaDest").value.trim());
-  const vis=dest.precos.filter(p=>!busca||semAc(p.d+" "+p.r+" "+p.cl).includes(busca));
-  if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
-  const porDest={};
-  vis.forEach(p=>{ (porDest[p.d]=porDest[p.d]||[]).push(p); });
+  const parceiros=[...new Set(dest.precos.map(p=>p.d))].sort();
+  let grupos=gruposResiduos();
+  if(busca) grupos=grupos.filter(g=>semAc(g.nomes.join(" ")).includes(busca)
+                                   ||parceiros.some(d=>semAc(d).includes(busca)&&g.nomes.some(n=>dest.precos.some(p=>p.d===d&&p.r===n))));
+  if(!grupos.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+
   el.innerHTML="";
-  Object.keys(porDest).sort().forEach(nome=>{
-    const bloco=document.createElement("div");
-    bloco.className="dest-bloco";
-    const cab=document.createElement("div");
-    cab.className="dest-nome";
-    cab.textContent=nome+"  ("+porDest[nome].length+")";
-    bloco.appendChild(cab);
-    porDest[nome].forEach(p=>{
-      const linha=document.createElement("div");
-      linha.className="dest-linha";
-      linha.innerHTML='<div class="dest-res"></div><div class="dest-val"></div>';
-      linha.querySelector(".dest-res").textContent=p.r+(p.cl?"  ·  "+p.cl:"");
-      linha.querySelector(".dest-val").innerHTML=
-        '<span class="custo">custo R$ '+fmtDinheiro(p.v)+"/"+(p.u||"–")+"</span>"+
-        '<span class="venda">venda R$ '+fmtDinheiro(comBDI(p.v))+"/"+(p.u||"–")+"</span>";
-      bloco.appendChild(linha);
-    });
-    el.appendChild(bloco);
+  const barra=document.createElement("div");
+  barra.className="dest-barra";
+  barra.innerHTML=
+    '<div class="dest-visao">'+
+      '<button data-v="custo">custo</button><button data-v="venda">venda c/ BDI</button>'+
+    '</div><div class="dest-acao"></div>';
+  barra.querySelectorAll(".dest-visao button").forEach(b=>{
+    if(b.dataset.v===destVendo) b.className="ativa";
+    b.onclick=()=>alternarVisaoDest(b.dataset.v);
   });
+  const acao=barra.querySelector(".dest-acao");
+  if(destSelecao.length>=2){
+    const j=document.createElement("button");
+    j.className="btn-mini";
+    j.textContent="juntar "+destSelecao.length+" resíduos";
+    j.onclick=juntarSelecionados;
+    acao.appendChild(j);
+  }else if(destSelecao.length===1){
+    acao.innerHTML='<span class="sub">marque outro pra juntar</span>';
+  }
+  el.appendChild(barra);
+
+  const rolagem=document.createElement("div");
+  rolagem.className="dest-rolagem";
+  const tab=document.createElement("table");
+  tab.className="dest-tab";
+  const thead=document.createElement("thead");
+  const trh=document.createElement("tr");
+  trh.innerHTML="<th>Resíduo</th>"+parceiros.map(()=>"<th></th>").join("");
+  [...trh.querySelectorAll("th")].slice(1).forEach((th,i)=>{th.textContent=parceiros[i];});
+  thead.appendChild(trh); tab.appendChild(thead);
+
+  const tb=document.createElement("tbody");
+  grupos.forEach(g=>{
+    const tr=document.createElement("tr");
+    const th=document.createElement("th");
+    th.className="dest-rot"+(destSelecao.includes(g.rotulo)?" sel":"");
+    th.textContent=g.rotulo;
+    if(g.nomes.length>1){
+      const marca=document.createElement("span");
+      marca.className="dest-juntou";
+      marca.textContent=" ⇄"+g.nomes.length;
+      marca.title=g.nomes.join("  ·  ")+"\n(toque no ⇄ pra separar)";
+      marca.onclick=ev=>{ev.stopPropagation();separarGrupo(g.rotulo);};
+      th.appendChild(marca);
+    }
+    th.onclick=()=>selecionarGrupo(g.rotulo);
+    tr.appendChild(th);
+
+    // Preços do grupo, por parceiro, já normalizados pra poder comparar.
+    // Um parceiro pode ter mais de um preço no mesmo grupo (depois de uma
+    // junção manual, por exemplo): mostra o menor, mas avisa que há outros —
+    // esconder isso calado faria o Léo cotar por um preço que não é o daquele
+    // resíduo específico.
+    const celulas=parceiros.map(d=>{
+      const achados=dest.precos.filter(p=>p.d===d&&g.nomes.includes(p.r));
+      if(!achados.length) return null;
+      const ord=achados.map(p=>({...emTonelada(p),r:p.r})).sort((a,b)=>a.v-b.v);
+      return Object.assign(ord[0],{
+        varios:ord.length>1?ord.map(x=>x.r+": "+fmtDinheiro(x.v)+"/"+x.u).join("\n"):null
+      });
+    });
+    // O menor preço só é destacado entre unidades iguais — comparar R$/m³ com
+    // R$/ton apontaria um "mais barato" que não quer dizer nada
+    const menorPorUnid={};
+    celulas.forEach(c=>{ if(c&&(menorPorUnid[c.u]===undefined||c.v<menorPorUnid[c.u])) menorPorUnid[c.u]=c.v; });
+    const quantosNaUnid={};
+    celulas.forEach(c=>{ if(c) quantosNaUnid[c.u]=(quantosNaUnid[c.u]||0)+1; });
+
+    celulas.forEach(c=>{
+      const td=document.createElement("td");
+      if(!c){ td.className="vazia"; td.textContent="–"; tr.appendChild(td); return; }
+      const v=destVendo==="venda"?comBDI(c.v):c.v;
+      if(quantosNaUnid[c.u]>1&&c.v===menorPorUnid[c.u]) td.className="melhor";
+      td.innerHTML='<span class="n"></span><span class="u"></span>';
+      td.querySelector(".n").textContent=fmtDinheiro(v);
+      td.querySelector(".u").textContent="/"+c.u+(c.varios?" *":"");
+      if(c.varios) td.title="mais de um preço aqui — mostrando o menor:\n"+c.varios;
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  tab.appendChild(tb);
+  rolagem.appendChild(tab);
+  el.appendChild(rolagem);
+
+  const dica=document.createElement("div");
+  dica.className="sub";
+  dica.innerHTML="Verde = mais barato daquela linha. <strong>⇄</strong> marca resíduos que o app juntou "+
+    "sozinho por terem nomes parecidos — toque nele pra separar. Pra juntar dois que ficaram "+
+    "em linhas diferentes, toque no nome de cada um e use <em>juntar</em>.";
+  el.appendChild(dica);
 }
 
 /* ============ PROPOSTAS SALVAS ============
@@ -3477,7 +3669,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.19-1";
+const APP_VERSION="2026.08.19-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
