@@ -1263,6 +1263,18 @@ function fluxo(){
   renderLinhasValores();
 }
 
+// Mesma lógica das três linhas fixas da Descrição: a classificação ("- Classe
+// I"/"- Classe II") do resíduo vai pra linha de baixo, e o tamanho do
+// equipamento ("- 5m³", "- 40m³"...) da disponibilização também — sem isso a
+// classificação/o tamanho é que decide sozinho o quanto a coluna precisa
+// crescer, e ela quase nunca precisa do texto inteiro numa linha só.
+function quebrarClasseResiduo(s){
+  return String(s??"").replace(/\s-\s(Classe\s(?:I|II))$/,"\n- $1");
+}
+function quebrarTamanhoLocacao(s){
+  return String(s??"").replace(/\s-\s(\d+\S*)$/,"\n- $1");
+}
+
 /* Traduz a seleção atual nas linhas que vão pra proposta — uma por veículo,
    resíduo, função ou equipamento marcado. */
 function montarLinhas(){
@@ -1288,7 +1300,7 @@ function montarLinhas(){
       const r=listaResiduos(sel.classe).find(x=>x.n===nome)||{n:nome,o:""};
       return {chave:"res:"+nome, nome,
         descricao:`${nomeCategoria(c)} - ${sel.classe}\n– ${sel.uni}`,
-        residuo:r.n, unidade:sel.uni.replace("POR ",""), obsBase:r.o||""};
+        residuo:quebrarClasseResiduo(r.n), unidade:sel.uni.replace("POR ",""), obsBase:r.o||""};
     });
   }
   if(c==="RECICLÁVEIS MISTOS"){
@@ -1296,7 +1308,7 @@ function montarLinhas(){
     return sel.residuos.map(nome=>{
       const r=listaReciclaveis().find(x=>x.n===nome)||{n:nome,o:""};
       return {chave:"reci:"+nome, nome, descricao:nomeCategoria(c),
-        residuo:r.n, unidade:sel.uni.replace("POR ",""), obsBase:r.o||""};
+        residuo:quebrarClasseResiduo(r.n), unidade:sel.uni.replace("POR ",""), obsBase:r.o||""};
     });
   }
   if(c==="MÃO DE OBRA"){
@@ -1308,7 +1320,7 @@ function montarLinhas(){
     if(!sel.locs||!sel.locs.length) return [];
     return sel.locs.map(nome=>{
       const l=listaLocacoes().find(x=>x.n===nome)||{n:nome,d:nome};
-      return {chave:"loc:"+nome, nome, descricao:l.d, residuo:"-",
+      return {chave:"loc:"+nome, nome, descricao:quebrarTamanhoLocacao(l.d), residuo:"-",
         unidade:"Un.", obsBase:OBS_LOC};
     });
   }
@@ -1423,7 +1435,7 @@ function abrirEdicaoItem(i){
   const it=itens[i]; if(!it) return;
   itemEditando=i;
   document.getElementById("edDescricao").value=it.descricao||"";
-  document.getElementById("edResiduo").value=it.residuo||"";
+  document.getElementById("edResiduo").value=(it.residuo||"").replace(/\n/g," ");
   document.getElementById("edValor").value=it.valor||"";
   document.getElementById("edUnidade").value=it.unidade||"";
   document.getElementById("edObs").value=it.observacoes||"";
@@ -1826,7 +1838,7 @@ function render(){
        <div class="alca" title="Segure e arraste para reordenar">☰</div>`;
     div.querySelector(".desc").textContent=it.descricao.replace(/\n/g," ");
     div.querySelector(".meta").textContent=
-      [it.residuo&&it.residuo!=="-"?it.residuo:null,it.unidade].filter(Boolean).join(" • ");
+      [it.residuo&&it.residuo!=="-"?it.residuo.replace(/\n/g," "):null,it.unidade].filter(Boolean).join(" • ");
     div.querySelector(".valor").textContent=it.valor?("R$ "+it.valor):"sem valor — toque para preencher";
     div.querySelector(".corpo").onclick=()=>abrirEdicaoItem(i);
     div.querySelector(".alca").addEventListener("pointerdown",ev=>iniciarArrasto(ev,i));
@@ -2454,10 +2466,10 @@ const PAD_CELULA=300;                // margem interna das células + respiro co
 // sai sempre em duas linhas certas.
 const COLUNAS_TABELA=[
   {cab:"Descrição",            campo:"descricao",   teto:4200, folga:1, prosa:true, pisoMin:2600},
-  {cab:"Resíduo",              campo:"residuo",     teto:2700, folga:0},
+  {cab:"Resíduo",              campo:"residuo",     teto:1900, folga:0},
   {cab:"Unidade",              campo:"unidade",     teto:1150, folga:0},
-  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0},
-  {cab:"Observações",          campo:"observacoes", teto:4600, folga:3}
+  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0, pisoMin:1430, prioCorte:1},
+  {cab:"Observações",          campo:"observacoes", teto:4600, folga:3, pisoMin:3550, prioCorte:2}
 ];
 let ctxMedida=null;
 function medir(txt,fonte){
@@ -2491,16 +2503,15 @@ function larguraColunas(itens){
     });
     return {linha,palavra};
   });
-  // A garantia de cada coluna: a própria linha mais longa, até o teto. O piso
-  // nunca é menor que a maior PALAVRA — nenhuma coluna quebra uma palavra no
-  // meio, nem sob aperto. A prosa (Descrição) tem um piso mais generoso que
-  // isso, `pisoMin`: calibrado pelos trechos típicos ("CLASSE II - POR
-  // EQUIPAMENTO -" etc.), garante que ela normalmente caiba em poucas linhas
-  // mesmo quando outro item da mesma proposta tem um segmento fora do comum
-  // (ex.: "DESTINAÇÃO FINAL DE RESÍDUOS - CLASSE II") — sem esse piso, o
-  // aperto de verdade abaixo travava a prosa só na palavra, bem menor do que
-  // o razoável.
+  // A garantia de cada coluna: a própria linha mais longa, até o teto. Dois
+  // níveis de piso: o ABSOLUTO nunca é menor que a maior PALAVRA — nenhuma
+  // coluna quebra uma palavra no meio, nem sob aperto extremo. O DESEJADO
+  // (`pisoMin`) é mais generoso, calibrado pelos trechos típicos de cada
+  // coluna ("CLASSE II - POR EQUIPAMENTO -" na Descrição, "Valor Unitário"
+  // no cabeçalho de Valor etc.) — sem ele, o aperto de verdade abaixo travava
+  // tudo só na palavra, bem menor do que o razoável.
   const garantia=COLUNAS_TABELA.map((c,i)=>Math.min(dados[i].linha,c.teto)+PAD_CELULA);
+  const pisoAbs=COLUNAS_TABELA.map((c,i)=>dados[i].palavra+PAD_CELULA);
   const piso=COLUNAS_TABELA.map((c,i)=>Math.max(dados[i].palavra,c.pisoMin||0)+PAD_CELULA);
   const iProsa=COLUNAS_TABELA.findIndex(c=>c.prosa);
 
@@ -2518,13 +2529,31 @@ function larguraColunas(itens){
     // a palavra dela mesma precisa, o que nunca deveria ceder.
     const fator=(LARG_TOTAL-pisoProsa)/totalEstrutural;
     larg=COLUNAS_TABELA.map((c,i)=>c.prosa?pisoProsa:Math.max(piso[i],Math.floor(garantia[i]*fator)));
-    // O clamp no piso pode ter feito a soma passar de novo da largura da
-    // página — tira a diferença só da prosa, a única que ainda tem de onde
-    // ceder sem arrancar uma coluna do próprio piso de palavra.
-    const excedente=larg.reduce((a,b)=>a+b,0)-LARG_TOTAL;
-    if(excedente>0&&iProsa>=0){
-      const corte=Math.min(excedente,larg[iProsa]-piso[iProsa]);
-      larg[iProsa]-=corte;
+    // O clamp no piso DESEJADO de cada coluna pode ter deixado a soma acima da
+    // largura da página de novo — acontece quando os pisoMin calibrados à mão
+    // somados já disputam mais espaço do que existe (ex.: "Transporta 2
+    // caixas de 5m³ por viagem." caber numa linha em Observações E "Valor
+    // Unitário" caber em 2 linhas no cabeçalho, no mesmo aperto). Tira o
+    // excedente em cascata por `prioCorte`: esgota primeiro a folga de quem
+    // tem prioridade mais baixa (hoje, o cabeçalho de Valor — é só estética;
+    // Observações carrega dado real da proposta e cede por último). Uma
+    // segunda passada, só se a primeira não bastar, desce da mesma forma até
+    // o piso ABSOLUTO — última linha de defesa antes de estourar a página,
+    // usada só em apertos raros o bastante pra nenhum pisoMin sozinho prever.
+    let excedente=larg.reduce((a,b)=>a+b,0)-LARG_TOTAL;
+    if(excedente>0){
+      const ordem=COLUNAS_TABELA.map((c,i)=>i)
+        .sort((a,b)=>(COLUNAS_TABELA[a].prioCorte??99)-(COLUNAS_TABELA[b].prioCorte??99));
+      const cortarAte=(limite)=>{
+        ordem.forEach(i=>{
+          if(excedente<=0) return;
+          const folga=Math.max(0,larg[i]-limite[i]);
+          const corte=Math.min(folga,excedente);
+          larg[i]-=corte; excedente-=corte;
+        });
+      };
+      cortarAte(piso);
+      if(excedente>0) cortarAte(pisoAbs);
     }
   } else {
     // Caso normal: as estruturais recebem a garantia inteira, sempre. O que
@@ -3061,7 +3090,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.18-2";
+const APP_VERSION="2026.08.18-3";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
