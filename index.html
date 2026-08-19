@@ -171,6 +171,23 @@
   .passo-resumo .passo-valor{font-size:.85rem;font-weight:600;color:var(--verde);flex:1;line-height:1.3;}
   .passo-resumo .passo-editar{font-size:.72rem;color:var(--suave);flex:0 0 auto;}
   .chip-gerenciar{border-style:dashed;color:var(--suave);}
+  .dest-bloco{margin-bottom:10px;}
+  .dest-nome{font-size:.78rem;font-weight:700;color:var(--verde);
+    border-bottom:1px solid var(--campo-borda);padding-bottom:3px;margin-bottom:4px;}
+  .dest-linha{display:flex;justify-content:space-between;gap:10px;padding:3px 0;
+    border-bottom:1px dotted var(--campo-borda);}
+  .dest-res{font-size:.76rem;flex:1;}
+  .dest-val{font-size:.72rem;text-align:right;white-space:nowrap;flex:0 0 auto;}
+  .dest-val .custo{color:var(--suave);display:block;}
+  .dest-val .venda{color:var(--verde);font-weight:600;display:block;}
+  /* Sugestão de custo dentro do card de valor da linha */
+  .dest-sug{margin-top:6px;}
+  .dest-sug .titulo{font-size:.7rem;color:var(--suave);margin-bottom:3px;}
+  .dest-sug .opcoes{display:flex;flex-wrap:wrap;gap:5px;}
+  .dest-sug button{background:var(--campo);border:1.5px solid var(--campo-borda);
+    border-radius:14px;padding:4px 9px;font-size:.7rem;color:inherit;text-align:left;line-height:1.25;}
+  .dest-sug button b{display:block;font-size:.72rem;}
+  .dest-sug button .c{color:var(--suave);}
 
   /* Uma linha de valor por item escolhido na multi-seleção */
   .linha-valor{border:1px solid var(--verde-borda);background:var(--verde-claro);
@@ -299,6 +316,37 @@
       </div>
       <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
       <div class="status" id="statusHistorico"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleDest()">Destinadores e custos <span class="badge" id="badgeDest">0</span><span class="seta" id="setaDest">▾</span></h2>
+    <div id="destCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:8px">
+        O que cada parceiro <strong>cobra da Corpus</strong> pra destinar cada resíduo.
+        É o seu custo — a proposta sai com o preço de venda, calculado com o BDI abaixo.
+        Fica só neste aparelho e <strong>nunca entra na proposta do cliente</strong>.
+      </div>
+
+      <label>BDI (%)</label>
+      <div class="row2">
+        <input type="text" id="bdiDest" inputmode="numeric" placeholder="63" oninput="mudouBDI(this)">
+        <div class="sub" id="exemploBDI" style="align-self:center"></div>
+      </div>
+
+      <div class="row2" style="margin-top:10px">
+        <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
+        <button class="btn-sec" onclick="exportarDest()">Exportar</button>
+      </div>
+      <input type="file" id="arqDest" accept=".xlsx,.json" class="oculto" onchange="importarDest(this)">
+      <div class="sub">
+        Aceita a sua planilha de custos em .xlsx — colunas DESTINADOR, CLASSE,
+        TIPO DE RESÍDUO, VALOR UNIT. (R$) e UNID. Importar de novo substitui a tabela inteira.
+      </div>
+
+      <input type="text" id="buscaDest" placeholder="Buscar destinador ou resíduo..." oninput="renderDest()" style="margin-top:10px">
+      <div id="listaDest" style="margin-top:8px"></div>
+      <div class="status" id="statusDest"></div>
     </div>
   </div>
 
@@ -1351,6 +1399,106 @@ let valorPorChave={}, obsPorChave={}, unidadePorChave={};
 // o texto na tela ainda é automático — e portanto pode ser refeito quando a
 // unidade muda — ou se foi escrito à mão e não se mexe mais nele.
 let obsAutoPorChave={};
+
+/* ---- Ligação entre a linha da proposta e a tabela de custos ----
+   Os dois vocabulários não batem: no catálogo do app o resíduo é "Não
+   Recicláveis - Classe II", na planilha do destinador é "NÃO RECICLÁVEL /
+   ORGÂNICO". Em vez de exigir que as duas listas sejam iguais (o que
+   obrigaria a mexer na planilha toda vez que um parceiro renomeia algo), o
+   app pontua a semelhança e mostra os candidatos em ordem — quem decide é
+   sempre o Léo, clicando. Nada é preenchido sozinho. */
+function tokensResiduo(s){
+  return semAc(String(s||""))
+    .replace(/\bclasse\s+(ii?[ab]?|i)\b/g," ")   // "- Classe II" não distingue nada aqui
+    .split(/[^a-z0-9]+/).filter(t=>t.length>2);
+}
+// "reciclavel" x "reciclaveis", "solido" x "solidos": um é começo do outro.
+function tokenCasa(a,b){
+  if(a===b) return true;
+  const [c,d]=a.length<b.length?[a,b]:[b,a];
+  return c.length>=4&&d.startsWith(c);
+}
+function classeCasa(classeApp,classePlan){
+  const a=semAc(classeApp||""), p=semAc(classePlan||"");
+  if(!p) return true;                       // planilha sem classe: não descarta
+  if(p.includes("e i")&&p.includes("ii")) return true;  // "CLASSE II e I" serve pros dois
+  return a.includes("classe ii")?p.includes("ii"):(p.includes("i")&&!p.includes("ii"));
+}
+function pontuarPreco(residuoApp,classeApp,p){
+  if(!classeCasa(classeApp,p.cl)) return 0;
+  const ta=tokensResiduo(residuoApp), tp=tokensResiduo(p.r);
+  if(!ta.length||!tp.length) return 0;
+  let casados=0;
+  ta.forEach(a=>{ if(tp.some(b=>tokenCasa(a,b))) casados++; });
+  if(!casados) return 0;
+  // Proporção do nome do app coberta, com um empurrãozinho quando a linha da
+  // planilha também é curta (match "ORGÂNICO" vale mais que "NÃO RECICLÁVEL /
+  // ORGÂNICO / OUTRA COISA", que é mais genérica).
+  return (casados/ta.length)*0.75 + (casados/tp.length)*0.25;
+}
+// TON e KG na mesma tabela: a planilha cobra por tonelada, a proposta costuma
+// sair por quilo. Converter aqui evita o erro de mil vezes — que passaria
+// despercebido, porque R$ 95,00 num campo de preço não parece absurdo.
+const FATOR_UNID={TON:1000, TONELADA:1000, T:1000, KG:1, UN:1, UNIDADE:1, "M³":1, M3:1, VIAGEM:1};
+function normUnid(u){
+  const n=semAc(u||"").toUpperCase().replace(/[^A-Z0-9³]/g,"");
+  if(n==="TONELADA"||n==="TON"||n==="T") return "TON";
+  if(n==="KG"||n==="QUILO") return "KG";
+  if(n==="UN"||n==="UNIDADE"||n==="UND") return "UN";
+  if(n==="M3"||n==="M³") return "M³";
+  return n;
+}
+/* Devolve o custo já na unidade da linha da proposta, ou null quando as duas
+   unidades não são conversíveis entre si (TON→UN não faz sentido). */
+function custoNaUnidade(p,unidadeLinha){
+  const de=normUnid(p.u), para=normUnid(unidadeLinha);
+  if(!para||de===para) return p.v;
+  const fd=FATOR_UNID[de], fp=FATOR_UNID[para];
+  const massa=u=>u==="TON"||u==="KG";
+  if(massa(de)&&massa(para)&&fd&&fp) return p.v*fp/fd;
+  return null;
+}
+function custosSugeridos(linha,unidadeLinha){
+  if(!dest.precos.length||tipoLinha(linha.chave)!=="res") return [];
+  // A classe da linha está na descrição ("... - CLASSE II"), que é montada com
+  // a classe do próprio resíduo desde que Destinação virou multisseleção.
+  const classeApp=/CLASSE II/.test(linha.descricao||"")?"CLASSE II":"CLASSE I";
+  return dest.precos
+    .map(p=>({p, s:pontuarPreco(linha.nome,classeApp,p), c:custoNaUnidade(p,unidadeLinha)}))
+    .filter(x=>x.s>=0.4&&x.c!==null)
+    .sort((a,b)=>b.s-a.s||a.c-b.c)
+    .slice(0,6);
+}
+function montarSugestoesCusto(alvo,linha,campoValor,leUnidade){
+  alvo.innerHTML="";
+  const unidade=leUnidade();
+  const achados=custosSugeridos(linha,unidade);
+  if(!achados.length) return;
+  const t=document.createElement("div");
+  t.className="titulo";
+  t.textContent="Custo do destinador → preço com BDI de "+dest.bdi+"%:";
+  alvo.appendChild(t);
+  const box=document.createElement("div");
+  box.className="opcoes";
+  achados.forEach(({p,c})=>{
+    const venda=comBDI(c);
+    const b=document.createElement("button");
+    b.type="button";
+    const un=normUnid(unidade)||normUnid(p.u);
+    b.innerHTML='<b></b><span class="c"></span>';
+    b.querySelector("b").textContent=p.d+" — R$ "+fmtDinheiro(venda)+"/"+un;
+    b.querySelector(".c").textContent="custo "+fmtDinheiro(c)+"/"+un+
+      (normUnid(p.u)!==un?"  (de "+fmtDinheiro(p.v)+"/"+normUnid(p.u)+")":"");
+    b.title=p.r+(p.cl?" · "+p.cl:"");
+    b.onclick=()=>{
+      campoValor.value=fmtDinheiro(venda);
+      campoValor.dispatchEvent(new Event("input"));
+    };
+    box.appendChild(b);
+  });
+  alvo.appendChild(box);
+}
+
 function renderLinhasValores(){
   const linhas=montarLinhas();
   const bloco=document.getElementById("camposFinais");
@@ -1372,6 +1520,7 @@ function renderLinhasValores(){
          <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
        </div>
        <div class="sugestoes na-linha" data-campo="unidades"></div>
+       <div class="dest-sug" data-campo="custos"></div>
        <!-- textarea, não input: a observação sai em mais de uma linha ("Valor por
             quilo destinado." e o tratamento embaixo) e input engole o \n -->
        <div class="obs"><label>Observações</label>
@@ -1401,9 +1550,13 @@ function renderLinhasValores(){
       }
       obsAutoPorChave[l.chave]=nova;
     };
-    const trocouUnidade=u=>{unidadePorChave[l.chave]=u;aplicarObs();};
+    // O custo sugerido depende da unidade (TON vira KG), então acompanha ela.
+    const custos=div.querySelector('[data-campo="custos"]');
+    const aplicarCustos=()=>montarSugestoesCusto(custos,l,iv,()=>iu.value);
+    const trocouUnidade=u=>{unidadePorChave[l.chave]=u;aplicarObs();aplicarCustos();};
     iu.oninput=()=>{trocouUnidade(iu.value);montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);};
     montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);
+    aplicarCustos();
     aplicarObs();
     if(obsPorChave[l.chave]!==undefined) io.value=obsPorChave[l.chave];
     io.oninput=()=>{obsPorChave[l.chave]=io.value;};
@@ -2156,9 +2309,223 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   const mm=String(h.getMonth()+1).padStart(2,"0");
   document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
   carregarCatalogo();
+  carregarDest();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
 })();
+
+/* ============ DESTINADORES E CUSTOS ============
+   O que cada parceiro cobra da Corpus pra destinar cada resíduo. É CUSTO, não
+   preço de venda: a proposta sai com custo × (1 + BDI). Por isso esses números
+   nunca vão parar em documento nenhum — nem o nome do parceiro vai, pra cliente
+   não pular a Corpus e ir direto na fonte.
+
+   A tabela nasce VAZIA de propósito. Custo negociado com fornecedor é segredo
+   comercial, e este app mora num repositório público — então o dado real entra
+   por importação da planilha do Léo, no aparelho dele, e fica só lá. Mesmo
+   princípio do cofre de clientes. */
+const LS_DEST="corpus_destinadores_v1";
+let dest={bdi:63,precos:[]}, destAberto=false;
+function carregarDest(){
+  try{
+    const s=localStorage.getItem(LS_DEST);
+    if(s) dest=Object.assign({bdi:63,precos:[]},JSON.parse(s));
+  }catch(e){}
+}
+function gravarDest(){
+  try{localStorage.setItem(LS_DEST,JSON.stringify(dest));}
+  catch(e){document.getElementById("statusDest").textContent="Não deu pra salvar — armazenamento cheio.";}
+}
+// Custo → preço de venda. O BDI da planilha do Léo vem como fator (0,63 = 63%);
+// aqui ele é guardado em % inteiro, que é como se fala dele no dia a dia.
+function comBDI(custo){ return custo*(1+(Number(dest.bdi)||0)/100); }
+function fmtDinheiro(v){
+  return (Math.round(v*100)/100).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+}
+function toggleDest(){
+  destAberto=!destAberto;
+  document.getElementById("destCorpo").classList.toggle("oculto",!destAberto);
+  document.getElementById("setaDest").textContent=destAberto?"▴":"▾";
+  if(destAberto) renderDest();
+}
+function mudouBDI(el){
+  el.value=el.value.replace(/[^\d,.]/g,"");
+  dest.bdi=Number(el.value.replace(",","."))||0;
+  gravarDest(); renderExemploBDI(); renderDest();
+  // As linhas já na tela mostram o preço sugerido — refaz pra acompanhar o BDI novo
+  if(typeof renderLinhasValores==="function") renderLinhasValores();
+}
+function renderExemploBDI(){
+  const el=document.getElementById("exemploBDI");
+  if(!el) return;
+  el.textContent="custo R$ 100,00 → venda R$ "+fmtDinheiro(comBDI(100));
+}
+
+/* Leitor de .xlsx. O JSZip já está aqui por causa do .docx, e uma planilha é um
+   zip com XML dentro igual — então dá pra ler sem trazer mais biblioteca. Só o
+   necessário: a primeira aba, as strings compartilhadas e o valor de cada célula. */
+async function lerXlsx(arquivo){
+  const zip=await JSZip.loadAsync(arquivo);
+  const texto=async n=>{const f=zip.file(n);return f?await f.async("string"):"";};
+  const dp=new DOMParser();
+  // sharedStrings: texto de célula não fica na planilha, fica num índice à parte
+  const compart=[];
+  const ssXml=await texto("xl/sharedStrings.xml");
+  if(ssXml){
+    const d=dp.parseFromString(ssXml,"application/xml");
+    d.querySelectorAll("si").forEach(si=>{
+      let s=""; si.querySelectorAll("t").forEach(t=>s+=t.textContent||"");
+      compart.push(s);
+    });
+  }
+  // A primeira aba nem sempre é sheet1.xml — o workbook diz qual é qual pelo r:id
+  let nomeAba="xl/worksheets/sheet1.xml";
+  const wbXml=await texto("xl/workbook.xml"), relXml=await texto("xl/_rels/workbook.xml.rels");
+  if(wbXml&&relXml){
+    const wb=dp.parseFromString(wbXml,"application/xml");
+    const rels=dp.parseFromString(relXml,"application/xml");
+    const primeira=wb.querySelector("sheets > sheet");
+    const rid=primeira&&(primeira.getAttribute("r:id")||primeira.getAttribute("id"));
+    if(rid){
+      const rel=[...rels.querySelectorAll("Relationship")].find(r=>r.getAttribute("Id")===rid);
+      const alvo=rel&&rel.getAttribute("Target");
+      if(alvo) nomeAba="xl/"+String(alvo).replace(/^\/?xl\//,"").replace(/^\//,"");
+    }
+  }
+  const shXml=await texto(nomeAba);
+  if(!shXml) throw new Error("planilha sem aba legível");
+  const sh=dp.parseFromString(shXml,"application/xml");
+  const linhas=[];
+  sh.querySelectorAll("row").forEach(row=>{
+    const celulas={};
+    row.querySelectorAll("c").forEach(c=>{
+      const ref=(c.getAttribute("r")||"").replace(/\d+/g,"");  // "B7" → "B"
+      const tipo=c.getAttribute("t");
+      let v=c.querySelector("v")?c.querySelector("v").textContent:"";
+      if(tipo==="s"&&v!=="") v=compart[Number(v)]||"";
+      else if(tipo==="inlineStr"){ const is=c.querySelector("is"); v=is?is.textContent:""; }
+      celulas[ref]=v;
+    });
+    linhas.push(celulas);
+  });
+  return linhas;
+}
+/* Célula numérica de .xlsx guarda o número cru, sempre com PONTO decimal e sem
+   separador de milhar ("1234.5") — independente de como o Excel mostra na tela.
+   Só quando o valor foi digitado como texto é que aparece no formato brasileiro
+   ("1.234,50"). Tratar os dois como se fossem um só multiplicava o custo por
+   100 calado: R$ 1.234,50/ton virava R$ 123.450,00/ton sem nenhum aviso. */
+function numeroPlanilha(s){
+  const t=String(s??"").trim();
+  if(!t) return NaN;
+  if(/^-?\d+(\.\d+)?$/.test(t)) return Number(t);          // número cru do xlsx
+  return Number(t.replace(/\./g,"").replace(",","."));      // texto em pt-BR
+}
+/* Encaixa a planilha do Léo no formato do app. As colunas são procuradas pelo
+   TÍTULO, não pela posição — assim mexer a ordem das colunas na planilha não
+   quebra a importação. */
+function planilhaParaPrecos(linhas){
+  const norm=s=>semAc(String(s||"")).replace(/[^a-z0-9]/g,"");
+  const achaCabecalho=()=>{
+    for(let i=0;i<Math.min(linhas.length,30);i++){
+      const l=linhas[i], mapa={};
+      Object.entries(l).forEach(([col,val])=>{
+        const n=norm(val);
+        if(n==="destinador") mapa.d=col;
+        else if(n==="classe") mapa.cl=col;
+        else if(n.startsWith("tipoderesiduo")||n==="residuo") mapa.r=col;
+        else if(n.startsWith("valorunit")) mapa.v=col;
+        else if(n==="unid"||n==="unidade") mapa.u=col;
+      });
+      if(mapa.d&&mapa.r&&mapa.v) return {linha:i,mapa};
+    }
+    return null;
+  };
+  const cab=achaCabecalho();
+  if(!cab) throw new Error("não achei as colunas DESTINADOR / TIPO DE RESÍDUO / VALOR UNIT.");
+  const precos=[];
+  for(let i=cab.linha+1;i<linhas.length;i++){
+    const l=linhas[i];
+    const d=String(l[cab.mapa.d]||"").trim();
+    const r=String(l[cab.mapa.r]||"").trim();
+    const v=numeroPlanilha(l[cab.mapa.v]);
+    if(!d||!r||!isFinite(v)||v<=0) continue;   // linha em branco, separador, subtotal
+    precos.push({d, cl:String(l[cab.mapa.cl]||"").trim(),
+                 r, v, u:String(l[cab.mapa.u]||"").trim().toUpperCase()});
+  }
+  return precos;
+}
+async function importarDest(input){
+  const arq=input.files&&input.files[0];
+  input.value="";
+  if(!arq) return;
+  const st=document.getElementById("statusDest");
+  st.textContent="Lendo...";
+  try{
+    let novos;
+    if(/\.json$/i.test(arq.name)){
+      const j=JSON.parse(await arq.text());
+      novos=Array.isArray(j)?j:(j.precos||[]);
+      if(j&&j.bdi!==undefined) dest.bdi=Number(j.bdi)||dest.bdi;
+    }else{
+      novos=planilhaParaPrecos(await lerXlsx(arq));
+    }
+    if(!novos.length){ st.textContent="Nenhuma linha de preço encontrada no arquivo."; return; }
+    dest.precos=novos;
+    gravarDest();
+    document.getElementById("bdiDest").value=dest.bdi;
+    renderExemploBDI(); renderDest(); renderLinhasValores();
+    const parceiros=new Set(novos.map(p=>p.d)).size;
+    st.textContent=`${novos.length} preços de ${parceiros} destinadores importados.`;
+  }catch(e){
+    st.textContent="Não deu pra ler: "+(e.message||e);
+  }
+}
+function exportarDest(){
+  const blob=new Blob([JSON.stringify(dest,null,1)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="destinadores-corpus.json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function renderDest(){
+  const el=document.getElementById("listaDest");
+  if(!el) return;
+  document.getElementById("badgeDest").textContent=dest.precos.length;
+  const bdiEl=document.getElementById("bdiDest");
+  if(bdiEl&&document.activeElement!==bdiEl) bdiEl.value=dest.bdi;
+  renderExemploBDI();
+  if(!dest.precos.length){
+    el.innerHTML='<span class="sub">Tabela vazia. Use <strong>Importar planilha</strong> pra trazer seus custos — eles ficam só neste aparelho.</span>';
+    return;
+  }
+  const busca=semAc(document.getElementById("buscaDest").value.trim());
+  const vis=dest.precos.filter(p=>!busca||semAc(p.d+" "+p.r+" "+p.cl).includes(busca));
+  if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  const porDest={};
+  vis.forEach(p=>{ (porDest[p.d]=porDest[p.d]||[]).push(p); });
+  el.innerHTML="";
+  Object.keys(porDest).sort().forEach(nome=>{
+    const bloco=document.createElement("div");
+    bloco.className="dest-bloco";
+    const cab=document.createElement("div");
+    cab.className="dest-nome";
+    cab.textContent=nome+"  ("+porDest[nome].length+")";
+    bloco.appendChild(cab);
+    porDest[nome].forEach(p=>{
+      const linha=document.createElement("div");
+      linha.className="dest-linha";
+      linha.innerHTML='<div class="dest-res"></div><div class="dest-val"></div>';
+      linha.querySelector(".dest-res").textContent=p.r+(p.cl?"  ·  "+p.cl:"");
+      linha.querySelector(".dest-val").innerHTML=
+        '<span class="custo">custo R$ '+fmtDinheiro(p.v)+"/"+(p.u||"–")+"</span>"+
+        '<span class="venda">venda R$ '+fmtDinheiro(comBDI(p.v))+"/"+(p.u||"–")+"</span>";
+      bloco.appendChild(linha);
+    });
+    el.appendChild(bloco);
+  });
+}
 
 /* ============ PROPOSTAS SALVAS ============
    Toda proposta gerada vira um registro aqui, pra poder ser reaberta e editada
@@ -3110,7 +3477,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.18-4";
+const APP_VERSION="2026.08.19-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
