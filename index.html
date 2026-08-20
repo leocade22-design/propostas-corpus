@@ -123,7 +123,10 @@
   .destacar input{border:2px solid var(--alerta);background:#fffafa;}
   .destacar label{color:var(--alerta);font-weight:600;}
   .vazio{color:var(--suave);font-size:.84rem;font-style:italic;padding:8px 0;}
-  .rodape{position:fixed;bottom:0;left:0;right:0;background:var(--branco);
+  /* z-index acima das células fixas da tabela cruzada (que ficam em 1–3) e
+     abaixo dos modais (100) — sem isso a coluna congelada da tabela passava
+     por cima da barra de gerar. */
+  .rodape{position:fixed;bottom:0;left:0;right:0;background:var(--branco);z-index:50;
     border-top:1px solid var(--card-borda);padding:10px 12px;box-shadow:0 -4px 10px rgba(0,0,0,.05);}
   .rodape .wrap{padding:0;}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
@@ -181,21 +184,36 @@
   /* A tabela cruzada não cabe na largura do celular — ela rola só dentro desta
      caixa, pra página em si nunca rolar de lado. */
   .dest-rolagem{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .dest-tab{border-collapse:collapse;font-size:.7rem;width:max-content;min-width:100%;}
-  .dest-tab th,.dest-tab td{border:1px solid var(--campo-borda);padding:4px 6px;}
+  /* border-collapse:separate porque com "collapse" as bordas pertencem à tabela,
+     não à célula, e somem por baixo das células fixas ao rolar. */
+  .dest-tab{border-collapse:separate;border-spacing:0;font-size:.7rem;
+    width:max-content;min-width:100%;}
+  .dest-tab th,.dest-tab td{border-right:1px solid var(--campo-borda);
+    border-bottom:1px solid var(--campo-borda);padding:4px 6px;}
+  /* A coluna do resíduo E o cabeçalho ficam presos. A primeira célula do
+     cabeçalho tem que travar nos DOIS sentidos: travando só no vertical, ao
+     rolar de lado ela sai da tela e todos os títulos deslizam uma coluna em
+     relação aos números — foi exatamente o que aconteceu no primeiro teste. */
   .dest-tab thead th{background:var(--verde-claro);color:var(--verde);font-size:.66rem;
-    font-weight:700;white-space:nowrap;position:sticky;top:0;}
-  /* A coluna do resíduo fica presa à esquerda: rolando pros parceiros da direita
-     ainda dá pra saber de que linha é o preço. */
+    font-weight:700;white-space:nowrap;position:sticky;top:0;z-index:2;}
+  .dest-tab thead th:first-child{left:0;z-index:3;}
   .dest-tab tbody th{background:var(--branco);text-align:left;font-weight:600;
-    font-size:.7rem;position:sticky;left:0;z-index:1;max-width:150px;cursor:pointer;}
+    font-size:.68rem;line-height:1.2;position:sticky;left:0;z-index:1;
+    max-width:140px;cursor:pointer;}
   .dest-tab tbody th.sel{background:var(--verde);color:#fff;}
   html[data-tema="escuro"] .dest-tab tbody th.sel{color:#0B1710;}
   .dest-juntou{font-size:.62rem;opacity:.7;padding:0 3px;}
-  .dest-tab td{text-align:right;white-space:nowrap;}
+  /* Fundo opaco: célula transparente aparece por baixo da coluna congelada */
+  .dest-tab td{text-align:right;white-space:nowrap;background:var(--branco);}
   .dest-tab td.vazia{color:var(--suave);text-align:center;}
   .dest-tab td.melhor{background:var(--verde-claro);}
   .dest-tab td.melhor .n{color:var(--verde);font-weight:700;}
+  /* Ordem das colunas */
+  .dest-ordem{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:6px 0;}
+  .dest-ordem button{background:var(--campo);border:1.5px solid var(--campo-borda);
+    border-radius:14px;padding:3px 9px;font-size:.68rem;color:inherit;}
+  .dest-ordem button.prio{background:var(--verde);border-color:var(--verde);color:#fff;font-weight:600;}
+  html[data-tema="escuro"] .dest-ordem button.prio{color:#0B1710;}
   .dest-tab td .u{color:var(--suave);font-size:.62rem;}
   /* Sugestão de custo dentro do card de valor da linha */
   .dest-sug{margin-top:6px;}
@@ -2109,7 +2127,7 @@ let catalogo={veiculos:[],residuos2:[],residuos1:[],reciclaveis:[],cargos:[],loc
    é declarado. Ficando lá embaixo, a leitura do que estava salvo falhava calada
    e a tabela voltava vazia a cada abertura do app. */
 const LS_DEST="corpus_destinadores_v1";
-let dest={bdi:63,precos:[],juntas:[],separadas:[]}, destAberto=false;
+let dest={bdi:63,precos:[],juntas:[],separadas:[],ordem:[]}, destAberto=false;
 function carregarCatalogo(){
   try{
     const s=localStorage.getItem(LS_CATALOGO);
@@ -2361,7 +2379,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
 function carregarDest(){
   try{
     const s=localStorage.getItem(LS_DEST);
-    if(s) dest=Object.assign({bdi:63,precos:[],juntas:[],separadas:[]},JSON.parse(s));
+    if(s) dest=Object.assign({bdi:63,precos:[],juntas:[],separadas:[],ordem:[]},JSON.parse(s));
   }catch(e){ console.warn("destinadores: não deu pra ler o que estava salvo",e); }
 }
 function gravarDest(){
@@ -2505,6 +2523,7 @@ async function importarDest(input){
         if(j.bdi!==undefined) dest.bdi=Number(j.bdi)||dest.bdi;
         if(Array.isArray(j.juntas)) dest.juntas=j.juntas;
         if(Array.isArray(j.separadas)) dest.separadas=j.separadas;
+        if(Array.isArray(j.ordem)) dest.ordem=j.ordem;
       }
     }else{
       // Planilha nova do parceiro: os preços são substituídos, mas as junções
@@ -2580,6 +2599,22 @@ function gruposResiduos(){
     rotulo:g.slice().sort((a,b)=>a.length-b.length)[0]
   })).sort((a,b)=>a.rotulo.localeCompare(b.rotulo,"pt-BR"));
 }
+/* Ordem das colunas. Numa tabela que não cabe na tela, o que fica à esquerda é
+   o que se lê sem rolar — então quem decide é quem sabe qual parceiro pesa mais
+   no dia a dia, não a ordem alfabética. Os escolhidos vêm primeiro, na ordem em
+   que foram tocados; o resto segue em ordem alfabética atrás. */
+function parceirosOrdenados(){
+  const todos=[...new Set(dest.precos.map(p=>p.d))];
+  const prio=(dest.ordem||[]).filter(d=>todos.includes(d));
+  const resto=todos.filter(d=>!prio.includes(d)).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  return prio.concat(resto);
+}
+function priorizarParceiro(nome){
+  dest.ordem=dest.ordem||[];
+  const i=dest.ordem.indexOf(nome);
+  if(i>=0) dest.ordem.splice(i,1); else dest.ordem.push(nome);
+  gravarDest(); renderDest();
+}
 let destVendo="custo", destSelecao=[];
 function alternarVisaoDest(v){ destVendo=v; renderDest(); }
 function selecionarGrupo(rotulo){
@@ -2607,14 +2642,18 @@ function separarGrupo(rotulo){
       dest.separadas.push([g.nomes[i],g.nomes[j]]);
   destSelecao=[]; gravarDest(); renderDest(); renderLinhasValores();
 }
-/* Massa vira sempre TON pra comparar (a planilha é em tonelada e é assim que o
-   Léo quer manter). UN e M³ não têm conversão possível entre si nem pra massa —
-   sem densidade, "94,50/m³" e "90,00/ton" não são comparáveis, então cada um
-   fica na sua unidade e o "mais barato" só é apontado entre iguais. */
-function emTonelada(p){
-  const u=normUnid(p.u);
-  if(u==="KG") return {v:p.v*1000,u:"TON"};
-  return {v:p.v,u:u||"–"};
+/* Cada célula aparece na unidade em que o parceiro cobra, sem conversão: é
+   assim que está no contrato e é assim que o Léo confere. Converter pra exibir
+   deixava "R$ 12,63/KG" virar "R$ 12.630,00/TON" — certo na matemática, mas
+   irreconhecível ao lado da tabela de origem.
+
+   A conversão existe, mas só por baixo do pano, pra ordenar: `base` põe toda
+   massa em tonelada e `grupo` diz o que pode ser comparado com o quê. UN e M³
+   não convertem entre si nem pra massa — sem densidade, "94,50/m³" e
+   "90,00/ton" não são comparáveis —, então cada um só disputa com os iguais. */
+function paraComparar(p){
+  const u=normUnid(p.u)||"–";
+  return {v:p.v, u, base:(u==="KG"?p.v*1000:p.v), grupo:(u==="KG"||u==="TON")?"MASSA":u};
 }
 function renderDest(){
   const el=document.getElementById("listaDest");
@@ -2628,7 +2667,7 @@ function renderDest(){
     return;
   }
   const busca=semAc(document.getElementById("buscaDest").value.trim());
-  const parceiros=[...new Set(dest.precos.map(p=>p.d))].sort();
+  const parceiros=parceirosOrdenados();
   let grupos=gruposResiduos();
   if(busca) grupos=grupos.filter(g=>semAc(g.nomes.join(" ")).includes(busca)
                                    ||parceiros.some(d=>semAc(d).includes(busca)&&g.nomes.some(n=>dest.precos.some(p=>p.d===d&&p.r===n))));
@@ -2657,6 +2696,24 @@ function renderDest(){
   }
   el.appendChild(barra);
 
+  const ord=document.createElement("div");
+  ord.className="dest-ordem";
+  const rot=document.createElement("span");
+  rot.className="sub";
+  rot.textContent="Colunas:";
+  ord.appendChild(rot);
+  parceiros.forEach(d=>{
+    const pos=(dest.ordem||[]).indexOf(d);
+    const b=document.createElement("button");
+    b.type="button";
+    b.textContent=(pos>=0?(pos+1)+"º ":"")+d;
+    if(pos>=0) b.className="prio";
+    b.title=pos>=0?"toque pra tirar da frente":"toque pra trazer pra frente";
+    b.onclick=()=>priorizarParceiro(d);
+    ord.appendChild(b);
+  });
+  el.appendChild(ord);
+
   const rolagem=document.createElement("div");
   rolagem.className="dest-rolagem";
   const tab=document.createElement("table");
@@ -2684,7 +2741,6 @@ function renderDest(){
     th.onclick=()=>selecionarGrupo(g.rotulo);
     tr.appendChild(th);
 
-    // Preços do grupo, por parceiro, já normalizados pra poder comparar.
     // Um parceiro pode ter mais de um preço no mesmo grupo (depois de uma
     // junção manual, por exemplo): mostra o menor, mas avisa que há outros —
     // esconder isso calado faria o Léo cotar por um preço que não é o daquele
@@ -2692,23 +2748,25 @@ function renderDest(){
     const celulas=parceiros.map(d=>{
       const achados=dest.precos.filter(p=>p.d===d&&g.nomes.includes(p.r));
       if(!achados.length) return null;
-      const ord=achados.map(p=>({...emTonelada(p),r:p.r})).sort((a,b)=>a.v-b.v);
+      const ord=achados.map(p=>({...paraComparar(p),r:p.r})).sort((a,b)=>a.base-b.base);
       return Object.assign(ord[0],{
         varios:ord.length>1?ord.map(x=>x.r+": "+fmtDinheiro(x.v)+"/"+x.u).join("\n"):null
       });
     });
-    // O menor preço só é destacado entre unidades iguais — comparar R$/m³ com
-    // R$/ton apontaria um "mais barato" que não quer dizer nada
-    const menorPorUnid={};
-    celulas.forEach(c=>{ if(c&&(menorPorUnid[c.u]===undefined||c.v<menorPorUnid[c.u])) menorPorUnid[c.u]=c.v; });
-    const quantosNaUnid={};
-    celulas.forEach(c=>{ if(c) quantosNaUnid[c.u]=(quantosNaUnid[c.u]||0)+1; });
+    // O menor preço só é destacado dentro do que é comparável: massa com massa
+    // (kg e ton acertados entre si), m³ com m³, unidade com unidade.
+    const menorNoGrupo={}, quantosNoGrupo={};
+    celulas.forEach(c=>{
+      if(!c) return;
+      if(menorNoGrupo[c.grupo]===undefined||c.base<menorNoGrupo[c.grupo]) menorNoGrupo[c.grupo]=c.base;
+      quantosNoGrupo[c.grupo]=(quantosNoGrupo[c.grupo]||0)+1;
+    });
 
     celulas.forEach(c=>{
       const td=document.createElement("td");
       if(!c){ td.className="vazia"; td.textContent="–"; tr.appendChild(td); return; }
       const v=destVendo==="venda"?comBDI(c.v):c.v;
-      if(quantosNaUnid[c.u]>1&&c.v===menorPorUnid[c.u]) td.className="melhor";
+      if(quantosNoGrupo[c.grupo]>1&&c.base===menorNoGrupo[c.grupo]) td.className="melhor";
       td.innerHTML='<span class="n"></span><span class="u"></span>';
       td.querySelector(".n").textContent=fmtDinheiro(v);
       td.querySelector(".u").textContent="/"+c.u+(c.varios?" *":"");
@@ -3679,7 +3737,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.19-3";
+const APP_VERSION="2026.08.20-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
