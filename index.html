@@ -5846,14 +5846,14 @@ async function buscarCNPJ(){
    — esse já é cifrado com outra senha e tem exportar/importar próprio. */
 function secoesSync(){
   return [
-    {id:"catalogo",   ls:LS_CATALOGO, fusao:"recente", aplicar:()=>{carregarCatalogo();fluxo();}},
-    {id:"dest",       ls:LS_DEST,     fusao:"recente", aplicar:()=>{carregarDest();renderDest();}},
-    {id:"precos",     ls:LS_PRECOS,   fusao:"recente", aplicar:()=>{carregarPrecos();renderPrecosReci();renderPrecosEquip();}},
-    {id:"vinc",       ls:LS_VINC,     fusao:"recente", aplicar:()=>{carregarVinculos();renderDest();}},
-    {id:"vincc",      ls:LS_VINCC,    fusao:"recente", aplicar:()=>{carregarVincCustom();renderLinhasValores();}},
-    {id:"obsp",       ls:LS_OBSP,     fusao:"recente", aplicar:()=>{carregarObsPadrao();renderLinhasValores();}},
-    {id:"fichas",     ls:LS_FICHAS,   fusao:"recente", aplicar:()=>{carregarFichas();renderFrota();}},
-    {id:"numero",     ls:LS_NUMERO,   fusao:"recente", aplicar:()=>{}},
+    {id:"catalogo",   ls:LS_CATALOGO, fusao:"recente", titulo:"os catálogos (veículos, resíduos, equipamentos)", aplicar:()=>{carregarCatalogo();fluxo();}},
+    {id:"dest",       ls:LS_DEST,     fusao:"recente", titulo:"a tabela de custos dos destinadores", aplicar:()=>{carregarDest();renderDest();}},
+    {id:"precos",     ls:LS_PRECOS,   fusao:"recente", titulo:"os preços de recicláveis e equipamentos", aplicar:()=>{carregarPrecos();renderPrecosReci();renderPrecosEquip();}},
+    {id:"vinc",       ls:LS_VINC,     fusao:"recente", titulo:"os destinadores eleitos (★)", aplicar:()=>{carregarVinculos();renderDest();}},
+    {id:"vincc",      ls:LS_VINCC,    fusao:"recente", titulo:"os links de resíduo com linha de custo", aplicar:()=>{carregarVincCustom();renderLinhasValores();}},
+    {id:"obsp",       ls:LS_OBSP,     fusao:"recente", titulo:"as observações padrão", aplicar:()=>{carregarObsPadrao();renderLinhasValores();}},
+    {id:"fichas",     ls:LS_FICHAS,   fusao:"recente", titulo:"as fichas da frota", aplicar:()=>{carregarFichas();renderFrota();}},
+    {id:"numero",     ls:LS_NUMERO,   fusao:"recente", titulo:"o contador de numeração", aplicar:()=>{}},
     // Vem antes das listas de propósito: a fusão delas consulta as marcas, e
     // consultar marca velha traria de volta o que já tinha sido apagado.
     {id:"excluidos", ls:LS_EXCL, fusao:"marcas", aplicar:()=>{carregarExcluidos();}},
@@ -6040,6 +6040,24 @@ async function rodarSync(motivo){
           precisaGravarLocal=(fundido!==bruto);
           precisaSubir=(fundido!==vindo);
         }catch(e){ console.warn("sincronia: não deu pra fundir "+sec.id,e); }
+      }else if(!sync.visto&&sec.fusao==="recente"){
+        /* Primeira sincronia DESTE aparelho, e as duas versões existem e são
+           diferentes. É o momento mais perigoso da vida da sincronia: ligar no
+           PC depois de ligar no celular sobrescreveria calado a tabela de custos
+           que dá mais trabalho de montar do que tudo no app junto.
+
+           Como não dá pra saber qual das duas é a boa — nenhum carimbo ajuda,
+           os dois aparelhos viveram separados até agora —, quem decide é quem
+           montou as duas. Uma pergunta por seção divergente, uma vez só. */
+        const nome=(sec.titulo||sec.id);
+        const ficaRemoto=await perguntar(
+          "Qual versão vale?",
+          nome.charAt(0).toUpperCase()+nome.slice(1)+
+          " está diferente aqui e na nuvem.\n\nComo é a primeira sincronia deste "+
+          "aparelho, nenhuma das duas é \"mais nova\" — quem sabe qual presta é você.",
+          {emoji:"⚖️", sim:"A da nuvem", nao:"A deste aparelho"});
+        if(ficaRemoto){ final=vindo; precisaGravarLocal=true; }
+        else { precisaSubir=true; }
       }else{
         // Peça única: quem tem carimbo mais novo ganha. O local só é "mais novo"
         // se foi mexido depois da última vez que este aparelho viu o servidor.
@@ -6464,7 +6482,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.22-7";
+const APP_VERSION="2026.08.22-8";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
