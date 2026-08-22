@@ -260,6 +260,8 @@
   .mat-nums{display:grid;grid-template-columns:1.4fr .8fr .7fr;gap:6px;margin-top:6px;}
   .mat-linha input{padding:8px 10px;font-size:.86rem;}
   .mat-linha textarea{font-size:.78rem;min-height:0;padding:8px 10px;}
+  .ficha-grade{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .ficha-grade label{margin-top:6px;}
   .mat-cliente{font-size:.76rem;margin-top:6px;}
   .mat-cliente b{color:var(--verde);}
   .mat-conta{color:var(--suave);font-size:.72rem;}
@@ -527,15 +529,30 @@
 
 <section class="aba-conteudo" id="aba-equipamentos" hidden>
   <div class="card">
-    <h2>Equipamentos — locação <span class="badge" id="badgeEquip">0</span></h2>
+    <h2>Equipamentos para locação <span class="badge" id="badgeEquip">0</span></h2>
     <div class="sub" style="margin-bottom:10px">
-      Valor de disponibilização de cada equipamento e as observações técnicas que
-      acompanham ele na proposta. O que estiver preenchido aparece já no campo de
-      valor quando você marcar o equipamento, e continua editável.
+      Valor de disponibilização e a ficha de cada equipamento. O preço preenchido
+      aqui aparece já no campo de valor quando você marcar o equipamento na
+      proposta, e continua editável.
     </div>
     <input type="text" id="buscaEquip" placeholder="Buscar equipamento..." oninput="renderPrecosEquip()">
     <div id="listaEquip" style="margin-top:8px"></div>
     <div class="status" id="statusEquip"></div>
+  </div>
+
+  <!-- Frota separada dos locáveis: a natureza do dado é outra (diária, km,
+       medidas x preço de locação), e misturar tudo numa lista só recriaria a
+       poluição que tiramos da aba Destinadores. -->
+  <div class="card">
+    <h2>Frota <span class="badge" id="badgeFrota">0</span></h2>
+    <div class="sub" style="margin-bottom:10px">
+      Ficha de cada veículo, pra consulta rápida na hora de dimensionar.
+      <strong>Nada daqui entra na proposta sozinho</strong> — o valor por km ainda
+      é coeficiente médio, e virar cálculo automático antes do modelo de custo
+      fechar produziria número errado com cara de número certo.
+    </div>
+    <input type="text" id="buscaFrota" placeholder="Buscar veículo..." oninput="renderFrota()">
+    <div id="listaFrota" style="margin-top:8px"></div>
   </div>
 </section>
 
@@ -1387,7 +1404,7 @@ const ABAS={
   proposta:null,
   destinadores:()=>renderDest(),
   reciclaveis:()=>renderPrecosReci(),
-  equipamentos:()=>renderPrecosEquip(),
+  equipamentos:()=>{renderPrecosEquip();renderFrota();},
   clientes:()=>listarClientes(),
   salvas:()=>renderHistorico(),
   ajustes:null
@@ -2663,6 +2680,13 @@ let vinculos={};
    terceira vez que esse tropeço apareceu neste arquivo. */
 const LS_RAPIDOS="corpus_clientes_rapidos_v1";
 let clientesRapidos=[];
+
+/* Ficha técnica de veículo e equipamento — chave própria, sem encostar em
+   corpus_precos_v1. É informação de consulta (capacidade, medidas, custo de
+   diária e km), não preço de proposta. Guardada pela mesma chave que o app usa
+   pra tudo: "veic:Fiorino", "loc:CAIXA POLI 5m³". */
+const LS_FICHAS="corpus_fichas_v1";
+let fichas={};
 function carregarCatalogo(){
   try{
     const s=localStorage.getItem(LS_CATALOGO);
@@ -2896,6 +2920,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarPrecos();
   carregarVinculos();
   carregarClientesRapidos();
+  carregarFichas();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   mostrarAba("proposta");
@@ -3675,6 +3700,103 @@ function renderPrecosEquip(){
     itens:()=>listaLocacoes(),
     unidades:UNIDADES_POR_TIPO.loc,
     obsPadrao:()=>OBS_LOC
+  });
+}
+
+/* ============ FROTA (ficha técnica dos veículos) ============ */
+function carregarFichas(){
+  try{
+    const s=localStorage.getItem(LS_FICHAS);
+    if(s) fichas=JSON.parse(s)||{};
+  }catch(e){ console.warn("fichas: não deu pra ler o que estava salvo",e); }
+}
+function gravarFichas(){
+  try{localStorage.setItem(LS_FICHAS,JSON.stringify(fichas));}catch(e){}
+}
+function fichaDe(chave){ return fichas[chave]||{}; }
+function guardarFicha(chave,dados){
+  const limpo={};
+  ["diaria","km","cap","med","obs"].forEach(k=>{
+    if(dados[k]&&String(dados[k]).trim()) limpo[k]=String(dados[k]).trim();
+  });
+  if(Object.keys(limpo).length) fichas[chave]=limpo; else delete fichas[chave];
+  gravarFichas();
+  const b=document.getElementById("badgeFrota");
+  if(b) b.textContent=listaVeiculos().filter(v=>Object.keys(fichaDe("veic:"+v.n)).length).length;
+}
+let frotaAberta=null;
+function abrirVeiculo(nome){
+  frotaAberta=(frotaAberta===nome)?null:nome;
+  renderFrota();
+}
+function renderFrota(){
+  const el=document.getElementById("listaFrota");
+  if(!el) return;
+  const veics=listaVeiculos();
+  document.getElementById("badgeFrota").textContent=
+    veics.filter(v=>Object.keys(fichaDe("veic:"+v.n)).length).length;
+  const busca=semAc(document.getElementById("buscaFrota").value.trim());
+  const vis=veics.filter(v=>!busca||semAc(v.n).includes(busca));
+  el.innerHTML="";
+  if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  vis.forEach(v=>{
+    const chave="veic:"+v.n, f=fichaDe(chave), aberto=frotaAberta===v.n;
+    const temFicha=Object.keys(f).length>0;
+    const div=document.createElement("div");
+    div.className="mat-linha"+(aberto?" aberto":"")+(temFicha?" tem-preco":"");
+    div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
+                  (aberto?'<div class="mat-corpo"></div>':'');
+    el.appendChild(div);
+    div.querySelector(".mat-nome").textContent=v.n;
+    // Atualiza só o texto do resumo, sem redesenhar a linha: redesenhar a cada
+    // tecla tiraria o foco do campo no meio da digitação.
+    const pintarResumo=()=>{
+      const g=fichaDe(chave), tem=Object.keys(g).length>0;
+      div.querySelector(".mat-resumo").textContent=
+        !tem ? "sem ficha"
+        : [g.diaria?"R$ "+g.diaria+"/dia":null, g.cap||null].filter(Boolean).join(" · ")||"ficha preenchida";
+      div.classList.toggle("tem-preco",tem);
+    };
+    pintarResumo();
+    div.querySelector(".mat-cab").onclick=()=>abrirVeiculo(v.n);
+    if(!aberto) return;
+
+    const corpo=div.querySelector(".mat-corpo");
+    corpo.innerHTML=
+      `<div class="ficha-grade">
+         <div><label>Custo por diária</label>
+           <div class="campo-calc">
+             <input type="text" inputmode="numeric" placeholder="0,00" data-f="diaria">
+             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
+           </div></div>
+         <div><label>Valor por km</label>
+           <input type="text" inputmode="numeric" placeholder="0,00" data-f="km"></div>
+       </div>
+       <div class="ficha-grade">
+         <div><label>Capacidade</label>
+           <input type="text" placeholder="ex.: 12 m³ / 5 ton" data-f="cap"></div>
+         <div><label>Medidas (C × L × A)</label>
+           <input type="text" placeholder="ex.: 6,20 × 2,40 × 2,10 m" data-f="med"></div>
+       </div>
+       <label>Observações / especificações</label>
+       <textarea rows="1" data-f="obs" placeholder="ex.: precisa de área de manobra; opera com munck acoplado"></textarea>`;
+    const campos={};
+    ["diaria","km","cap","med","obs"].forEach(k=>{
+      campos[k]=corpo.querySelector(`[data-f="${k}"]`);
+      campos[k].value=f[k]||"";
+    });
+    const salvar=()=>{
+      guardarFicha(chave,{
+        diaria:campos.diaria.value, km:campos.km.value, cap:campos.cap.value,
+        med:campos.med.value, obs:campos.obs.value});
+      pintarResumo();
+    };
+    campos.diaria.oninput=()=>{mascaraValor(campos.diaria);salvar();};
+    campos.km.oninput=()=>{mascaraValor(campos.km);salvar();};
+    campos.cap.oninput=salvar; campos.med.oninput=salvar;
+    campos.obs.oninput=()=>{ajustarAltura(campos.obs);salvar();};
+    corpo.querySelector(".abre-calc").onclick=()=>abrirCalc(campos.diaria);
+    ajustarAltura(campos.obs);
   });
 }
 
@@ -4720,7 +4842,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-9";
+const APP_VERSION="2026.08.20-10";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
