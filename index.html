@@ -35,7 +35,10 @@
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
     /* o rodapé é fixo e tem ~115px; a folga precisa passar disso, senão o último
        card fica escondido atrás dele */
-    background:var(--cinza);color:var(--texto);padding-bottom:170px;}
+    background:var(--cinza);color:var(--texto);
+    /* 170px da barra de gerar + a altura real da barra de abas: sem somar as
+       duas, o último item da lista nascia por baixo dos botões fixos. */
+    padding-bottom:calc(170px + var(--alt-abas,44px));}
   header{background:var(--topo);color:#fff;padding:20px 16px;}
   header h1{margin:0;font-size:1.25rem;}
   header p{margin:5px 0 0;font-size:.8rem;opacity:.9;}
@@ -53,6 +56,7 @@
   .abas button.ativa{color:#fff;border-bottom-color:#fff;}
   .abas button .badge{margin-left:5px;background:rgba(255,255,255,.22);color:#fff;font-size:.66rem;}
   .aba-conteudo[hidden]{display:none;}
+  .aba-conteudo{will-change:transform;}
   .card{background:var(--branco);border:1px solid var(--card-borda);border-radius:12px;
     padding:14px;margin-bottom:12px;}
   .card h2{font-size:.98rem;color:var(--verde);margin:0 0 10px;padding-bottom:7px;
@@ -154,6 +158,7 @@
   /* z-index acima das células fixas da tabela cruzada (que ficam em 1–3) e
      abaixo dos modais (100) — sem isso a coluna congelada da tabela passava
      por cima da barra de gerar. */
+  body.arrastando-item .rodape{display:none;}
   .rodape{position:fixed;bottom:0;left:0;right:0;background:var(--branco);z-index:50;
     border-top:1px solid var(--card-borda);padding:10px 12px;box-shadow:0 -4px 10px rgba(0,0,0,.05);}
   .rodape .wrap{padding:0;}
@@ -1410,6 +1415,13 @@ const ABAS={
   ajustes:null
 };
 let abaAtual="proposta";
+/* A altura da barra de abas depende da fonte do aparelho, então é medida em vez
+   de chutada — o padding de baixo do body soma esse valor. */
+function medirBarraAbas(){
+  const b=document.getElementById("barraAbas");
+  if(b) document.documentElement.style.setProperty("--alt-abas",Math.round(b.getBoundingClientRect().height)+"px");
+}
+window.addEventListener("resize",medirBarraAbas);
 function mostrarAba(nome){
   if(!(nome in ABAS)) return;
   abaAtual=nome;
@@ -1424,6 +1436,10 @@ function mostrarAba(nome){
   // espaço e ofereceria uma ação sem contexto.
   const rod=document.getElementById("rodapeGerar");
   if(rod) rod.style.display=(nome==="proposta")?"":"none";
+  // Com sete abas e tela estreita, a ativa pode estar fora de vista na barra —
+  // trazer ela pro centro mantém a noção de onde se está.
+  const botao=document.querySelector('.abas button[data-aba="'+nome+'"]');
+  if(botao&&botao.scrollIntoView) botao.scrollIntoView({inline:"center",block:"nearest",behavior:"smooth"});
   const desenhar=ABAS[nome];
   if(desenhar) desenhar();
   window.scrollTo({top:0,behavior:"instant"});
@@ -1472,6 +1488,75 @@ function contatosParaDocumento(){
     fones:validos.map(c=>c.fone).filter(Boolean).join(" / ")
   };
 }
+
+/* ============ TROCAR DE ABA ARRASTANDO O DEDO ============
+   Sem biblioteca: o app roda offline e não vai ganhar dependência por causa de
+   um gesto. touchstart/touchmove são passivos (não bloqueiam a rolagem) e a
+   animação é só transform, que o navegador resolve na GPU.
+
+   Três cuidados, que é onde esse tipo de gesto costuma atrapalhar mais do que
+   ajudar:
+   1. Só assume horizontal quando o deslocamento em X é bem maior que em Y
+      (1,5×). Sem isso, rolar a página de leve na diagonal trocaria de aba.
+   2. Ignora o gesto que começa em cima de algo que JÁ usa arrasto: a tabela
+      cruzada dos destinadores (rola de lado), campo de texto (seleciona), e a
+      alça de reordenar item.
+   3. Nada de setTimeout pra decidir: a direção é decidida no primeiro
+      movimento que passa do limiar, e vale até o dedo levantar. */
+const ORDEM_ABAS=Object.keys(ABAS);
+let toqueX=0,toqueY=0,eixo=null,arrastandoAba=false;
+function gestoProibido(alvo){
+  // Botão NÃO entra nesta lista: a aba Proposta é cheia de chips, e bloquear o
+  // gesto em cima deles faria o swipe quase nunca funcionar justamente na aba
+  // mais usada. Passar o dedo por cima de um chip não é tocar nele — o
+  // navegador já cancela o clique quando o dedo anda.
+  return !!(alvo.closest&&alvo.closest(
+    ".dest-rolagem, input, textarea, select, .alca, .abas"));
+}
+function trocarAbaVizinha(passo){
+  const i=ORDEM_ABAS.indexOf(abaAtual)+passo;
+  if(i<0||i>=ORDEM_ABAS.length) return false;
+  mostrarAba(ORDEM_ABAS[i]);
+  return true;
+}
+function iniciarSwipe(ev){
+  if(ev.touches.length!==1||gestoProibido(ev.target)){eixo="nao";return;}
+  toqueX=ev.touches[0].clientX; toqueY=ev.touches[0].clientY;
+  eixo=null; arrastandoAba=false;
+}
+function moverSwipe(ev){
+  if(eixo==="nao"||ev.touches.length!==1) return;
+  const dx=ev.touches[0].clientX-toqueX, dy=ev.touches[0].clientY-toqueY;
+  if(eixo===null){
+    if(Math.abs(dx)<12&&Math.abs(dy)<12) return;      // ainda é toque, não gesto
+    eixo=(Math.abs(dx)>Math.abs(dy)*1.5)?"x":"nao";
+    if(eixo!=="x") return;
+    arrastandoAba=true;
+  }
+  const sec=document.getElementById("aba-"+abaAtual);
+  if(!sec) return;
+  // Resistência nas pontas: sem aba pro lado, o conteúdo cede pouco, dando a
+  // entender que ali acabou em vez de parecer travado.
+  const naPonta=(dx>0&&ORDEM_ABAS.indexOf(abaAtual)===0)||
+                (dx<0&&ORDEM_ABAS.indexOf(abaAtual)===ORDEM_ABAS.length-1);
+  sec.style.transition="none";
+  sec.style.transform="translateX("+(naPonta?dx*0.25:dx)+"px)";
+  sec.style.opacity=String(Math.max(0.55,1-Math.abs(dx)/700));
+}
+function soltarSwipe(ev){
+  const sec=document.getElementById("aba-"+abaAtual);
+  if(sec){ sec.style.transition="transform .18s ease, opacity .18s ease";
+           sec.style.transform=""; sec.style.opacity=""; }
+  if(eixo==="x"&&arrastandoAba){
+    const dx=(ev.changedTouches&&ev.changedTouches[0]?ev.changedTouches[0].clientX:toqueX)-toqueX;
+    if(Math.abs(dx)>70) trocarAbaVizinha(dx<0?1:-1);
+  }
+  eixo=null; arrastandoAba=false;
+}
+document.addEventListener("touchstart",iniciarSwipe,{passive:true});
+document.addEventListener("touchmove",moverSwipe,{passive:true});
+document.addEventListener("touchend",soltarSwipe,{passive:true});
+document.addEventListener("touchcancel",soltarSwipe,{passive:true});
 
 /* ============ MEUS CLIENTES (recolhido por padrão) ============ */
 // Clientes e histórico viraram abas próprias — o cabeçalho não recolhe mais,
@@ -2600,6 +2685,10 @@ function iniciarArrasto(ev,indice){
   const lista=document.getElementById("listaItensProposta");
   const cartao=lista.children[indice];
   arrasto={indice, lista, cartao};
+  // A barra de gerar sai da frente enquanto se reordena: ela é fixa no rodapé e
+  // cobria a alça dos últimos cartões, justamente onde o dedo precisa pegar. E
+  // gerar no meio de um arrasto não é ação que alguém queira.
+  document.body.classList.add("arrastando-item");
   cartao.classList.add("arrastando");
   cartao.setPointerCapture&&cartao.setPointerCapture(ev.pointerId);
   document.addEventListener("pointermove",moverArrasto);
@@ -2630,6 +2719,7 @@ function moverArrasto(ev){
   }
 }
 function soltarArrasto(){
+  document.body.classList.remove("arrastando-item");
   document.removeEventListener("pointermove",moverArrasto);
   if(arrasto&&arrasto.cartao) arrasto.cartao.classList.remove("arrastando");
   arrasto=null;
@@ -2923,6 +3013,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarFichas();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
+  medirBarraAbas();
   mostrarAba("proposta");
 })();
 
@@ -4842,7 +4933,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-10";
+const APP_VERSION="2026.08.20-11";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
