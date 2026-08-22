@@ -278,7 +278,12 @@
      verde já significa "mais barato", e as duas coisas podem cair na mesma
      célula sem uma esconder a outra. */
   .dest-tab td.fixado{box-shadow:inset 0 0 0 2px var(--verde);}
-  .dest-tab td.fixado .n::after{content:"★";font-size:.7em;margin-left:3px;color:var(--verde);}
+  /* A estrela virou botão de verdade: antes era só um enfeite que aparecia
+     depois de tocar na célula, e ninguém adivinhava o que ela queria dizer.
+     Apagada = "toque pra eleger este parceiro"; acesa = eleito. */
+  .dest-tab td .fix{background:none;border:none;padding:0 0 0 3px;font-size:.72em;
+    line-height:1;color:var(--suave);opacity:.3;font-family:inherit;}
+  .dest-tab td.fixado .fix{opacity:1;color:var(--verde);}
   /* Linha editável dos catálogos de preço (recicláveis, equipamentos) */
   /* Recicláveis: linha fechada que expande */
   .mat-linha{border:1px solid var(--card-borda);border-radius:10px;margin-bottom:7px;overflow:hidden;}
@@ -319,6 +324,33 @@
   .dest-tab.compacta tbody th{font-size:.64rem;max-width:150px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .dest-tab.compacta td .u{font-size:.58rem;}
+  /* BDI numa linha só, com olho pra esconder o número */
+  .dest-bdi{display:flex;align-items:center;gap:6px;}
+  .dest-bdi .rot{font-size:.72rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.04em;font-weight:600;}
+  .dest-bdi input{width:66px;padding:7px 8px;font-size:.9rem;text-align:right;}
+  .dest-bdi .pct{font-size:.8rem;color:var(--suave);}
+  .dest-bdi .sub{flex:1;min-width:0;font-size:.7rem;}
+  .dest-bdi .olho{background:none;border:none;font-size:1rem;padding:4px 2px;
+    color:var(--suave);font-family:inherit;line-height:1;}
+  .dest-bdi.escondido input{letter-spacing:.18em;color:var(--suave);}
+  /* Menu de exibição: fechado por padrão, os controles moram dentro dele */
+  .dest-exib-abre{display:flex;align-items:center;gap:5px;background:none;border:none;
+    color:var(--verde);font-size:.76rem;font-weight:600;font-family:inherit;
+    padding:9px 0 4px;}
+  #exibicaoDest{border:1px solid var(--card-borda);border-radius:10px;
+    padding:9px 10px;margin-bottom:4px;}
+  #exibicaoDest .titulinho{font-size:.68rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.04em;font-weight:600;margin:7px 0 4px;}
+  #exibicaoDest .titulinho:first-child{margin-top:0;}
+  /* Célula em edição: vira campo sem mudar a largura da coluna */
+  .dest-tab td input.cel-edit{width:100%;min-width:64px;padding:1px 3px;font-size:inherit;
+    text-align:right;font-family:inherit;border:1.5px solid var(--verde);border-radius:4px;
+    background:var(--branco);color:var(--texto);}
+  /* Nomes que entraram num grupo mesclado */
+  .grupo-nomes{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 12px;}
+  .grupo-nomes span{background:var(--campo);border:1px solid var(--campo-borda);
+    border-radius:12px;padding:3px 9px;font-size:.74rem;}
   /* Ordem das colunas */
   .dest-ordem{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:6px 0;}
   .dest-ordem button{background:var(--campo);border:1.5px solid var(--campo-borda);
@@ -328,6 +360,11 @@
   .dest-tab td .u{color:var(--suave);font-size:.62rem;}
   /* Sugestão de custo dentro do card de valor da linha */
   .dest-sug{margin-top:6px;}
+  /* Aviso de conversão KG↔TON: aparece colado no campo e some sozinho */
+  .nota-conversao{margin-top:5px;font-size:.7rem;font-weight:600;color:var(--verde);
+    background:var(--verde-claro);border:1px solid var(--verde-borda);
+    border-radius:7px;padding:4px 7px;animation:surge .18s ease-out;}
+  @keyframes surge{from{opacity:0;transform:translateY(-3px);}to{opacity:1;transform:none;}}
   .dest-sug .titulo{font-size:.7rem;color:var(--suave);margin-bottom:3px;}
   .dest-sug .opcoes{display:flex;flex-wrap:wrap;gap:5px;}
   .dest-sug button{background:var(--campo);border:1.5px solid var(--campo-borda);
@@ -499,17 +536,27 @@
   <div class="card">
     <h2>Destinadores e custos <span class="badge" id="badgeDest">0</span></h2>
     <div id="destCorpo">
-      <!-- O BDI vem primeiro por ser o controle que mais se mexe. O resto da
-           explicação foi pro card de ajuda lá embaixo; só o aviso de que o custo
-           não vai pro cliente fica sempre à vista — é segurança, não decoração. -->
-      <label>BDI (%)</label>
-      <div class="row2">
+      <!-- O BDI continua no topo, mas numa linha só e com olho pra esconder: a
+           tela é mostrada em reunião, e a margem não é assunto de quem está do
+           outro lado. O resto da explicação foi pro card de ajuda lá embaixo;
+           só o aviso de que o custo não vai pro cliente fica sempre à vista —
+           é segurança, não decoração. -->
+      <div class="dest-bdi">
+        <span class="rot">BDI</span>
         <input type="text" id="bdiDest" inputmode="numeric" placeholder="63" oninput="mudouBDI(this)">
-        <div class="sub" id="exemploBDI" style="align-self:center"></div>
+        <span class="pct">%</span>
+        <span class="sub" id="exemploBDI"></span>
+        <button type="button" class="olho" id="olhoBDI" onclick="alternarOlhoBDI()"></button>
       </div>
       <div class="sub aviso-sigilo">Custo interno — <strong>nunca entra na proposta do cliente</strong>.</div>
 
       <input type="text" id="buscaDest" placeholder="Buscar destinador ou resíduo..." oninput="renderDest()" style="margin-top:10px">
+      <!-- Os controles de leitura (custo/venda, compacto/normal, ordem das
+           colunas) viviam soltos em cima da tabela e tomavam mais espaço que
+           ela. Ficam num menu só, fechado por padrão. -->
+      <button type="button" class="dest-exib-abre" id="abreExibDest" onclick="toggleExibicaoDest()">
+        ⚙️ Exibição<span class="seta" id="setaExibDest">▾</span></button>
+      <div id="exibicaoDest" class="oculto"></div>
       <div id="listaDest" style="margin-top:8px"></div>
       <div class="status" id="statusDest"></div>
     </div>
@@ -785,6 +832,28 @@
     <div class="chips" id="selChips" style="margin-top:8px"></div>
     <div class="sub" id="selDica"></div>
     <button class="btn-principal btn-full" style="margin-top:10px" onclick="fecharSelecao()">Pronto</button>
+  </div>
+</div>
+
+<!-- Grupo mesclado da tabela de destinadores. Antes, tocar no ⇄ desagrupava
+     na hora: um toque sem querer desfazia um agrupamento que dava trabalho pra
+     montar, e sem dizer o que tinha acontecido. Agora o toque abre isto. -->
+<div class="modal-fundo oculto" id="modalGrupo">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3>Grupo mesclado</h3>
+      <button class="modal-fechar" onclick="fecharGrupo()">✕</button>
+    </div>
+    <div class="sub">Estes nomes viraram uma linha só na tabela:</div>
+    <div class="grupo-nomes" id="grupoNomes"></div>
+    <label>Nome que aparece na coluna</label>
+    <input type="text" id="grupoRotulo" placeholder="deixe vazio pra usar o nome mais curto">
+    <div class="sub">Muda só o que você lê aqui. Cada parceiro continua com o nome
+      que usa na planilha dele.</div>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-sec" onclick="desagruparAtual()">Desagrupar</button>
+      <button class="btn-principal" onclick="confirmarGrupo()">Confirmar</button>
+    </div>
   </div>
 </div>
 
@@ -2347,7 +2416,12 @@ function renderLinhasValores(){
     // O custo sugerido depende da unidade (TON vira KG), então acompanha ela.
     const custos=div.querySelector('[data-campo="custos"]');
     const aplicarCustos=()=>montarSugestoesCusto(custos,l,iv,()=>iu.value,iu);
-    const trocouUnidade=u=>{unidadePorChave[l.chave]=u;aplicarObs();aplicarCustos();};
+    // Trocar KG↔Tonelada refaz o valor junto — ver ligarConversaoMassa()
+    const converter=ligarConversaoMassa(iv,iu.value,novo=>{valorPorChave[l.chave]=novo;});
+    const trocouUnidade=u=>{
+      converter(u);
+      unidadePorChave[l.chave]=u;aplicarObs();aplicarCustos();
+    };
     iu.oninput=()=>{trocouUnidade(iu.value);};
     montarChipsUnidade(iu,l.chave,trocouUnidade,l.descricao);
     aplicarCustos();
@@ -2677,6 +2751,61 @@ function unidadesSugeridas(chave,descricao){
   return UNIDADES_POR_TIPO[tipoLinha(chave)]||["Viagem","KG","Tonelada"];
 }
 
+/* ============ CONVERSÃO DE UNIDADE ============
+   Trocar de KG pra Tonelada sem mexer no número é o erro que sai mais caro:
+   R$ 0,50/KG virando R$ 0,50/TON é a proposta com dois mil por cento de
+   desconto. Como a relação é fixa (1 TON = 1000 KG), o app faz a conta.
+
+   Só massa entra aqui. "Unidade" e "M³" são leituras próprias — quantas peças,
+   quantos metros cúbicos — e não têm fator de conversão pra quilo; adivinhar um
+   seria pior que não converter. Viagem, hora e diária, idem. */
+const MASSA_EM_KG={ "kg":1, "quilo":1, "quilos":1, "quilograma":1,
+                    "ton":1000, "t":1000, "tonelada":1000, "toneladas":1000 };
+function fatorMassa(u){ return MASSA_EM_KG[String(u||"").trim().toLowerCase()]||0; }
+// Devolve o valor convertido já formatado, ou null quando não há o que fazer:
+// unidade fora da massa, mesma unidade, ou campo vazio.
+function converterMassa(valorTexto,de,para){
+  const fDe=fatorMassa(de), fPara=fatorMassa(para);
+  if(!fDe||!fPara||fDe===fPara) return null;
+  const n=numeroBR(valorTexto);
+  if(!n) return null;
+  return fmtDinheiro(n*(fPara/fDe));
+}
+/* Converter calado seria pior que não converter: o número muda sozinho e quem
+   está preenchendo não sabe se foi ele ou o app. O aviso conta a conta feita e
+   some sozinho. */
+function avisarConversao(campo,de,para,antes,depois){
+  const dono=campo.parentElement;
+  if(!dono) return;
+  const velho=dono.parentElement.querySelector(".nota-conversao");
+  if(velho) velho.remove();
+  const n=document.createElement("div");
+  n.className="nota-conversao";
+  n.textContent="R$ "+antes+"/"+de+" → R$ "+depois+"/"+para;
+  dono.parentElement.insertBefore(n,dono.nextSibling);
+  setTimeout(()=>n.remove(),5000);
+}
+/* Liga a conversão a um par campo-de-valor + campo-de-unidade. Devolve a função
+   que deve ser chamada toda vez que a unidade muda — ela guarda por conta
+   própria qual foi a última unidade de massa vista, pra que apagar a palavra
+   letra por letra não perca a referência no meio do caminho. */
+function ligarConversaoMassa(campoValor,unidadeInicial,aoConverter){
+  let ultima=fatorMassa(unidadeInicial)?unidadeInicial:"";
+  return u=>{
+    const f=fatorMassa(u);
+    if(f&&ultima&&fatorMassa(ultima)!==f){
+      const antes=campoValor.value;
+      const novo=converterMassa(antes,ultima,u);
+      if(novo!==null){
+        campoValor.value=novo;
+        avisarConversao(campoValor,ultima,u,antes,novo);
+        if(aoConverter) aoConverter(novo);
+      }
+    }
+    if(f) ultima=u;
+  };
+}
+
 /* ============ OBSERVAÇÃO QUE SEGUE A UNIDADE ============
    Em destinação e em mão de obra a primeira frase da observação é sempre a
    mesma, e depende só da unidade cobrada. Deixar isso na mão é onde nasce a
@@ -2783,7 +2912,10 @@ let obsAutoModal="";
 function montarSugestoesUnidade(){
   const item=(itemEditando!==null)?itens[itemEditando]:null;
   const campo=document.getElementById("edUnidade");
+  // Mesma conversão KG↔TON da linha do assistente
+  const converter=ligarConversaoMassa(document.getElementById("edValor"),campo.value);
   montarChipsUnidade(campo,item&&item.chave,u=>{
+    converter(u);
     if(!item) return;
     const obs=document.getElementById("edObs");
     const nova=comporObs(item.chave,u,item.obsBase);
@@ -2909,7 +3041,11 @@ let catalogo={veiculos:[],residuos2:[],residuos1:[],reciclaveis:[],cargos:[],loc
    é declarado. Ficando lá embaixo, a leitura do que estava salvo falhava calada
    e a tabela voltava vazia a cada abertura do app. */
 const LS_DEST="corpus_destinadores_v1";
-let dest={bdi:63,precos:[],juntas:[],separadas:[],ordem:[]}, destAberto=false;
+// rotulos: nome que o Léo deu a um grupo mesclado, por chave do grupo.
+// bdiOculto: o BDI fica mascarado na tela — a tabela é mostrada pra cliente e
+// pra parceiro, e o markup não é assunto de nenhum dos dois.
+let dest={bdi:63,precos:[],juntas:[],separadas:[],ordem:[],rotulos:{},bdiOculto:false},
+    destAberto=false;
 
 /* Preços cadastrados dos catálogos próprios (recicláveis, equipamentos).
    Aqui em cima pelo mesmo motivo do `dest`: precoSalvo() é consultado por
@@ -3196,7 +3332,8 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
 function carregarDest(){
   try{
     const s=localStorage.getItem(LS_DEST);
-    if(s) dest=Object.assign({bdi:63,precos:[],juntas:[],separadas:[],ordem:[]},JSON.parse(s));
+    if(s) dest=Object.assign({bdi:63,precos:[],juntas:[],separadas:[],ordem:[],
+                              rotulos:{},bdiOculto:false},JSON.parse(s));
   }catch(e){ console.warn("destinadores: não deu pra ler o que estava salvo",e); }
 }
 function gravarDest(){
@@ -3212,6 +3349,35 @@ function fmtDinheiro(v){
 // Destinadores virou aba própria — não recolhe mais, quem controla a exibição
 // é a barra de abas. Mantida porque os atalhos antigos ainda chamam por ela.
 function toggleDest(){ mostrarAba("destinadores"); }
+/* Olho do BDI. Esconder é visual — o número continua valendo pra conta de
+   venda, só não fica na tela. É o caso de mostrar a tabela pro cliente ou pro
+   parceiro sem entregar a margem junto. */
+function alternarOlhoBDI(){
+  dest.bdiOculto=!dest.bdiOculto;
+  gravarDest(); pintarOlhoBDI();
+}
+function pintarOlhoBDI(){
+  const caixa=document.querySelector(".dest-bdi");
+  const campo=document.getElementById("bdiDest");
+  const olho=document.getElementById("olhoBDI");
+  if(!caixa||!campo||!olho) return;
+  const escondido=!!dest.bdiOculto;
+  caixa.classList.toggle("escondido",escondido);
+  // type=password some com o número sem tirar o campo do caminho: continua
+  // editável, e o navegador já faz a máscara sozinho.
+  campo.type=escondido?"password":"text";
+  olho.textContent=escondido?"🙈":"👁";
+  olho.title=escondido?"mostrar o BDI":"esconder o BDI";
+  document.getElementById("exemploBDI").classList.toggle("oculto",escondido);
+}
+/* Menu de exibição. Fechado por padrão: são preferências de leitura, mexidas
+   uma vez e esquecidas — não merecem ficar ocupando a tela acima da tabela. */
+let exibDestAberta=false;
+function toggleExibicaoDest(){
+  exibDestAberta=!exibDestAberta;
+  document.getElementById("exibicaoDest").classList.toggle("oculto",!exibDestAberta);
+  document.getElementById("setaExibDest").classList.toggle("aberta",exibDestAberta);
+}
 let ajudaDestAberta=false;
 function toggleAjudaDest(){
   ajudaDestAberta=!ajudaDestAberta;
@@ -3354,6 +3520,7 @@ async function importarDest(input){
         if(Array.isArray(j.juntas)) dest.juntas=j.juntas;
         if(Array.isArray(j.separadas)) dest.separadas=j.separadas;
         if(Array.isArray(j.ordem)) dest.ordem=j.ordem;
+        if(j.rotulos&&typeof j.rotulos==="object") dest.rotulos=j.rotulos;
       }
     }else{
       // Planilha nova do parceiro: os preços são substituídos, mas as junções
@@ -3424,10 +3591,20 @@ function gruposResiduos(){
   nomes.forEach(n=>{ const r=acha(n); (grupos[r]=grupos[r]||[]).push(n); });
   // Rótulo do grupo: o nome mais curto costuma ser o mais limpo ("FOSSA" em vez
   // de "FOSSA SÉPTICA - CLASSE II — COLETA DEDICADA")
-  return Object.values(grupos).map(g=>({
-    nomes:g.slice().sort((a,b)=>a.length-b.length),
-    rotulo:g.slice().sort((a,b)=>a.length-b.length)[0]
-  })).sort((a,b)=>a.rotulo.localeCompare(b.rotulo,"pt-BR"));
+  return Object.values(grupos).map(g=>{
+    const nomes=g.slice().sort((a,b)=>a.length-b.length);
+    return {nomes, chave:chaveGrupo(nomes), auto:nomes[0], rotulo:rotuloGrupo(nomes)};
+  }).sort((a,b)=>a.rotulo.localeCompare(b.rotulo,"pt-BR"));
+}
+/* Identidade de um grupo: os nomes que ele reúne, em ordem fixa. Serve de chave
+   pro apelido — assim renomear "ÁGUA PLUVIAL / ÁGUA DE CHUVA" pra "Água de
+   Chuva" continua valendo depois de reimportar a planilha, e deixa de valer
+   sozinho se a composição do grupo mudar (aí o apelido velho não descreveria
+   mais o que está ali). */
+function chaveGrupo(nomes){ return nomes.slice().sort().join("|"); }
+function rotuloGrupo(nomes){
+  const apelido=((dest.rotulos||{})[chaveGrupo(nomes)]||"").trim();
+  return apelido||nomes[0];
 }
 /* Ordem das colunas. Numa tabela que não cabe na tela, o que fica à esquerda é
    o que se lê sem rolar — então quem decide é quem sabe qual parceiro pesa mais
@@ -3465,12 +3642,48 @@ function juntarSelecionados(){
 function separarGrupo(rotulo){
   const g=gruposResiduos().find(x=>x.rotulo===rotulo);
   if(!g||g.nomes.length<2) return;
+  delete (dest.rotulos||{})[g.chave];   // grupo desfeito, apelido não descreve mais nada
   dest.juntas=(dest.juntas||[]).filter(j=>!j.some(n=>g.nomes.includes(n)));
   dest.separadas=dest.separadas||[];
   for(let i=0;i<g.nomes.length;i++)
     for(let j=i+1;j<g.nomes.length;j++)
       dest.separadas.push([g.nomes[i],g.nomes[j]]);
   destSelecao=[]; gravarDest(); renderDest(); renderLinhasValores();
+}
+/* ---- Popup do grupo mesclado ----
+   Mostra o que foi juntado, deixa dar um nome à linha e só então oferece
+   desagrupar. Desagrupar por toque solto era destrutivo e mudo. */
+let grupoEditando=null;
+function abrirGrupo(rotulo){
+  const g=gruposResiduos().find(x=>x.rotulo===rotulo);
+  if(!g) return;
+  grupoEditando=g;
+  const lista=document.getElementById("grupoNomes");
+  lista.innerHTML="";
+  g.nomes.forEach(n=>{
+    const s=document.createElement("span"); s.textContent=n; lista.appendChild(s);
+  });
+  const campo=document.getElementById("grupoRotulo");
+  campo.value=((dest.rotulos||{})[g.chave]||"");
+  campo.placeholder=g.auto;
+  document.getElementById("modalGrupo").classList.remove("oculto");
+}
+function fecharGrupo(){
+  grupoEditando=null;
+  document.getElementById("modalGrupo").classList.add("oculto");
+}
+function confirmarGrupo(){
+  if(!grupoEditando) return fecharGrupo();
+  const novo=document.getElementById("grupoRotulo").value.trim();
+  dest.rotulos=dest.rotulos||{};
+  if(novo) dest.rotulos[grupoEditando.chave]=novo;
+  else delete dest.rotulos[grupoEditando.chave];
+  gravarDest(); fecharGrupo(); renderDest();
+}
+function desagruparAtual(){
+  if(!grupoEditando) return fecharGrupo();
+  const r=grupoEditando.rotulo;
+  fecharGrupo(); separarGrupo(r);
 }
 /* Cada célula aparece na unidade em que o parceiro cobra, sem conversão: é
    assim que está no contrato e é assim que o Léo confere. Converter pra exibir
@@ -3492,7 +3705,10 @@ function renderDest(){
   const bdiEl=document.getElementById("bdiDest");
   if(bdiEl&&document.activeElement!==bdiEl) bdiEl.value=dest.bdi;
   renderExemploBDI();
+  pintarOlhoBDI();
   if(!dest.precos.length){
+    document.getElementById("abreExibDest").classList.add("oculto");
+    document.getElementById("exibicaoDest").classList.add("oculto");
     el.innerHTML='<span class="sub">Tabela vazia. Use <strong>Importar planilha</strong> pra trazer seus custos — eles ficam só neste aparelho.</span>';
     return;
   }
@@ -3504,41 +3720,34 @@ function renderDest(){
   if(!grupos.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
 
   el.innerHTML="";
-  const barra=document.createElement("div");
-  barra.className="dest-barra";
-  barra.innerHTML=
+  // Preferências de leitura ficam no menu "Exibição"; o que é AÇÃO (juntar dois
+  // resíduos que ficaram em linhas diferentes) continua em cima da tabela, onde
+  // se está olhando quando a vontade aparece.
+  document.getElementById("abreExibDest").classList.remove("oculto");
+  const menu=document.getElementById("exibicaoDest");
+  menu.classList.toggle("oculto",!exibDestAberta);
+  menu.innerHTML=
+    '<div class="titulinho">Valores</div>'+
     '<div class="dest-visao">'+
       '<button data-v="custo">custo</button><button data-v="venda">venda c/ BDI</button>'+
     '</div>'+
+    '<div class="titulinho">Tamanho da tabela</div>'+
     '<div class="dest-visao dest-dens">'+
       '<button data-d="compacto">compacto</button><button data-d="normal">normal</button>'+
-    '</div><div class="dest-acao"></div>';
-  barra.querySelectorAll(".dest-visao button[data-v]").forEach(b=>{
+    '</div>'+
+    '<div class="titulinho">Colunas de parceiros</div>'+
+    '<div class="dest-ordem"></div>'+
+    '<div class="sub">Toque num parceiro pra trazer a coluna dele pra frente. '+
+    'Os escolhidos vêm primeiro, na ordem em que foram tocados.</div>';
+  menu.querySelectorAll(".dest-visao button[data-v]").forEach(b=>{
     if(b.dataset.v===destVendo) b.className="ativa";
     b.onclick=()=>alternarVisaoDest(b.dataset.v);
   });
-  barra.querySelectorAll(".dest-visao button[data-d]").forEach(b=>{
+  menu.querySelectorAll(".dest-visao button[data-d]").forEach(b=>{
     if((b.dataset.d==="compacto")===densoDest) b.className="ativa";
     b.onclick=()=>alternarDensidade(b.dataset.d);
   });
-  const acao=barra.querySelector(".dest-acao");
-  if(destSelecao.length>=2){
-    const j=document.createElement("button");
-    j.className="btn-mini";
-    j.textContent="juntar "+destSelecao.length+" resíduos";
-    j.onclick=juntarSelecionados;
-    acao.appendChild(j);
-  }else if(destSelecao.length===1){
-    acao.innerHTML='<span class="sub">marque outro pra juntar</span>';
-  }
-  el.appendChild(barra);
-
-  const ord=document.createElement("div");
-  ord.className="dest-ordem";
-  const rot=document.createElement("span");
-  rot.className="sub";
-  rot.textContent="Colunas:";
-  ord.appendChild(rot);
+  const ord=menu.querySelector(".dest-ordem");
   parceiros.forEach(d=>{
     const pos=(dest.ordem||[]).indexOf(d);
     const b=document.createElement("button");
@@ -3549,7 +3758,21 @@ function renderDest(){
     b.onclick=()=>priorizarParceiro(d);
     ord.appendChild(b);
   });
-  el.appendChild(ord);
+
+  if(destSelecao.length){
+    const acao=document.createElement("div");
+    acao.className="dest-barra";
+    if(destSelecao.length>=2){
+      const j=document.createElement("button");
+      j.className="btn-mini";
+      j.textContent="juntar "+destSelecao.length+" resíduos";
+      j.onclick=juntarSelecionados;
+      acao.appendChild(j);
+    }else{
+      acao.innerHTML='<span class="sub">marque outro pra juntar</span>';
+    }
+    el.appendChild(acao);
+  }
 
   const rolagem=document.createElement("div");
   rolagem.className="dest-rolagem";
@@ -3574,8 +3797,8 @@ function renderDest(){
       const marca=document.createElement("span");
       marca.className="dest-juntou";
       marca.textContent=" ⇄"+g.nomes.length;
-      marca.title=g.nomes.join("  ·  ")+"\n(toque no ⇄ pra separar)";
-      marca.onclick=ev=>{ev.stopPropagation();separarGrupo(g.rotulo);};
+      marca.title=g.nomes.join("  ·  ")+"\n(toque no ⇄ pra ver e renomear o grupo)";
+      marca.onclick=ev=>{ev.stopPropagation();abrirGrupo(g.rotulo);};
       th.appendChild(marca);
     }
     th.onclick=()=>selecionarGrupo(g.rotulo);
@@ -3586,9 +3809,12 @@ function renderDest(){
     // esconder isso calado faria o Léo cotar por um preço que não é o daquele
     // resíduo específico.
     const celulas=parceiros.map(d=>{
-      const achados=dest.precos.filter(p=>p.d===d&&g.nomes.includes(p.r));
+      const achados=dest.precos.map((p,i)=>({p,i}))
+                               .filter(x=>x.p.d===d&&g.nomes.includes(x.p.r));
       if(!achados.length) return null;
-      const ord=achados.map(p=>({...paraComparar(p),r:p.r})).sort((a,b)=>a.base-b.base);
+      // `i` viaja junto: é por ele que a edição inline sabe qual registro mexer
+      const ord=achados.map(x=>({...paraComparar(x.p),r:x.p.r,i:x.i}))
+                       .sort((a,b)=>a.base-b.base);
       return Object.assign(ord[0],{
         varios:ord.length>1?ord.map(x=>x.r+": "+fmtDinheiro(x.v)+"/"+x.u).join("\n"):null
       });
@@ -3614,13 +3840,22 @@ function renderDest(){
       const fixada=vinc&&vinc.d===parceiros[ic]&&g.nomes.includes(vinc.r);
       if(fixada) classes.push("fixado");
       td.className=classes.join(" ");
-      td.innerHTML='<span class="n"></span><span class="u"></span>';
+      td.innerHTML='<span class="n"></span><span class="u"></span>'+
+                   '<button type="button" class="fix">★</button>';
       td.querySelector(".n").textContent=fmtDinheiro(v);
       td.querySelector(".u").textContent="/"+c.u+(c.varios?" *":"");
       td.title=(c.varios?"mais de um preço aqui — mostrando o menor:\n"+c.varios+"\n\n":"")+
-        (fixada?"parceiro fixado para este resíduo — toque pra desfazer"
-               :"toque pra fixar "+parceiros[ic]+" como destinador deste resíduo");
-      td.onclick=()=>alternarVinculo(c.r||g.rotulo,{d:parceiros[ic],r:c.r||g.rotulo,v:c.v,u:c.u});
+        "toque no número pra corrigir o custo";
+      // Reajuste de parceiro sem baixar planilha nova: a célula vira campo.
+      td.onclick=()=>editarCusto(td,c.i);
+      const estrela=td.querySelector(".fix");
+      estrela.title=fixada
+        ? parceiros[ic]+" é o destinador eleito deste resíduo — toque pra desfazer"
+        : "eleger "+parceiros[ic]+" como destinador deste resíduo (a proposta já nasce com o preço dele)";
+      estrela.onclick=ev=>{
+        ev.stopPropagation();
+        alternarVinculo(c.r,{d:parceiros[ic],r:c.r,v:c.v,u:c.u});
+      };
       tr.appendChild(td);
     });
     tb.appendChild(tr);
@@ -3631,10 +3866,51 @@ function renderDest(){
 
   const dica=document.createElement("div");
   dica.className="sub";
-  dica.innerHTML="Verde = mais barato daquela linha. <strong>⇄</strong> marca resíduos que o app juntou "+
-    "sozinho por terem nomes parecidos — toque nele pra separar. Pra juntar dois que ficaram "+
+  dica.innerHTML="Verde = mais barato daquela linha. <strong>★</strong> elege o destinador "+
+    "daquele resíduo: a proposta já nasce com o preço dele. Toque no número pra corrigir o "+
+    "custo ali mesmo. <strong>⇄</strong> marca resíduos que o app juntou sozinho por terem "+
+    "nomes parecidos — toque nele pra ver, renomear ou separar. Pra juntar dois que ficaram "+
     "em linhas diferentes, toque no nome de cada um e use <em>juntar</em>.";
   el.appendChild(dica);
+}
+/* Edição da célula de custo, direto na tabela. É pra reajuste de parceiro:
+   chegou carta de aumento, corrige a linha e segue — sem refazer a importação
+   inteira e sem perder as junções e apelidos que já estavam montados.
+
+   Edita SEMPRE o custo, mesmo com a tabela em "venda c/ BDI": o que o parceiro
+   cobra é o dado real, o preço de venda é conta feita em cima dele. Deixar
+   digitar o valor de venda escreveria um custo estimado por divisão — número
+   que nunca esteve em contrato nenhum. */
+function editarCusto(td,indice){
+  if(td.querySelector("input")) return;
+  const p=dest.precos[indice];
+  if(!p) return;
+  const campo=document.createElement("input");
+  campo.className="cel-edit";
+  campo.type="text"; campo.inputMode="numeric";
+  campo.value=fmtDinheiro(p.v);
+  campo.title="custo de "+p.d+" para "+p.r;
+  td.innerHTML=""; td.appendChild(campo);
+  campo.focus(); campo.select();
+  let encerrado=false;
+  const encerrar=gravar=>{
+    if(encerrado) return;
+    encerrado=true;
+    const n=numeroBR(campo.value);
+    if(gravar&&n>0&&n!==p.v){
+      dest.precos[indice].v=n;
+      gravarDest(); renderDest(); renderLinhasValores();
+      document.getElementById("statusDest").textContent=
+        p.d+" · "+p.r+": custo agora R$ "+fmtDinheiro(n)+"/"+(p.u||"–")+".";
+      return;
+    }
+    renderDest();
+  };
+  campo.onblur=()=>encerrar(true);
+  campo.onkeydown=ev=>{
+    if(ev.key==="Enter"){ ev.preventDefault(); encerrar(true); }
+    if(ev.key==="Escape"){ ev.preventDefault(); encerrar(false); }
+  };
 }
 
 /* ============ PREÇOS PRÓPRIOS (RECICLÁVEIS E EQUIPAMENTOS) ============
@@ -5096,7 +5372,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.22-1";
+const APP_VERSION="2026.08.22-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
