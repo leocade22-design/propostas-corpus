@@ -275,6 +275,8 @@
   .sobre-atualizar{text-align:right;margin-top:10px;}
   .rodape-sobre{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
     margin-top:12px;padding-top:10px;border-top:1px solid var(--card-borda);}
+  /* Fora do card, encerrando a aba: sem borda própria e com respiro embaixo */
+  .rodape-sobre.rodape-aba{border-top:none;margin-top:2px;padding:0 4px 10px;}
   .assinatura{font-size:.78rem;font-style:italic;color:var(--verde);letter-spacing:.02em;
     white-space:nowrap;}
   .linha-cat .nome{font-size:.85rem;font-weight:600;}
@@ -613,11 +615,14 @@
         <button class="link-acao" onclick="buscarAtualizacao()">buscar atualização</button>
       </div>
       <div class="status" id="statusApp"></div>
-      <div class="rodape-sobre">
-        <span class="sub">versão <span id="verApp">–</span></span>
-        <span class="assinatura">by: Leonardo Cade</span>
-      </div>
     </div>
+  </div>
+  <!-- Fora do corpo recolhível de propósito: com o card "Sobre" fechado, versão
+       e assinatura sumiam da tela. São a identificação do app — precisam estar
+       visíveis independente de alguém ter aberto o card. -->
+  <div class="rodape-sobre rodape-aba">
+    <span class="sub">versão <span id="verApp">–</span></span>
+    <span class="assinatura">by: Leonardo Cade</span>
   </div>
 </section>
 
@@ -875,6 +880,53 @@ let passoAberto=null;
 // leva o script inteiro junto.
 const LS_RASCUNHO="corpus_rascunho_v1";
 let timerRascunho=null;
+
+/* ============ NUMERAÇÃO DA PROPOSTA ============
+   Formato: 10 + mês (2 dígitos) + sequência (2 dígitos) - ano → 100803-2026.
+   A sequência reinicia a cada mês, junto com o prefixo.
+
+   O número só AVANÇA quando a proposta é realmente gerada: abrir o app, mexer e
+   desistir não pode queimar número, senão a numeração fica cheia de buraco e
+   depois ninguém sabe se faltou documento ou se foi só desistência.
+
+   O campo continua editável. Digitando um número à mão, a contagem passa a valer
+   dali — é o Léo quem manda, o app só sugere o próximo.
+
+   Regra num lugar só: os três pontos que precisavam do número (abertura do app,
+   duplicar proposta, nova proposta) repetiam a mesma expressão copiada, que ia
+   divergir no primeiro ajuste. */
+const LS_NUMERO="corpus_ultimo_numero_v1";
+function chaveMes(d){ return String(d.getFullYear())+String(d.getMonth()+1).padStart(2,"0"); }
+function montarNumero(d,seq){
+  return "10"+String(d.getMonth()+1).padStart(2,"0")+String(seq).padStart(2,"0")+"-"+d.getFullYear();
+}
+// Lê o que está guardado, ignorando registro de outro mês — aí a conta recomeça.
+function ultimoNumero(){
+  try{
+    const g=JSON.parse(localStorage.getItem(LS_NUMERO)||"null");
+    if(g&&g.mes===chaveMes(new Date())&&Number(g.seq)>0) return Number(g.seq);
+  }catch(e){}
+  return 0;
+}
+function proximoNumero(d){
+  d=d||new Date();
+  return montarNumero(d,ultimoNumero()+1);
+}
+/* Chamado depois de gerar. Aceita o número que realmente saiu no documento —
+   inclusive um digitado à mão — e passa a contar a partir dele. */
+function registrarNumeroUsado(numero){
+  const m=String(numero||"").match(/^10(\d{2})(\d{2})-(\d{4})$/);
+  if(!m) return;                             // fora do padrão: não mexe na contagem
+  const chave=m[3]+m[1], seq=Number(m[2]);
+  if(chave!==chaveMes(new Date())) return;   // número de outro mês não avança o atual
+  if(seq<=ultimoNumero()) return;            // reemitir um antigo não retrocede nem repete
+  try{localStorage.setItem(LS_NUMERO,JSON.stringify({mes:chave,seq}));}catch(e){}
+}
+function sugerirNumeroNoCampo(){
+  const el=document.getElementById("proposalNumber");
+  if(el) el.value=proximoNumero();
+}
+
 // Desenho em SVG no lugar do emoji de calculadora: em muitos celulares aquele
 // caractere não existe na fonte e aparece como quadradinho vazio. Assim o ícone
 // é sempre o mesmo, em qualquer aparelho, e acompanha a cor do tema.
@@ -1485,7 +1537,16 @@ function montarCategorias(){
     // Modalidade/unidade já entram no que é usado na esmagadora maioria das
     // propostas — quem precisar de outra troca em um toque.
     sel={cat:op};
-    if(op==="COLETA DE RESÍDUOS"||op==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS") sel.mod="POR COLETA";
+    if(op==="COLETA DE RESÍDUOS"||op==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS"){
+      sel.mod="POR COLETA";
+      // Em coleta a classe quase nunca muda o serviço — o que importa é a
+      // modalidade e o veículo. Entra escolhida pra abrir direto no que
+      // interessa; o chip continua ali pra trocar pra CLASSE I quando precisar.
+      // Em DESTINAÇÃO FINAL não se faz isso: lá a classe define qual lista de
+      // resíduos aparece, então escolher por conta própria seria decidir no
+      // lugar de quem está cotando.
+      sel.classe="CLASSE IIA E IIB";
+    }
     if(op==="DESTINAÇÃO FINAL DE RESÍDUOS"||op==="RECICLÁVEIS MISTOS") sel.uni="POR KG";
     passoAberto=null;
     esconderPassos(2);
@@ -2585,8 +2646,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
 (function(){
   const h=new Date();
   document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
-  const mm=String(h.getMonth()+1).padStart(2,"0");
-  document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
+  sugerirNumeroNoCampo();
   carregarCatalogo();
   carregarDest();
   carregarPrecos();
@@ -3246,6 +3306,9 @@ function salvarPropostaAtual(){
   const i=propostas.findIndex(p=>p.id===registro.id);
   if(i>=0) propostas[i]=registro; else propostas.unshift(registro);
   propostaAtualId=registro.id;
+  // Só aqui a sequência anda: esta função roda depois de gerar os arquivos, e é
+  // o único momento em que o número virou documento de verdade.
+  registrarNumeroUsado(registro.numero);
   // Teto pra não estourar a cota do navegador com o tempo
   if(propostas.length>300) propostas=propostas.slice(0,300);
   gravarPropostas(); atualizarBadgeHistorico();
@@ -3316,8 +3379,7 @@ async function abrirProposta(id,comoCopia){
     propostaAtualId=null;
     const h=new Date();
     document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
-    const mm=String(h.getMonth()+1).padStart(2,"0");
-    document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
+    sugerirNumeroNoCampo();
   } else {
     propostaAtualId=p.id;
   }
@@ -3413,8 +3475,7 @@ async function novaProposta(silencioso){
 
   const h=new Date();
   document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
-  const mm=String(h.getMonth()+1).padStart(2,"0");
-  document.getElementById("proposalNumber").value=`10${mm}01-${h.getFullYear()}`;
+  sugerirNumeroNoCampo();
 
   abrirQuebra("",false);abrirQuebra("Coleta",false);
   esconderPassos(2);
@@ -4088,7 +4149,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-3";
+const APP_VERSION="2026.08.20-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
