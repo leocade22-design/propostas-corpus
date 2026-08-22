@@ -356,6 +356,12 @@
   .dest-tab td input.cel-edit{width:100%;min-width:64px;padding:1px 3px;font-size:inherit;
     text-align:right;font-family:inherit;border:1.5px solid var(--verde);border-radius:4px;
     background:var(--branco);color:var(--texto);}
+  /* Estado da sincronia */
+  .estado-sync{margin-top:9px;font-weight:600;}
+  .estado-sync.ok{color:var(--verde);}
+  .estado-sync.erro,.estado-sync.senha{color:var(--alerta);}
+  #syncCorpo code{display:block;margin-top:5px;font-size:.68rem;background:var(--campo);
+    border-radius:6px;padding:6px 8px;word-break:break-all;}
   /* Lista de clientes: uma linha por cliente, só a razão social */
   .cli-linha{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
     background:var(--branco);border:1px solid var(--card-borda);border-radius:10px;
@@ -779,6 +785,36 @@
 </section>
 
 <section class="aba-conteudo" id="aba-ajustes" hidden>
+  <!-- Sincronia: o mesmo cadastro no PC do trabalho e nos dois celulares, sem
+       que o conteúdo saia legível do aparelho. -->
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleSync()">Sincronizar aparelhos
+      <span class="badge" id="badgeSync">off</span><span class="seta" id="setaSync">▾</span></h2>
+    <div id="syncCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        Clientes, propostas, custos e catálogos passam a valer nos três
+        aparelhos. O conteúdo é <strong>cifrado aqui dentro</strong> antes de
+        subir — o servidor guarda um embaralhado que nem ele consegue ler. A
+        senha não é gravada em lugar nenhum: você digita uma vez em cada
+        aparelho, e ela precisa ser <strong>a mesma nos três</strong>.
+      </div>
+      <label>Endereço do projeto</label>
+      <input type="text" id="syncUrl" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off">
+      <label>Chave pública (anon)</label>
+      <input type="text" id="syncAnon" placeholder="eyJhbGciOi..." autocomplete="off">
+      <label>Senha da sincronia</label>
+      <input type="password" id="syncSenha" placeholder="a mesma nos três aparelhos" autocomplete="new-password">
+      <div class="row2" style="margin-top:10px">
+        <button class="btn-sec" id="btnSyncLigar" onclick="ligarSync()">Ligar</button>
+        <button class="btn-sec" id="btnSyncAgora" onclick="rodarSync('botão')">Sincronizar agora</button>
+      </div>
+      <button class="btn-sec btn-full" style="margin-top:8px" id="btnSyncDesligar" onclick="desligarSync()">Desligar neste aparelho</button>
+      <div class="sub estado-sync" id="estadoSync"></div>
+      <div class="sub aviso-sigilo">Fica de fora: o rascunho em andamento, o tema,
+        o tamanho da tabela e o cofre com senha — esse já tem a criptografia dele.</div>
+      <div class="sub" id="syncAjuda" style="margin-top:10px"></div>
+    </div>
+  </div>
   <!-- Um lugar só pras observações que saem na proposta. Elas nascem espalhadas
        por seis editores de catálogo, e quem só quer trocar a frase não tem por
        que saber em qual mexer. -->
@@ -1240,6 +1276,7 @@ function registrarNumeroUsado(numero){
   if(chave!==chaveMes(new Date())) return;   // número de outro mês não avança o atual
   if(seq<=ultimoNumero()) return;            // reemitir um antigo não retrocede nem repete
   try{localStorage.setItem(LS_NUMERO,JSON.stringify({mes:chave,seq}));}catch(e){}
+  marcarSuja(LS_NUMERO);
 }
 function sugerirNumeroNoCampo(){
   const el=document.getElementById("proposalNumber");
@@ -3292,6 +3329,13 @@ let vincCustom={};
 const LS_OBSP="corpus_observacoes_padrao_v1";
 let obsPadraoCustom={};
 
+/* Sincronia entre aparelhos. A configuração (endereço, chave pública, salt) é
+   local e nunca sobe; a senha não é gravada em canto nenhum — vive só na
+   memória desta sessão, dentro de syncChave. Ver o bloco SINCRONIA lá embaixo. */
+const LS_SYNC="corpus_sync_v1";
+let sync={url:"",anon:"",salt:"",ligado:false,visto:0}, syncChave=null,
+    syncTimer=null, syncOcupado=false, syncSujas={};
+
 /* Base rápida de clientes, alimentada por toda proposta gerada. Aqui em cima
    pelo mesmo motivo do resto: a inicialização carrega antes do bloco onde as
    funções moram, e `let` não existe antes da linha que o declara. Foi a
@@ -3314,6 +3358,7 @@ function carregarCatalogo(){
 function gravarCatalogo(){
   try{localStorage.setItem(LS_CATALOGO,JSON.stringify(catalogo));}
   catch(e){document.getElementById("statusCatalogo").textContent="Não deu pra salvar — armazenamento cheio.";}
+  marcarSuja(LS_CATALOGO);
 }
 function mesclar(base,extras){
   const mapa=new Map();
@@ -3541,6 +3586,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarObsPadrao();
   carregarClientesRapidos();
   carregarFichas();
+  iniciarSync();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
@@ -3571,6 +3617,7 @@ function carregarDest(){
 function gravarDest(){
   try{localStorage.setItem(LS_DEST,JSON.stringify(dest));}
   catch(e){document.getElementById("statusDest").textContent="Não deu pra salvar — armazenamento cheio.";}
+  marcarSuja(LS_DEST);
 }
 // Custo → preço de venda. O BDI da planilha do Léo vem como fator (0,63 = 63%);
 // aqui ele é guardado em % inteiro, que é como se fala dele no dia a dia.
@@ -4170,6 +4217,7 @@ function carregarVinculos(){
 }
 function gravarVinculos(){
   try{localStorage.setItem(LS_VINC,JSON.stringify(vinculos));}catch(e){}
+  marcarSuja(LS_VINC);
 }
 function vinculoDe(nomeResiduo){ return vinculos[nomeResiduo]||null; }
 /* Tocar na célula vincula; tocar de novo na mesma desvincula; tocar em outra
@@ -4275,6 +4323,7 @@ function carregarObsPadrao(){
 }
 function gravarObsPadrao(){
   try{localStorage.setItem(LS_OBSP,JSON.stringify(obsPadraoCustom));}catch(e){}
+  marcarSuja(LS_OBSP);
 }
 function obsPadraoDe(chave){
   const v=obsPadraoCustom[chave];
@@ -4307,6 +4356,7 @@ function carregarVincCustom(){
 }
 function gravarVincCustom(){
   try{localStorage.setItem(LS_VINCC,JSON.stringify(vincCustom));}catch(e){}
+  marcarSuja(LS_VINCC);
 }
 function vincCustomDe(chave){ return vincCustom[chave]||null; }
 /* Todas as linhas de custo do app numa lista só, pra escolher a dedo.
@@ -4386,6 +4436,7 @@ function migrarPrecosReci(){
 }
 function gravarPrecos(){
   try{localStorage.setItem(LS_PRECOS,JSON.stringify(precos));}catch(e){}
+  marcarSuja(LS_PRECOS);
 }
 // A chave da linha ("reci:Papel/Papelão") é a mesma coisa que o app já usa pra
 // guardar valor digitado, observação e unidade durante a montagem da proposta.
@@ -4762,6 +4813,7 @@ function carregarFichas(){
 }
 function gravarFichas(){
   try{localStorage.setItem(LS_FICHAS,JSON.stringify(fichas));}catch(e){}
+  marcarSuja(LS_FICHAS);
 }
 function fichaDe(chave){ return fichas[chave]||{}; }
 /* A ficha nasceu com UMA capacidade e UMA diária. Só que o mesmo veículo tem
@@ -4970,6 +5022,7 @@ function carregarPropostas(){
 function gravarPropostas(){
   try{
     localStorage.setItem(LS_PROPOSTAS,JSON.stringify(propostas));
+    marcarSuja(LS_PROPOSTAS);
     return true;
   }catch(e){
     document.getElementById("statusHistorico").textContent=
@@ -5737,6 +5790,314 @@ async function buscarCNPJ(){
   return false;
 }
 
+/* ============ SINCRONIA ENTRE APARELHOS ============
+
+   O app nasceu inteiro no aparelho: localStorage, sem servidor, sem conta. Isso
+   é o que faz ele funcionar no meio de uma obra sem sinal — e é o que impedia
+   usar o mesmo cadastro no PC do trabalho, no celular corporativo e no pessoal.
+
+   O desenho aqui não abre mão da primeira coisa pra ganhar a segunda:
+
+   • O aparelho continua sendo a fonte. Tudo é gravado no localStorage primeiro;
+     a sincronia é um segundo passo que pode falhar sem levar nada junto.
+   • O que sobe está CIFRADO. A chave é derivada de uma senha que só existe na
+     cabeça do Léo e na memória de cada aparelho — o Supabase guarda base64 que
+     ele mesmo não consegue ler. Custo de parceiro é segredo comercial, e
+     mandar isso em claro pra um servidor de terceiro seria trocar um problema
+     por outro maior.
+   • A fusão acontece AQUI, depois de decifrar, porque lá não dá. Onde existe
+     chave natural (CNPJ do cliente, id da proposta) a fusão é item a item e
+     ninguém perde registro; onde é configuração de peça única (a tabela de
+     custos, o catálogo) vale a alteração mais recente, que é o que faz sentido
+     pra uma pessoa só editando de um aparelho por vez.
+   • Sem sinal, segue funcionando. O que mudou fica marcado e sobe quando voltar.
+
+   Não é WebSocket: o app pergunta ao servidor ao abrir, ao voltar pro primeiro
+   plano e a cada poucos segundos com a tela à frente. Na prática é isso que o
+   uso pede — mexer num aparelho e pegar o outro. */
+// LS_SYNC e o estado da sincronia são declarados lá em cima, junto do resto:
+// marcarSuja() é chamado por gravarPrecos() já durante a inicialização, e `let`
+// não existe antes da linha que o declara — foi assim que `dest`, `precos` e
+// `clientesRapidos` quebraram o app antes.
+
+/* As seções. Cada uma é uma chave de localStorage, uma linha no servidor e uma
+   estratégia de fusão própria. `aplicar` recarrega o estado em memória depois
+   que chega coisa nova de fora — sem isso a tela continuaria mostrando o antigo.
+
+   Fora daqui de propósito: o rascunho em andamento (é do momento, não do
+   cadastro), o tema e a densidade da tabela (preferência de tela, que pode
+   muito bem ser diferente no celular e no monitor de 24"), e o cofre com senha
+   — esse já é cifrado com outra senha e tem exportar/importar próprio. */
+function secoesSync(){
+  return [
+    {id:"catalogo",   ls:LS_CATALOGO, fusao:"recente", aplicar:()=>{carregarCatalogo();fluxo();}},
+    {id:"dest",       ls:LS_DEST,     fusao:"recente", aplicar:()=>{carregarDest();renderDest();}},
+    {id:"precos",     ls:LS_PRECOS,   fusao:"recente", aplicar:()=>{carregarPrecos();renderPrecosReci();renderPrecosEquip();}},
+    {id:"vinc",       ls:LS_VINC,     fusao:"recente", aplicar:()=>{carregarVinculos();renderDest();}},
+    {id:"vincc",      ls:LS_VINCC,    fusao:"recente", aplicar:()=>{carregarVincCustom();renderLinhasValores();}},
+    {id:"obsp",       ls:LS_OBSP,     fusao:"recente", aplicar:()=>{carregarObsPadrao();renderLinhasValores();}},
+    {id:"fichas",     ls:LS_FICHAS,   fusao:"recente", aplicar:()=>{carregarFichas();renderFrota();}},
+    {id:"numero",     ls:LS_NUMERO,   fusao:"recente", aplicar:()=>{}},
+    // Estas duas crescem por acréscimo: fundir item a item é o que impede que
+    // um cliente cadastrado no celular suma porque o PC salvou depois.
+    {id:"rapidos",    ls:LS_RAPIDOS,  fusao:"lista", chave:c=>so(c.cnpj||""), quando:c=>c.em||0,
+      aplicar:()=>{carregarClientesRapidos();listarClientes();}},
+    {id:"propostas",  ls:LS_PROPOSTAS,fusao:"lista", chave:p=>String(p.id||""), quando:p=>p.em||p.quando||0,
+      aplicar:()=>{carregarPropostas();renderHistorico();}}
+  ];
+}
+function carregarSync(){
+  try{
+    const s=localStorage.getItem(LS_SYNC);
+    if(s) sync=Object.assign(sync,JSON.parse(s));
+  }catch(e){ console.warn("sincronia: não deu pra ler a configuração",e); }
+}
+function gravarSync(){
+  try{localStorage.setItem(LS_SYNC,JSON.stringify(sync));}catch(e){}
+}
+/* ---- Cifragem do que sobe ----
+   Mesma receita do cofre (PBKDF2 + AES-GCM), com salt próprio: o salt vai junto
+   da configuração e é o mesmo nos três aparelhos, senão a mesma senha geraria
+   chaves diferentes e um não leria o do outro. */
+async function derivarSync(senha,salt){
+  const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(senha),
+    "PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    {name:"PBKDF2",salt,iterations:150000,hash:"SHA-256"},
+    base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+function b64(u8){ let t=""; u8.forEach(b=>t+=String.fromCharCode(b)); return btoa(t); }
+function deB64(t){ return Uint8Array.from(atob(t),c=>c.charCodeAt(0)); }
+async function cifrarSync(texto){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const cif=await crypto.subtle.encrypt({name:"AES-GCM",iv},syncChave,
+    new TextEncoder().encode(texto));
+  return b64(iv)+"."+b64(new Uint8Array(cif));
+}
+async function decifrarSync(pacote){
+  const [iv,dados]=String(pacote).split(".");
+  const pl=await crypto.subtle.decrypt({name:"AES-GCM",iv:deB64(iv)},syncChave,deB64(dados));
+  return new TextDecoder().decode(pl);
+}
+/* ---- Conversa com o Supabase ----
+   REST puro, sem SDK: o app é um arquivo só e não vai ganhar dependência (nem
+   um <script> de CDN, que o service worker teria que cachear) por causa de
+   quatro chamadas HTTP. */
+function urlSync(caminho){ return String(sync.url).replace(/\/+$/,"")+"/rest/v1/"+caminho; }
+function cabSync(extra){
+  return Object.assign({apikey:sync.anon, Authorization:"Bearer "+sync.anon,
+    "Content-Type":"application/json"}, extra||{});
+}
+async function buscarRemoto(){
+  const r=await fetch(urlSync("estado?select=id,dados,em"),{headers:cabSync()});
+  if(!r.ok) throw new Error("HTTP "+r.status+" ao ler");
+  return r.json();
+}
+async function subirSecao(id,dados,em){
+  const r=await fetch(urlSync("estado?on_conflict=id"),{
+    method:"POST",
+    headers:cabSync({Prefer:"resolution=merge-duplicates,return=minimal"}),
+    body:JSON.stringify([{id,dados,em}])
+  });
+  if(!r.ok) throw new Error("HTTP "+r.status+" ao gravar "+id);
+}
+
+/* ---- Fusão ----
+   Duas estratégias, porque são dois tipos de dado.
+
+   "recente": peça única (a tabela de custos, o catálogo, os vínculos). Vale a
+   versão mais nova. É o certo pra uma pessoa que edita a tabela num aparelho de
+   cada vez — e é o único caminho possível com o conteúdo cifrado, já que ninguém
+   do lado de lá pode comparar campo a campo.
+
+   "lista": coleção que só cresce (clientes, propostas salvas). Aqui perder é
+   fácil e inaceitável: cadastrar um cliente no celular e outro no PC faria o
+   último a subir apagar o do outro. Funde item a item pela chave natural, e
+   quando o mesmo item existe dos dois lados fica o de carimbo mais novo. */
+function fundirListas(local,remoto,chave,quando){
+  if(!Array.isArray(local)||!Array.isArray(remoto)) return Array.isArray(local)?local:remoto;
+  const mapa=new Map();
+  const por=(lista)=>lista.forEach(it=>{
+    const k=chave(it);
+    if(!k){ mapa.set("__"+mapa.size,it); return; }   // sem chave, entra como está
+    const atual=mapa.get(k);
+    if(!atual||(quando(it)||0)>=(quando(atual)||0)) mapa.set(k,it);
+  });
+  por(remoto); por(local);
+  return [...mapa.values()].sort((a,b)=>(quando(b)||0)-(quando(a)||0));
+}
+function lerLocal(ls){ try{ return localStorage.getItem(ls); }catch(e){ return null; } }
+let syncDebounce=null;
+function marcarSuja(ls){
+  if(!sync.ligado) return;
+  const sec=secoesSync().find(x=>x.ls===ls);
+  if(!sec) return;
+  syncSujas[sec.id]=Date.now();
+  // Espera a mão parar antes de subir: digitando um preço, cada tecla grava, e
+  // uma subida por tecla seria conversa demais pra nada.
+  clearTimeout(syncDebounce);
+  syncDebounce=setTimeout(()=>rodarSync("mudou algo"),3000);
+}
+/* Uma rodada: pega o que está lá, funde com o que está aqui, grava dos dois
+   lados o que ficou diferente. Roda inteira ou não roda — se a rede cair no
+   meio, o que não subiu continua marcado como sujo e sobe na próxima. */
+async function rodarSync(motivo){
+  if(!sync.ligado||!syncChave||syncOcupado) return;
+  if(!navigator.onLine){ pintarSync("offline"); return; }
+  syncOcupado=true;
+  pintarSync("sincronizando");
+  try{
+    const linhas=await buscarRemoto();
+    const porId={}; linhas.forEach(l=>porId[l.id]=l);
+    const agora=Date.now();
+    for(const sec of secoesSync()){
+      const bruto=lerLocal(sec.ls);
+      const remoto=porId[sec.id];
+      let vindo=null;
+      if(remoto&&remoto.dados){
+        try{ vindo=await decifrarSync(remoto.dados); }
+        catch(e){ throw new Error("SENHA_DIFERENTE"); }
+      }
+      let final=bruto, precisaGravarLocal=false, precisaSubir=false;
+      if(vindo===null){
+        // Nunca subiu: manda o que temos, se temos algo
+        if(bruto) precisaSubir=true;
+      }else if(bruto===null){
+        final=vindo; precisaGravarLocal=true;
+      }else if(vindo===bruto){
+        // idênticos: nada a fazer
+      }else if(sec.fusao==="lista"){
+        try{
+          const fundido=JSON.stringify(fundirListas(JSON.parse(bruto),JSON.parse(vindo),
+            sec.chave,sec.quando));
+          final=fundido;
+          precisaGravarLocal=(fundido!==bruto);
+          precisaSubir=(fundido!==vindo);
+        }catch(e){ console.warn("sincronia: não deu pra fundir "+sec.id,e); }
+      }else{
+        // Peça única: quem tem carimbo mais novo ganha. O local só é "mais novo"
+        // se foi mexido depois da última vez que este aparelho viu o servidor.
+        const mexidoAqui=syncSujas[sec.id]||0;
+        if(mexidoAqui>(remoto.em||0)){ precisaSubir=true; }
+        else if(vindo!==bruto){ final=vindo; precisaGravarLocal=true; }
+      }
+      if(precisaGravarLocal&&final!==null){
+        try{ localStorage.setItem(sec.ls,final); }catch(e){}
+        try{ sec.aplicar(); }catch(e){ console.warn("sincronia: "+sec.id+" chegou mas a tela não recarregou",e); }
+      }
+      if(precisaSubir&&final){
+        await subirSecao(sec.id,await cifrarSync(final),agora);
+      }
+      if(!precisaSubir) delete syncSujas[sec.id];
+      else if(precisaSubir) delete syncSujas[sec.id];
+    }
+    sync.visto=agora; gravarSync();
+    pintarSync("ok");
+  }catch(e){
+    if(String(e.message)==="SENHA_DIFERENTE"){
+      pintarSync("senha");
+      sync.ligado=false; syncChave=null; gravarSync();
+    }else{
+      console.warn("sincronia:",e);
+      pintarSync("erro",e.message);
+    }
+  }finally{
+    syncOcupado=false;
+  }
+}
+/* Quando perguntar. Com a tela à frente, de tempos em tempos; ao voltar do
+   segundo plano, na hora — que é o momento em que o Léo troca de aparelho.
+   Escondido não pergunta nada: bateria de celular não é infinita. */
+function agendarSync(){
+  clearInterval(syncTimer);
+  if(!sync.ligado) return;
+  syncTimer=setInterval(()=>{
+    if(document.visibilityState==="visible") rodarSync("relógio");
+  },12000);
+}
+function pintarSync(estado,detalhe){
+  const el=document.getElementById("estadoSync");
+  if(!el) return;
+  const txt={
+    desligado:"Desligada — este aparelho guarda tudo só aqui.",
+    sincronizando:"Sincronizando…",
+    ok:"Em dia" + (sync.visto?" · última troca às "+new Date(sync.visto).toLocaleTimeString("pt-BR"):""),
+    offline:"Sem conexão — o que mudar sobe quando voltar.",
+    senha:"A senha não abre o que está no servidor. Confira se é a mesma dos outros aparelhos.",
+    erro:"Não deu pra falar com o servidor"+(detalhe?" ("+detalhe+")":"")+". Vai tentar de novo."
+  }[estado]||estado;
+  el.textContent=txt;
+  el.className="sub estado-sync "+estado;
+}
+
+/* ---- Controles da tela ---- */
+let syncAberto=false;
+function toggleSync(){
+  syncAberto=!syncAberto;
+  document.getElementById("syncCorpo").classList.toggle("oculto",!syncAberto);
+  document.getElementById("setaSync").classList.toggle("aberta",syncAberto);
+  if(syncAberto) pintarTelaSync();
+}
+function pintarTelaSync(){
+  document.getElementById("syncUrl").value=sync.url||"";
+  document.getElementById("syncAnon").value=sync.anon||"";
+  const on=!!sync.ligado&&!!syncChave;
+  document.getElementById("badgeSync").textContent=on?"on":"off";
+  document.getElementById("btnSyncLigar").textContent=on?"Trocar senha/endereço":"Ligar";
+  document.getElementById("btnSyncAgora").classList.toggle("oculto",!on);
+  document.getElementById("btnSyncDesligar").classList.toggle("oculto",!sync.ligado);
+  document.getElementById("syncAjuda").innerHTML=on?"":
+    "Primeira vez? No Supabase (plano grátis): crie um projeto, copie "+
+    "<strong>Project URL</strong> e a chave <strong>anon public</strong> em "+
+    "Settings → API, e rode isto no SQL Editor:<br>"+
+    "<code>create table estado (id text primary key, dados text, em bigint);</code>";
+  // Não apaga o aviso de senha errada: é a única pista de por que desligou.
+  const est=document.getElementById("estadoSync");
+  if(!sync.ligado&&!(est&&est.classList.contains("senha"))) pintarSync("desligado");
+}
+async function ligarSync(){
+  const url=document.getElementById("syncUrl").value.trim();
+  const anon=document.getElementById("syncAnon").value.trim();
+  const senha=document.getElementById("syncSenha").value;
+  if(!/^https:\/\/.+/.test(url)) return avisar("O endereço tem que começar com https:// — é o Project URL do Supabase.");
+  if(anon.length<20) return avisar("A chave pública (anon) parece incompleta. Ela é longa, começa com eyJ.");
+  if(senha.length<8) return avisar("Use ao menos 8 caracteres na senha da sincronia. Ela é o que protege o que sobe.");
+  sync.url=url; sync.anon=anon;
+  // O salt precisa ser IGUAL nos três aparelhos, senão a mesma senha vira chave
+  // diferente e um não lê o do outro. Nasce do endereço do projeto, que é o que
+  // os três têm em comum e o Léo já digita de qualquer jeito.
+  const cru=new TextEncoder().encode("corpus-sync|"+url);
+  sync.salt=b64(new Uint8Array(await crypto.subtle.digest("SHA-256",cru)));
+  syncChave=await derivarSync(senha,deB64(sync.salt));
+  if(!syncChave){ avisar("Não deu pra preparar a chave de criptografia neste navegador."); return; }
+  sync.ligado=true; gravarSync();
+  document.getElementById("syncSenha").value="";
+  // Primeira rodada marca tudo o que existe aqui como candidato a subir: um
+  // aparelho que já tinha cadastro não pode ficar esperando alguém mexer nele.
+  secoesSync().forEach(sec=>{ if(lerLocal(sec.ls)) syncSujas[sec.id]=Date.now(); });
+  pintarTelaSync(); agendarSync();
+  await rodarSync("ligou");
+  pintarTelaSync();
+}
+function desligarSync(){
+  sync.ligado=false; syncChave=null; syncSujas={};
+  gravarSync(); clearInterval(syncTimer);
+  pintarTelaSync(); pintarSync("desligado");
+}
+/* Religar depois de fechar o app: a configuração volta, mas a senha não — ela
+   nunca foi gravada. O app avisa em vez de fingir que está sincronizando. */
+function iniciarSync(){
+  carregarSync();
+  if(!sync.ligado) return;
+  pintarSync("senha");
+  const el=document.getElementById("estadoSync");
+  if(el) el.textContent="Digite a senha da sincronia aqui em Ajustes pra retomar.";
+}
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible") rodarSync("voltou pra frente");
+});
+window.addEventListener("online",()=>rodarSync("voltou o sinal"));
+
 /* ============ COFRE DE CLIENTES (criptografia real AES-GCM) ============ */
 let clientes=[], chaveCofre=null;
 const CHAVE_LS="corpus_cofre_v1";
@@ -5802,6 +6163,7 @@ function carregarClientesRapidos(){
 }
 function gravarClientesRapidos(){
   try{localStorage.setItem(LS_RAPIDOS,JSON.stringify(clientesRapidos));}catch(e){}
+  marcarSuja(LS_RAPIDOS);
 }
 function registrarClienteRapido(){
   const g=id=>(document.getElementById(id).value||"").trim();
@@ -6016,7 +6378,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.22-3";
+const APP_VERSION="2026.08.22-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
