@@ -68,6 +68,11 @@
      pra dar a entender que ali se clica. */
   .rotulo-acao{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
   .rotulo-acao label{flex:1;}
+  .contato-extra{margin-top:6px;}
+  .contato-fone{position:relative;}
+  .contato-fone input{padding-right:30px;}
+  .tira-contato{position:absolute;right:2px;top:1px;bottom:1px;width:26px;padding:0;
+    background:none;border:none;color:var(--alerta);font-size:1.05rem;line-height:1;}
   .link-acao{background:none;border:none;padding:0;margin:9px 0 4px;font-size:.8rem;
     font-weight:600;color:var(--verde);font-family:inherit;}
   .link-acao:active{opacity:.6;}
@@ -542,9 +547,18 @@
     <div class="sub" id="avisoCNPJ"></div>
     <div class="sub" id="statusCNPJ"></div>
     <div class="row2">
-      <div><label>Contato</label><input type="text" id="solicitante"></div>
+      <div>
+        <div class="rotulo-acao">
+          <label>Contato</label>
+          <button class="link-acao" onclick="incluirContato()" title="Incluir outro contato">+ contato</button>
+        </div>
+        <input type="text" id="solicitante">
+      </div>
       <div><label>Telefone</label><input type="text" id="telefone" inputmode="numeric" oninput="mascaraTelefone(this)" placeholder="27 99999-9999"></div>
     </div>
+    <!-- Contatos além do primeiro. O de cima é o responsável e é o único que
+         vai pra Proposta; no Aceite saem todos. -->
+    <div id="contatosExtras"></div>
     <label>E-mail</label>
     <input type="text" id="email" inputmode="email">
 
@@ -925,6 +939,10 @@ const OBJETO_PADRAO="COLETA, TRANSPORTE E DESTINAÇÃO FINAL DE RESÍDUO";
 const SUBOBJETO_PADRAO="PRESTAÇÃO";
 let itens=[], sel={}, objetoSel=OBJETO_PADRAO, subObjetoSel=SUBOBJETO_PADRAO, mesmoEnd=true;
 let objetoAberto=false, clientesAberto=false;
+/* Contatos ALÉM do primeiro. O campo "Contato"/"Telefone" de cima continua
+   sendo o responsável — é ele, sozinho, que vai pra Proposta. No Aceite saem
+   todos, separados por barra. */
+let contatosExtras=[];
 // Guarda o texto já interpretado, pra sair do campo sem motivo não reprocessar
 // um endereço que a Receita já entregou certinho e separado.
 let ultimoEnderecoLido={"":"","Coleta":""};
@@ -1380,6 +1398,50 @@ function mostrarAba(nome){
   const desenhar=ABAS[nome];
   if(desenhar) desenhar();
   window.scrollTo({top:0,behavior:"instant"});
+}
+
+/* ============ CONTATOS ADICIONAIS ============ */
+function incluirContato(){
+  contatosExtras.push({nome:"",fone:""});
+  renderContatosExtras();
+}
+function renderContatosExtras(){
+  const alvo=document.getElementById("contatosExtras");
+  if(!alvo) return;
+  alvo.innerHTML="";
+  contatosExtras.forEach((c,i)=>{
+    const div=document.createElement("div");
+    div.className="row2 contato-extra";
+    div.innerHTML=
+      `<div><input type="text" placeholder="Outro contato" data-c="nome"></div>
+       <div class="contato-fone">
+         <input type="text" inputmode="numeric" placeholder="27 99999-9999" data-c="fone">
+         <button class="tira-contato" title="Remover contato">×</button>
+       </div>`;
+    alvo.appendChild(div);
+    const inome=div.querySelector('[data-c="nome"]'), ifone=div.querySelector('[data-c="fone"]');
+    inome.value=c.nome||""; ifone.value=c.fone||"";
+    inome.oninput=()=>{c.nome=inome.value;agendarRascunho();};
+    ifone.oninput=()=>{mascaraTelefone(ifone);c.fone=ifone.value;agendarRascunho();};
+    div.querySelector(".tira-contato").onclick=()=>{
+      contatosExtras.splice(i,1); renderContatosExtras(); agendarRascunho();
+    };
+  });
+}
+/* Junta o responsável com os extras, em pares. Nome e telefone andam colados: o
+   2º nome casa com o 2º telefone. Faltando um dos dois, o par inteiro fica de
+   fora — melhor um contato a menos do que uma barra solta no documento ou um
+   telefone atribuído à pessoa errada. */
+function contatosParaDocumento(){
+  const g=id=>document.getElementById(id).value.trim();
+  const todos=[{nome:g("solicitante"),fone:g("telefone")}]
+    .concat(contatosExtras.map(c=>({nome:(c.nome||"").trim(),fone:(c.fone||"").trim()})));
+  const validos=todos.filter(c=>c.nome||c.fone);
+  return {
+    primeiro:validos[0]||{nome:"",fone:""},
+    nomes:validos.map(c=>c.nome).filter(Boolean).join(" / "),
+    fones:validos.map(c=>c.fone).filter(Boolean).join(" / ")
+  };
 }
 
 /* ============ MEUS CLIENTES (recolhido por padrão) ============ */
@@ -3615,7 +3677,7 @@ function salvarRascunho(){
     if(vazio){localStorage.removeItem(LS_RASCUNHO);return;}
     localStorage.setItem(LS_RASCUNHO,JSON.stringify({
       form, itens, objetoSel, subObjetoSel, mesmoEnd, propostaAtualId,
-      enderecoInformado, quando:Date.now()
+      enderecoInformado, contatosExtras, quando:Date.now()
     }));
   }catch(e){}
 }
@@ -3641,6 +3703,8 @@ function restaurarRascunho(){
   mesmoEnd=d.mesmoEnd!==false;
   propostaAtualId=d.propostaAtualId||null;
   enderecoInformado=d.enderecoInformado||"";
+  contatosExtras=Array.isArray(d.contatosExtras)?d.contatosExtras:[];
+  renderContatosExtras();
   objetoAberto=false;
   ultimoEnderecoLido={"":document.getElementById("enderecoUnico").value,
                       "Coleta":document.getElementById("enderecoColetaUnico").value};
@@ -3686,6 +3750,7 @@ function salvarPropostaAtual(){
     data: form.dataProposta,
     salvoEm: new Date().toISOString(),
     form, mesmoEnd, objetoSel, subObjetoSel,
+    contatosExtras: JSON.parse(JSON.stringify(contatosExtras)),
     itens: JSON.parse(JSON.stringify(itens))
   };
   const i=propostas.findIndex(p=>p.id===registro.id);
@@ -3756,6 +3821,8 @@ async function abrirProposta(id,comoCopia){
   itens=JSON.parse(JSON.stringify(p.itens||[]));
   objetoSel=p.objetoSel||null; subObjetoSel=p.subObjetoSel||null;
   mesmoEnd=p.mesmoEnd!==false;
+  contatosExtras=Array.isArray(p.contatosExtras)?JSON.parse(JSON.stringify(p.contatosExtras)):[];
+  renderContatosExtras();
   sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; passoAberto=null; objetoAberto=false;
   limparResultado();
 
@@ -3841,6 +3908,7 @@ async function novaProposta(silencioso){
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;objetoAberto=false;
   mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
   enderecoInformado="";
+  contatosExtras=[];renderContatosExtras();
   document.getElementById("avisoDivergencia").classList.add("oculto");
   propostaAtualId=null;
   ultimoEnderecoLido={"":"","Coleta":""};
@@ -4116,7 +4184,10 @@ function mapear(){
   // sairia com o campo vazio, que o cliente devolve perguntando.
   const ie=g("ie")||"ISENTO";
   return {rs:g("razaoSocial").toUpperCase(),mapa:{
-    razao_social:g("razaoSocial").toUpperCase(),contato_nome:g("solicitante"),telefone:g("telefone"),
+    razao_social:g("razaoSocial").toUpperCase(),
+    // Proposta leva só o responsável; o Aceite troca isso por todos (mapaAceite)
+    contato_nome:contatosParaDocumento().primeiro.nome,
+    telefone:contatosParaDocumento().primeiro.fone,
     cnpj:g("cnpj"),inscricao_estadual_sufixo:`; IE: ${ie}`,inscricao_estadual:ie,
     endereco_completo:end,endereco_logradouro:G("logradouro"),bairro:G("bairro"),cidade_uf:cu,cep:g("cep"),
     email:g("email"),email_nfe:g("email"),endereco_coleta:endC,endereco_coleta_local:endCLocal,cidade_uf_coleta:cuC,
@@ -4333,6 +4404,14 @@ document.getElementById("confOk").onclick=()=>{
   else if(tipo==="ambos") gerarAmbos();
 };
 
+/* O Aceite é o documento que o cliente assina e onde ficam os dados de
+   faturamento — ali interessa todo mundo que fala pela empresa. A Proposta é
+   endereçada a uma pessoa só, o responsável. Mesmo modelo de placeholder nos
+   dois, então a diferença é feita aqui, na hora de preencher. */
+function mapaAceite(mapa){
+  const c=contatosParaDocumento();
+  return Object.assign({},mapa,{contato_nome:c.nomes,telefone:c.fones});
+}
 async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const b=await preencherDocx(TPL_P,c.mapa,itens);
     const n=`${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
@@ -4341,14 +4420,15 @@ async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textConten
     mostrarPronto([{blob:b,nome:n,pasta}]);
   }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
 async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
-  try{const b=await preencherDocx(TPL_A,c.mapa,null);
+  try{const b=await preencherDocx(TPL_A,mapaAceite(c.mapa),null);
     const n=`Aceite de Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
     const pasta=await baixar(b,n,"aceite");
     salvarPropostaAtual();c.st.textContent="";
     mostrarPronto([{blob:b,nome:n,pasta}]);
   }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
 async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
-  try{const bp=await preencherDocx(TPL_P,c.mapa,itens),ba=await preencherDocx(TPL_A,c.mapa,null);
+  try{const bp=await preencherDocx(TPL_P,c.mapa,itens),
+            ba=await preencherDocx(TPL_A,mapaAceite(c.mapa),null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
     const nomeP=`${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
     // Cada um vai pra sua pasta
@@ -4534,7 +4614,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-7";
+const APP_VERSION="2026.08.20-8";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
