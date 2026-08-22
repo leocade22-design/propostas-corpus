@@ -2,7 +2,10 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- interactive-widget=resizes-content: sem isso o teclado virtual não encolhe o
+     layout, e um modal position:fixed centralizado em 100vh fica com a metade de
+     baixo atrás do teclado — o campo recebe o texto, mas ninguém vê. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 <title>Propostas CORPUS</title>
 <meta name="theme-color" content="#1E6B3A">
 <link rel="manifest" href="manifest.json">
@@ -57,6 +60,10 @@
   .abas button .badge{margin-left:5px;background:rgba(255,255,255,.22);color:#fff;font-size:.66rem;}
   .aba-conteudo[hidden]{display:none;}
   .aba-conteudo{will-change:transform;}
+  /* Quando o navegador rola pra mostrar o campo que ganhou foco, ele não sabe
+     das barras fixas — sem esta folga o campo para debaixo delas. */
+  input,textarea,select{scroll-margin-top:calc(var(--alt-abas,44px) + 70px);
+    scroll-margin-bottom:190px;}
   .card{background:var(--branco);border:1px solid var(--card-borda);border-radius:12px;
     padding:14px;margin-bottom:12px;}
   .card h2{font-size:.98rem;color:var(--verde);margin:0 0 10px;padding-bottom:7px;
@@ -171,7 +178,13 @@
   .sub{font-size:.72rem;color:var(--suave);margin-top:3px;}
   .sub.ruim{color:var(--alerta);font-weight:600;}
 
-  .modal-fundo{position:fixed;inset:0;background:rgba(8,14,10,.66);z-index:100;
+  /* --alt-visivel é a altura da área visível (descontado o teclado), medida no
+     JS pela visualViewport. Serve pro iOS, que ignora interactive-widget: lá o
+     modal precisa se encolher sozinho pra continuar acima do teclado.
+     overflow-y no fundo: caixa mais alta que a tela, centralizada, teria o topo
+     cortado e inalcançável. */
+  .modal-fundo{position:fixed;left:0;right:0;top:0;height:var(--alt-visivel,100dvh);
+    background:rgba(8,14,10,.66);z-index:100;overflow-y:auto;
     display:flex;align-items:center;justify-content:center;padding:14px;}
   /* Estes três são chamados de DENTRO de outro modal — o aviso pelo editor de
      catálogo, a pergunta e o campo de texto por qualquer tela. Sem subir a
@@ -179,7 +192,7 @@
   #modalPergunta,#modalTexto,#modalAviso{z-index:120;}
   /* Sem cor fixa: no escuro o branco fixo criava aquele contraste que cegava */
   .modal-caixa{background:var(--branco);color:var(--texto);width:100%;max-width:600px;
-    max-height:88vh;overflow-y:auto;border-radius:16px;padding:16px;
+    max-height:calc(var(--alt-visivel,100dvh) - 28px);overflow-y:auto;border-radius:16px;padding:16px;
     border:1px solid var(--card-borda);box-shadow:0 10px 40px rgba(0,0,0,.35);}
   .modal-topo{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .modal-topo h3{font-size:1.02rem;color:var(--verde);margin:0;}
@@ -1422,6 +1435,37 @@ function medirBarraAbas(){
   if(b) document.documentElement.style.setProperty("--alt-abas",Math.round(b.getBoundingClientRect().height)+"px");
 }
 window.addEventListener("resize",medirBarraAbas);
+
+/* Altura realmente visível da página. Quando o teclado virtual abre, a
+   visualViewport encolhe mesmo nos navegadores que não mexem no layout (iOS) —
+   é por ela que o modal sabe que precisa caber num espaço menor. Sem isso o
+   modal continua centralizado na tela inteira e a metade de baixo dele, onde
+   ficam os campos longos, some atrás do teclado: o texto entra, mas não se vê. */
+function medirAlturaVisivel(){
+  const vv=window.visualViewport;
+  const h=vv?Math.round(vv.height):window.innerHeight;
+  document.documentElement.style.setProperty("--alt-visivel",h+"px");
+}
+if(window.visualViewport){
+  visualViewport.addEventListener("resize",medirAlturaVisivel);
+  visualViewport.addEventListener("scroll",medirAlturaVisivel);
+}
+window.addEventListener("resize",medirAlturaVisivel);
+
+/* Depois que o teclado abre, garante que o campo focado fique visível. O
+   navegador tenta fazer isso sozinho, mas dentro de um modal com rolagem
+   própria ele erra com frequência. O atraso espera o teclado terminar de subir
+   — sem ele a conta é feita com a altura antiga. */
+document.addEventListener("focusin",ev=>{
+  const el=ev.target;
+  if(!el.matches||!el.matches("input,textarea,select")) return;
+  setTimeout(()=>{
+    if(document.activeElement!==el) return;
+    const r=el.getBoundingClientRect();
+    const limite=(window.visualViewport?visualViewport.height:window.innerHeight);
+    if(r.bottom>limite-8||r.top<0) el.scrollIntoView({block:"center",behavior:"smooth"});
+  },260);
+});
 function mostrarAba(nome){
   if(!(nome in ABAS)) return;
   abaAtual=nome;
@@ -3014,6 +3058,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
+  medirAlturaVisivel();
   mostrarAba("proposta");
 })();
 
@@ -4933,7 +4978,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-11";
+const APP_VERSION="2026.08.21-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
