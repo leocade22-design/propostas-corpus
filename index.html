@@ -3337,6 +3337,19 @@ const LS_SYNC="corpus_sync_v1";
 let sync={url:"",anon:"",salt:"",ligado:false,visto:0}, syncChave=null,
     syncTimer=null, syncOcupado=false, syncSujas={};
 
+/* Marcas de exclusão ("lápides").
+
+   As listas — clientes, propostas — são fundidas por união: é o que impede que
+   cadastrar num aparelho e noutro faça um apagar o outro. Só que união pura tem
+   o defeito simétrico: excluir uma proposta aqui não some com ela lá, e na
+   sincronia seguinte ela VOLTA, porque o outro lado ainda tem.
+
+   Então excluir não é sumir, é registrar que sumiu, com hora. A fusão descarta
+   o item quando a marca é mais nova que ele — e um item recadastrado depois
+   (carimbo maior) volta a valer normalmente. */
+const LS_EXCL="corpus_excluidos_v1";
+let excluidos={};
+
 /* Base rápida de clientes, alimentada por toda proposta gerada. Aqui em cima
    pelo mesmo motivo do resto: a inicialização carrega antes do bloco onde as
    funções moram, e `let` não existe antes da linha que o declara. Foi a
@@ -3585,6 +3598,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarVinculos();
   carregarVincCustom();
   carregarObsPadrao();
+  carregarExcluidos();
   carregarClientesRapidos();
   carregarFichas();
   iniciarSync();
@@ -5162,6 +5176,7 @@ async function excluirProposta(id){
   if(!segue) return;
   propostas=propostas.filter(x=>x.id!==id);
   if(propostaAtualId===id) propostaAtualId=null;
+  marcarExcluido("propostas",String(id));   // pra não voltar na próxima sincronia
   gravarPropostas(); atualizarBadgeHistorico(); renderHistorico();
 }
 function exportarPropostas(){
@@ -5839,6 +5854,9 @@ function secoesSync(){
     {id:"obsp",       ls:LS_OBSP,     fusao:"recente", aplicar:()=>{carregarObsPadrao();renderLinhasValores();}},
     {id:"fichas",     ls:LS_FICHAS,   fusao:"recente", aplicar:()=>{carregarFichas();renderFrota();}},
     {id:"numero",     ls:LS_NUMERO,   fusao:"recente", aplicar:()=>{}},
+    // Vem antes das listas de propósito: a fusão delas consulta as marcas, e
+    // consultar marca velha traria de volta o que já tinha sido apagado.
+    {id:"excluidos", ls:LS_EXCL, fusao:"marcas", aplicar:()=>{carregarExcluidos();}},
     // Estas duas crescem por acréscimo: fundir item a item é o que impede que
     // um cliente cadastrado no celular suma porque o PC salvou depois.
     {id:"rapidos",    ls:LS_RAPIDOS,  fusao:"lista", chave:c=>so(c.cnpj||""), quando:c=>c.em||0,
@@ -5885,9 +5903,14 @@ async function decifrarSync(pacote){
    um <script> de CDN, que o service worker teria que cachear) por causa de
    quatro chamadas HTTP. */
 function urlSync(caminho){ return String(sync.url).replace(/\/+$/,"")+"/rest/v1/"+caminho; }
+/* O header `apikey` basta e vale pras duas gerações de chave do Supabase. O
+   `Authorization: Bearer` só entra quando a chave é um JWT (as antigas, que
+   começam com eyJ): as novas (sb_publishable_...) não são JWT, e mandá-las ali
+   faz o PostgREST tentar validar um token que não existe. */
 function cabSync(extra){
-  return Object.assign({apikey:sync.anon, Authorization:"Bearer "+sync.anon,
-    "Content-Type":"application/json"}, extra||{});
+  const c={apikey:sync.anon,"Content-Type":"application/json"};
+  if(/^eyJ/.test(sync.anon)) c.Authorization="Bearer "+sync.anon;
+  return Object.assign(c,extra||{});
 }
 /* Traduz o código HTTP pro que de fato aconteceu. "HTTP 401" não diz a ninguém
    que faltou liberar a tabela no Supabase — e é justamente o tropeço mais comum
@@ -5929,17 +5952,44 @@ async function subirSecao(id,dados,em){
    fácil e inaceitável: cadastrar um cliente no celular e outro no PC faria o
    último a subir apagar o do outro. Funde item a item pela chave natural, e
    quando o mesmo item existe dos dois lados fica o de carimbo mais novo. */
-function fundirListas(local,remoto,chave,quando){
+function fundirListas(local,remoto,chave,quando,secao){
   if(!Array.isArray(local)||!Array.isArray(remoto)) return Array.isArray(local)?local:remoto;
   const mapa=new Map();
   const por=(lista)=>lista.forEach(it=>{
     const k=chave(it);
     if(!k){ mapa.set("__"+mapa.size,it); return; }   // sem chave, entra como está
+    if(foiExcluido(secao,k,quando(it))) return;      // apagado depois de criado: fica fora
     const atual=mapa.get(k);
     if(!atual||(quando(it)||0)>=(quando(atual)||0)) mapa.set(k,it);
   });
   por(remoto); por(local);
   return [...mapa.values()].sort((a,b)=>(quando(b)||0)-(quando(a)||0));
+}
+/* As próprias marcas também sincronizam, e entre elas vale a mais recente:
+   apagar num aparelho tem que alcançar os outros. */
+function fundirMarcas(local,remoto){
+  const fora=Object.assign({},remoto||{});
+  Object.entries(local||{}).forEach(([k,v])=>{ if(!(fora[k]>=v)) fora[k]=v; });
+  return fora;
+}
+function carregarExcluidos(){
+  try{
+    const s=localStorage.getItem(LS_EXCL);
+    if(s) excluidos=JSON.parse(s)||{};
+  }catch(e){ console.warn("exclusões: não deu pra ler o que estava salvo",e); }
+}
+function gravarExcluidos(){
+  try{localStorage.setItem(LS_EXCL,JSON.stringify(excluidos));}catch(e){}
+  marcarSuja(LS_EXCL);
+}
+function marcarExcluido(secao,chave){
+  if(!chave) return;
+  excluidos[secao+":"+chave]=Date.now();
+  gravarExcluidos();
+}
+function foiExcluido(secao,chave,quando){
+  const m=excluidos[secao+":"+chave];
+  return !!m&&m>=(quando||0);
 }
 function lerLocal(ls){ try{ return localStorage.getItem(ls); }catch(e){ return null; } }
 let syncDebounce=null;
@@ -5981,10 +6031,11 @@ async function rodarSync(motivo){
         final=vindo; precisaGravarLocal=true;
       }else if(vindo===bruto){
         // idênticos: nada a fazer
-      }else if(sec.fusao==="lista"){
+      }else if(sec.fusao==="lista"||sec.fusao==="marcas"){
         try{
-          const fundido=JSON.stringify(fundirListas(JSON.parse(bruto),JSON.parse(vindo),
-            sec.chave,sec.quando));
+          const fundido=JSON.stringify(sec.fusao==="marcas"
+            ? fundirMarcas(JSON.parse(bruto),JSON.parse(vindo))
+            : fundirListas(JSON.parse(bruto),JSON.parse(vindo),sec.chave,sec.quando,sec.id));
           final=fundido;
           precisaGravarLocal=(fundido!==bruto);
           precisaSubir=(fundido!==vindo);
@@ -6413,7 +6464,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.22-6";
+const APP_VERSION="2026.08.22-7";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
