@@ -186,6 +186,10 @@
   .modal-fundo{position:fixed;left:0;right:0;top:0;height:var(--alt-visivel,100dvh);
     background:rgba(8,14,10,.66);z-index:100;overflow-y:auto;
     display:flex;align-items:center;justify-content:center;padding:14px;}
+  /* A lista de seleção também abre de dentro de outro modal: o campo de unidade
+     do editor da linha chama ela. Fica numa camada acima dos modais comuns e
+     abaixo do trio de pergunta/aviso, que pode ser chamado de dentro dela. */
+  #modalSelecao{z-index:110;}
   /* Estes três são chamados de DENTRO de outro modal — o aviso pelo editor de
      catálogo, a pergunta e o campo de texto por qualquer tela. Sem subir a
      camada eles abriam atrás e o clique não chegava neles. */
@@ -221,6 +225,18 @@
   .passo-resumo .passo-valor{font-size:.85rem;font-weight:600;color:var(--verde);flex:1;line-height:1.3;}
   .passo-resumo .passo-editar{font-size:.72rem;color:var(--suave);flex:0 0 auto;}
   .chip-gerenciar{border-style:dashed;color:var(--suave);}
+  /* Card fechado que abre o popup de escolha. Ocupa uma linha só, em vez de
+     uma parede de chips que empurrava o resto da página pra baixo. */
+  .passo-card{display:flex;align-items:center;gap:10px;cursor:pointer;
+    background:var(--campo);border:1.5px solid var(--campo-borda);border-radius:12px;
+    padding:11px 13px;}
+  .passo-card.tem{border-color:var(--verde);background:var(--verde-claro);}
+  .passo-card .rot{font-size:.72rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.03em;flex:0 0 auto;}
+  .passo-card.tem .rot{color:var(--verde);}
+  .passo-card .val{font-size:.84rem;font-weight:600;flex:1;line-height:1.25;}
+  .passo-card .val.vazio{font-weight:400;color:var(--suave);}
+  .passo-card .abrir{font-size:.74rem;color:var(--verde);font-weight:600;flex:0 0 auto;}
   /* Cliente da base rápida: tracejado pra diferenciar de quem está no cofre */
   .chip-rapido{border-style:dashed;}
   .dest-barra{display:flex;justify-content:space-between;align-items:center;gap:8px;
@@ -757,6 +773,21 @@
   </div>
 </div>
 
+<!-- Escolha em popup: veículos, resíduos, recicláveis, cargos e unidades.
+     Tira os chips de perto do campo e mantém a página vertical e curta. -->
+<div class="modal-fundo oculto" id="modalSelecao">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3 id="selTitulo">Selecionar</h3>
+      <button class="modal-fechar" onclick="fecharSelecao()">✕</button>
+    </div>
+    <input type="text" id="selBusca" placeholder="Buscar..." oninput="pintarSelecao()">
+    <div class="chips" id="selChips" style="margin-top:8px"></div>
+    <div class="sub" id="selDica"></div>
+    <button class="btn-principal btn-full" style="margin-top:10px" onclick="fecharSelecao()">Pronto</button>
+  </div>
+</div>
+
 <!-- Confirmação antes de gerar -->
 <div class="modal-fundo oculto" id="modalConfirma">
   <div class="modal-caixa alerta-caixa">
@@ -806,8 +837,6 @@
       </div>
       <div><label>Unidade</label><input type="text" id="edUnidade" placeholder="Viagem, KG, Hora…"></div>
     </div>
-    <!-- As três de sempre a um toque; o campo continua aceitando qualquer texto -->
-    <div class="sugestoes" id="sugestoesUnidade"></div>
     <!-- O atalho ao lado do rótulo muda conforme a linha: frequência só faz
          sentido em coleta e transporte, NR só em mão de obra. Ver atalhoDaLinha() -->
     <div class="rotulo-acao">
@@ -1092,13 +1121,35 @@ function renderPasso(idAlvo,titulo,opcoes,escolha,onPick,opts){
     return;
   }
 
+  /* Escolha múltipla (veículos, resíduos, recicláveis, cargos) não sai mais como
+     parede de chips: vira um card de uma linha que abre um popup. Com 12
+     veículos ou 40 resíduos, os chips empurravam o resto da página pra baixo e
+     obrigavam a rolar pra achar onde digitar o valor. */
+  if(multi){
+    el.innerHTML="";
+    const card=document.createElement("div");
+    card.className="passo-card"+(escolha.length?" tem":"");
+    card.innerHTML='<span class="rot"></span><span class="val"></span><span class="abrir">escolher</span>';
+    card.querySelector(".rot").textContent=titulo;
+    const val=card.querySelector(".val");
+    if(!escolha.length){ val.className="val vazio"; val.textContent="nenhum selecionado"; }
+    else{
+      // Mostra os primeiros e resume o resto: a lista inteira estouraria a linha
+      val.textContent=escolha.slice(0,2).join(", ")+(escolha.length>2?" +"+(escolha.length-2):"");
+      card.querySelector(".abrir").textContent=escolha.length+" ✎";
+      card.title=escolha.join("  ·  ");
+    }
+    card.onclick=()=>abrirSelecao({titulo,opcoes,escolha,onPick,gerenciar:opts.gerenciar});
+    el.appendChild(card);
+    return;
+  }
+
   el.innerHTML=`<div class="etapa-titulo">${titulo}</div>`;
   const cont=document.createElement("div");
   cont.className="chips";
   opcoes.forEach(op=>{
     const b=document.createElement("button");
-    const ativo=multi?escolha.includes(op):op===escolha;
-    b.className="chip"+(ativo?" ativo":"");
+    b.className="chip"+(op===escolha?" ativo":"");
     b.textContent=op;
     b.onclick=()=>onPick(op);
     cont.appendChild(b);
@@ -1111,12 +1162,57 @@ function renderPasso(idAlvo,titulo,opcoes,escolha,onPick,opts){
     cont.appendChild(g);
   }
   el.appendChild(cont);
-  if(multi){
-    const dica=document.createElement("div");
-    dica.className="sub";
-    dica.textContent="Pode marcar vários — sai uma linha de serviço pra cada.";
-    el.appendChild(dica);
+}
+
+/* ---- Popup de escolha ----
+   A seleção é aplicada NA HORA, não ao confirmar: assim fechar o popup por fora
+   ou pelo ✕ nunca descarta o que já foi marcado. O botão "Pronto" só fecha. */
+let selAtual=null;
+function abrirSelecao(cfg){
+  selAtual=cfg;
+  document.getElementById("selTitulo").textContent=cfg.titulo;
+  document.getElementById("selBusca").value="";
+  // Busca só aparece quando a lista é grande o bastante pra justificar
+  document.getElementById("selBusca").classList.toggle("oculto",cfg.opcoes.length<12);
+  document.getElementById("modalSelecao").classList.remove("oculto");
+  pintarSelecao();
+}
+function fecharSelecao(){
+  selAtual=null;
+  document.getElementById("modalSelecao").classList.add("oculto");
+}
+function pintarSelecao(){
+  if(!selAtual) return;
+  const cx=document.getElementById("selChips");
+  const busca=semAc(document.getElementById("selBusca").value.trim());
+  const marcados=selAtual.escolha||[];
+  cx.innerHTML="";
+  selAtual.opcoes.filter(op=>!busca||semAc(op).includes(busca)).forEach(op=>{
+    const b=document.createElement("button");
+    b.className="chip"+(marcados.includes(op)?" ativo":"");
+    b.textContent=op;
+    b.onclick=()=>{
+      // onPick chama alternar(), que muta o próprio array — então selAtual.escolha
+      // continua apontando pro conjunto certo depois do fluxo() se redesenhar.
+      selAtual.onPick(op);
+      pintarSelecao();
+    };
+    cx.appendChild(b);
+  });
+  if(!cx.children.length) cx.innerHTML='<span class="sub">Nada encontrado.</span>';
+  if(selAtual.gerenciar){
+    // Guarda a ação numa variável antes: fecharSelecao() zera selAtual, e o
+    // editor de catálogo abre por cima com z-index maior.
+    const acao=selAtual.gerenciar;
+    const g=document.createElement("button");
+    g.className="chip chip-gerenciar";
+    g.textContent="✎ editar lista";
+    g.onclick=()=>{ fecharSelecao(); acao(); };
+    cx.appendChild(g);
   }
+  document.getElementById("selDica").textContent=
+    marcados.length?marcados.length+" selecionado(s) — sai uma linha de serviço pra cada."
+                   :"Pode marcar vários — sai uma linha de serviço pra cada.";
 }
 function esconderPassos(de){
   for(let i=de;i<=4;i++) document.getElementById("passo"+i).classList.add("oculto");
@@ -2196,7 +2292,6 @@ function renderLinhasValores(){
            </div></div>
          <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
        </div>
-       <div class="sugestoes na-linha" data-campo="unidades"></div>
        <div class="dest-sug" data-campo="custos"></div>
        <!-- textarea, não input: a observação sai em mais de uma linha ("Valor por
             quilo destinado." e o tratamento embaixo) e input engole o \n -->
@@ -2237,7 +2332,6 @@ function renderLinhasValores(){
     const iu=div.querySelector('[data-campo="unidade"]');
     iu.value=unidadePorChave[l.chave]!==undefined?unidadePorChave[l.chave]
             :(salvo.u||l.unidade);
-    const chips=div.querySelector('[data-campo="unidades"]');
     const io=div.querySelector('[data-campo="obs"]');
 
     // Refaz a observação quando a unidade muda — mas só se ela ainda for a que o
@@ -2254,8 +2348,8 @@ function renderLinhasValores(){
     const custos=div.querySelector('[data-campo="custos"]');
     const aplicarCustos=()=>montarSugestoesCusto(custos,l,iv,()=>iu.value,iu);
     const trocouUnidade=u=>{unidadePorChave[l.chave]=u;aplicarObs();aplicarCustos();};
-    iu.oninput=()=>{trocouUnidade(iu.value);montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);};
-    montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);
+    iu.oninput=()=>{trocouUnidade(iu.value);};
+    montarChipsUnidade(iu,l.chave,trocouUnidade,l.descricao);
     aplicarCustos();
     aplicarObs();
     if(obsPorChave[l.chave]!==undefined) io.value=obsPorChave[l.chave];
@@ -2602,7 +2696,13 @@ const FRASE_POR_UNIDADE={
          "diaria":"Valor por diária de MDO dedicada.",
          "mensal":"Valor mensal por MDO dedicada." }
 };
-FRASE_POR_UNIDADE.reci=FRASE_POR_UNIDADE.res;
+/* Reciclável NÃO herda a frase de destinação. Em "Valor por quilo destinado" o
+   sentido é o oposto do que acontece ali: o material não está sendo destinado,
+   está sendo comprado do cliente. A observação do reciclável fica só com o
+   texto do catálogo ("Receita. Sujeito a avaliação de qualidade..."), que é o
+   que descreve a operação de verdade. Em Destinação Final a frase continua,
+   porque lá ela está certa. */
+FRASE_POR_UNIDADE.reci={};
 function fraseDaUnidade(chave,unidade){
   const tabela=FRASE_POR_UNIDADE[tipoLinha(chave)];
   if(!tabela) return "";
@@ -2645,19 +2745,37 @@ function comporObs(chave,unidade,base){
 }
 // Serve pros dois lugares que têm campo de unidade: a linha do assistente e o
 // editor da linha que já está na proposta.
-function montarChipsUnidade(alvo,campo,chave,aoTrocar,descricao){
-  alvo.innerHTML="";
-  unidadesSugeridas(chave,descricao).forEach(u=>{
-    const b=document.createElement("button");
-    b.textContent=u;
-    if(campo.value.trim().toLowerCase()===u.toLowerCase()) b.className="ativa";
-    b.onclick=()=>{
+/* A unidade também saiu de chips fixos pra popup. Antes eram até quatro botões
+   embaixo de cada campo, repetidos em toda linha de serviço — numa proposta de
+   cinco itens, vinte botões só de unidade. Agora o campo abre a lista quando
+   se toca nele; digitar à mão continua valendo, porque o campo nunca foi
+   fechado a uma lista. */
+function montarChipsUnidade(campo,chave,aoTrocar,descricao){
+  const abrir=()=>abrirUnidades(campo,chave,aoTrocar,descricao);
+  campo.readOnly=false;                   // continua editável na mão
+  campo.onclick=abrir;
+  if(!campo.dataset.temLupa){
+    campo.dataset.temLupa="1";
+    campo.placeholder=campo.placeholder||"toque para escolher";
+  }
+}
+function abrirUnidades(campo,chave,aoTrocar,descricao){
+  const opcoes=unidadesSugeridas(chave,descricao);
+  if(!opcoes.length) return;
+  selAtual={
+    titulo:"Unidade", opcoes, escolha:campo.value.trim()?[campo.value.trim()]:[],
+    onPick:u=>{
       campo.value=u;
       if(aoTrocar) aoTrocar(u);
-      montarChipsUnidade(alvo,campo,chave,aoTrocar,descricao);
-    };
-    alvo.appendChild(b);
-  });
+      fecharSelecao();                    // unidade é escolha única: fecha na hora
+    }
+  };
+  document.getElementById("selTitulo").textContent="Unidade";
+  document.getElementById("selBusca").value="";
+  document.getElementById("selBusca").classList.add("oculto");
+  document.getElementById("modalSelecao").classList.remove("oculto");
+  pintarSelecao();
+  document.getElementById("selDica").textContent="Ou digite direto no campo, se a sua não estiver na lista.";
 }
 // No editor vale a mesma regra da linha do assistente: trocar a unidade refaz a
 // observação, desde que ela ainda seja a que o app escreveu.
@@ -2665,7 +2783,7 @@ let obsAutoModal="";
 function montarSugestoesUnidade(){
   const item=(itemEditando!==null)?itens[itemEditando]:null;
   const campo=document.getElementById("edUnidade");
-  montarChipsUnidade(document.getElementById("sugestoesUnidade"),campo,item&&item.chave,u=>{
+  montarChipsUnidade(campo,item&&item.chave,u=>{
     if(!item) return;
     const obs=document.getElementById("edObs");
     const nova=comporObs(item.chave,u,item.obsBase);
@@ -4978,7 +5096,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.21-1";
+const APP_VERSION="2026.08.22-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
