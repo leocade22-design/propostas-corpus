@@ -6075,11 +6075,26 @@ function pintarTelaSync(){
   const est=document.getElementById("estadoSync");
   if(!sync.ligado&&!(est&&est.classList.contains("senha"))) pintarSync("desligado");
 }
+/* O Supabase mostra três endereços diferentes em três telas, e todos parecem "o
+   link do projeto": o do painel (supabase.com/dashboard/project/<ref>), o da
+   Data API (já com /rest/v1/ no fim) e o Project URL puro. Aceitar os três e
+   normalizar aqui evita tanto o 404 quanto uma armadilha pior — o salt nasce
+   deste endereço, então dois aparelhos colando formas diferentes do MESMO
+   projeto gerariam chaves diferentes e um não leria o do outro. */
+function normalizarUrlSync(bruto){
+  let u=String(bruto||"").trim();
+  const painel=u.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
+  if(painel) return "https://"+painel[1]+".supabase.co";
+  u=u.replace(/\/+$/,"");
+  u=u.replace(/\/rest\/v1$/i,"");
+  return u;
+}
 async function ligarSync(){
-  const url=document.getElementById("syncUrl").value.trim();
+  const url=normalizarUrlSync(document.getElementById("syncUrl").value);
   const anon=document.getElementById("syncAnon").value.trim();
   const senha=document.getElementById("syncSenha").value;
   if(!/^https:\/\/.+/.test(url)) return avisar("O endereço tem que começar com https:// — é o Project URL do Supabase.");
+  document.getElementById("syncUrl").value=url;   // mostra o que ficou valendo
   if(anon.length<20) return avisar("A chave pública (anon) parece incompleta. Ela é longa, começa com eyJ.");
   if(senha.length<8) return avisar("Use ao menos 8 caracteres na senha da sincronia. Ela é o que protege o que sobe.");
   sync.url=url; sync.anon=anon;
@@ -6398,7 +6413,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.22-5";
+const APP_VERSION="2026.08.22-6";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
