@@ -259,6 +259,17 @@
   .preco-campos{display:grid;grid-template-columns:1.3fr 1fr;gap:8px;}
   .preco-linha input{padding:8px 10px;font-size:.9rem;}
   .preco-linha textarea{font-size:.78rem;min-height:0;padding:8px 10px;margin-top:7px;}
+  .aviso-sigilo{margin-top:6px;}
+  /* Modo compacto: menos respiro vertical, fonte um passo menor e o nome do
+     resíduo numa linha só com reticências — cabe bem mais linha na tela. */
+  .dest-tab.compacta{font-size:.66rem;}
+  .dest-tab.compacta th,.dest-tab.compacta td{padding:2px 5px;}
+  /* 150px em vez de menos: nomes como "ENTULHO - CLASSE A (LIMPO)" e
+     "ENTULHO - CLASSE C (REJEITO)" só se distinguem pelo FIM, e cortando cedo
+     demais quatro linhas viravam "ENTULHO - CLASS..." iguais. */
+  .dest-tab.compacta tbody th{font-size:.64rem;max-width:150px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dest-tab.compacta td .u{font-size:.58rem;}
   /* Ordem das colunas */
   .dest-ordem{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:6px 0;}
   .dest-ordem button{background:var(--campo);border:1.5px solid var(--campo-borda);
@@ -427,31 +438,41 @@
   <div class="card">
     <h2>Destinadores e custos <span class="badge" id="badgeDest">0</span></h2>
     <div id="destCorpo">
-      <div class="sub" style="margin-bottom:8px">
-        O que cada parceiro <strong>cobra da Corpus</strong> pra destinar cada resíduo.
-        É o seu custo — a proposta sai com o preço de venda, calculado com o BDI abaixo.
-        Fica só neste aparelho e <strong>nunca entra na proposta do cliente</strong>.
-      </div>
-
+      <!-- O BDI vem primeiro por ser o controle que mais se mexe. O resto da
+           explicação foi pro card de ajuda lá embaixo; só o aviso de que o custo
+           não vai pro cliente fica sempre à vista — é segurança, não decoração. -->
       <label>BDI (%)</label>
       <div class="row2">
         <input type="text" id="bdiDest" inputmode="numeric" placeholder="63" oninput="mudouBDI(this)">
         <div class="sub" id="exemploBDI" style="align-self:center"></div>
       </div>
+      <div class="sub aviso-sigilo">Custo interno — <strong>nunca entra na proposta do cliente</strong>.</div>
 
-      <div class="row2" style="margin-top:10px">
+      <input type="text" id="buscaDest" placeholder="Buscar destinador ou resíduo..." oninput="renderDest()" style="margin-top:10px">
+      <div id="listaDest" style="margin-top:8px"></div>
+      <div class="status" id="statusDest"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleAjudaDest()">Importar / exportar planilha<span class="seta" id="setaAjudaDest">▾</span></h2>
+    <div id="ajudaDestCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        Aqui fica o que cada parceiro <strong>cobra da Corpus</strong> pra destinar
+        cada resíduo. É custo: a proposta sai com o preço de venda, que é esse
+        valor mais o BDI. Tudo fica só neste aparelho.
+      </div>
+      <div class="row2">
         <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
         <button class="btn-sec" onclick="exportarDest()">Exportar</button>
       </div>
       <input type="file" id="arqDest" accept=".xlsx,.json" class="oculto" onchange="importarDest(this)">
       <div class="sub">
-        Aceita a sua planilha de custos em .xlsx — colunas DESTINADOR, CLASSE,
-        TIPO DE RESÍDUO, VALOR UNIT. (R$) e UNID. Importar de novo substitui a tabela inteira.
+        Aceita a sua planilha em .xlsx — colunas DESTINADOR, CLASSE, TIPO DE
+        RESÍDUO, VALOR UNIT. (R$) e UNID. As colunas são procuradas pelo título,
+        então a ordem delas não importa. Importar de novo substitui a tabela
+        inteira, mas as junções de resíduo que você fez continuam valendo.
       </div>
-
-      <input type="text" id="buscaDest" placeholder="Buscar destinador ou resíduo..." oninput="renderDest()" style="margin-top:10px">
-      <div id="listaDest" style="margin-top:8px"></div>
-      <div class="status" id="statusDest"></div>
     </div>
   </div>
 </section>
@@ -2761,6 +2782,22 @@ function fmtDinheiro(v){
 // Destinadores virou aba própria — não recolhe mais, quem controla a exibição
 // é a barra de abas. Mantida porque os atalhos antigos ainda chamam por ela.
 function toggleDest(){ mostrarAba("destinadores"); }
+let ajudaDestAberta=false;
+function toggleAjudaDest(){
+  ajudaDestAberta=!ajudaDestAberta;
+  document.getElementById("ajudaDestCorpo").classList.toggle("oculto",!ajudaDestAberta);
+  document.getElementById("setaAjudaDest").classList.toggle("aberta",ajudaDestAberta);
+}
+/* Densidade da tabela. Compacto por padrão: com 41 resíduos e 6 parceiros, o
+   que importa é ver muitas linhas de uma vez pra comparar. Guardado porque é
+   preferência de leitura, e reescolher a cada visita irrita. */
+const LS_DENS="corpus_densidade_dest_v1";
+let densoDest=(()=>{ try{return localStorage.getItem(LS_DENS)!=="normal";}catch(e){return true;} })();
+function alternarDensidade(v){
+  densoDest=(v==="compacto");
+  try{localStorage.setItem(LS_DENS,densoDest?"compacto":"normal");}catch(e){}
+  renderDest();
+}
 function mudouBDI(el){
   el.value=el.value.replace(/[^\d,.]/g,"");
   dest.bdi=Number(el.value.replace(",","."))||0;
@@ -3042,10 +3079,17 @@ function renderDest(){
   barra.innerHTML=
     '<div class="dest-visao">'+
       '<button data-v="custo">custo</button><button data-v="venda">venda c/ BDI</button>'+
+    '</div>'+
+    '<div class="dest-visao dest-dens">'+
+      '<button data-d="compacto">compacto</button><button data-d="normal">normal</button>'+
     '</div><div class="dest-acao"></div>';
-  barra.querySelectorAll(".dest-visao button").forEach(b=>{
+  barra.querySelectorAll(".dest-visao button[data-v]").forEach(b=>{
     if(b.dataset.v===destVendo) b.className="ativa";
     b.onclick=()=>alternarVisaoDest(b.dataset.v);
+  });
+  barra.querySelectorAll(".dest-visao button[data-d]").forEach(b=>{
+    if((b.dataset.d==="compacto")===densoDest) b.className="ativa";
+    b.onclick=()=>alternarDensidade(b.dataset.d);
   });
   const acao=barra.querySelector(".dest-acao");
   if(destSelecao.length>=2){
@@ -3080,7 +3124,7 @@ function renderDest(){
   const rolagem=document.createElement("div");
   rolagem.className="dest-rolagem";
   const tab=document.createElement("table");
-  tab.className="dest-tab";
+  tab.className="dest-tab"+(densoDest?" compacta":"");
   const thead=document.createElement("thead");
   const trh=document.createElement("tr");
   trh.innerHTML="<th>Resíduo</th>"+parceiros.map(()=>"<th></th>").join("");
@@ -3093,6 +3137,9 @@ function renderDest(){
     const th=document.createElement("th");
     th.className="dest-rot"+(destSelecao.includes(g.rotulo)?" sel":"");
     th.textContent=g.rotulo;
+    // No modo compacto o nome sai cortado com reticências: o title devolve o
+    // nome inteiro (e todos os que foram juntados naquela linha).
+    th.title=g.nomes.join("  ·  ");
     if(g.nomes.length>1){
       const marca=document.createElement("span");
       marca.className="dest-juntou";
@@ -4395,7 +4442,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-5";
+const APP_VERSION="2026.08.20-6";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
