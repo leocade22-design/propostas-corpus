@@ -232,6 +232,12 @@
   .dest-tab td.vazia{color:var(--suave);text-align:center;}
   .dest-tab td.melhor{background:var(--verde-claro);}
   .dest-tab td.melhor .n{color:var(--verde);font-weight:700;}
+  .dest-tab td{cursor:pointer;}
+  /* Parceiro fixado pra aquele resíduo: contorno, não preenchimento — o fundo
+     verde já significa "mais barato", e as duas coisas podem cair na mesma
+     célula sem uma esconder a outra. */
+  .dest-tab td.fixado{box-shadow:inset 0 0 0 2px var(--verde);}
+  .dest-tab td.fixado .n::after{content:"★";font-size:.7em;margin-left:3px;color:var(--verde);}
   /* Linha editável dos catálogos de preço (recicláveis, equipamentos) */
   /* Recicláveis: linha fechada que expande */
   .mat-linha{border:1px solid var(--card-borda);border-radius:10px;margin-bottom:7px;overflow:hidden;}
@@ -285,6 +291,8 @@
     border-radius:14px;padding:4px 9px;font-size:.7rem;color:inherit;text-align:left;line-height:1.25;}
   .dest-sug button b{display:block;font-size:.72rem;}
   .dest-sug button .c{color:var(--suave);}
+  .dest-sug button.fixado{border-color:var(--verde);background:var(--verde-claro);}
+  .dest-sug .titulo.vinculado{color:var(--verde);font-weight:600;}
 
   /* Uma linha de valor por item escolhido na multi-seleção */
   .linha-valor{border:1px solid var(--verde-borda);background:var(--verde-claro);
@@ -1828,6 +1836,28 @@ function custoNaUnidade(p,unidadeLinha){
   if(massa(de)&&massa(para)&&fd&&fp) return p.v*fp/fd;
   return null;
 }
+/* Vínculo → preço de venda na unidade da linha.
+
+   O vínculo é gravado com o nome que o resíduo tem NA PLANILHA do parceiro
+   ("NÃO RECICLÁVEL / ORGÂNICO"), porque é ali que se toca pra fixar. A linha da
+   proposta usa o nome do catálogo do app ("Não Recicláveis - Classe II"). Os
+   dois não batem — é a mesma divergência de vocabulário de sempre —, então a
+   ponte é o casamento que já monta as sugestões: entre os candidatos daquela
+   linha, procura-se um que esteja fixado. Assim vínculo e sugestão enxergam
+   exatamente o mesmo conjunto, e não tem como um achar o que o outro não acha.
+
+   Devolve null sem vínculo, ou quando as unidades não convertem (ton→unidade). */
+function precoVendaVinculado(linha,unidadeLinha){
+  const candidatos=custosSugeridos(linha,unidadeLinha);
+  for(const {p,c} of candidatos){
+    const v=vinculoDe(p.r);
+    if(v&&v.d===p.d&&c!==null){
+      return {destinador:p.d, residuo:p.r, custo:c, venda:comBDI(c),
+              unidade:normUnid(unidadeLinha)||normUnid(p.u)};
+    }
+  }
+  return null;
+}
 function custosSugeridos(linha,unidadeLinha){
   if(!dest.precos.length||tipoLinha(linha.chave)!=="res") return [];
   // A classe da linha está na descrição ("... - CLASSE II"), que é montada com
@@ -1876,11 +1906,21 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
   if(montarOpcoesReci(alvo,linha,campoValor,campoUnidade)) return;
   alvo.innerHTML="";
   const unidade=leUnidade();
+  // De onde veio o número: sem isso o valor aparece pronto no campo e ninguém
+  // lembra qual parceiro nem qual BDI produziu aquilo.
+  const pv=precoVendaVinculado(linha,unidade);
+  if(pv){
+    const nota=document.createElement("div");
+    nota.className="titulo vinculado";
+    nota.textContent="★ "+pv.destinador+" — custo "+fmtDinheiro(pv.custo)+"/"+pv.unidade+
+      " + BDI "+dest.bdi+"% = R$ "+fmtDinheiro(pv.venda)+"/"+pv.unidade;
+    alvo.appendChild(nota);
+  }
   const achados=custosSugeridos(linha,unidade);
   if(!achados.length) return;
   const t=document.createElement("div");
   t.className="titulo";
-  t.textContent="Custo do destinador → preço com BDI de "+dest.bdi+"%:";
+  t.textContent=pv?"Trocar de destinador:":"Custo do destinador → preço com BDI de "+dest.bdi+"%:";
   alvo.appendChild(t);
   const box=document.createElement("div");
   box.className="opcoes";
@@ -1894,9 +1934,16 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
     b.querySelector(".c").textContent="custo "+fmtDinheiro(c)+"/"+un+
       (normUnid(p.u)!==un?"  (de "+fmtDinheiro(p.v)+"/"+normUnid(p.u)+")":"");
     b.title=p.r+(p.cl?" · "+p.cl:"");
+    const jaFixado=pv&&pv.destinador===p.d;
+    if(jaFixado) b.className="fixado";
+    // Escolher aqui também FIXA: o próximo orçamento com esse resíduo já vem
+    // com o mesmo parceiro, sem precisar procurar de novo.
     b.onclick=()=>{
       campoValor.value=fmtDinheiro(venda);
       campoValor.dispatchEvent(new Event("input"));
+      vinculos[p.r]={d:p.d,r:p.r,v:p.v,u:p.u||""};
+      gravarVinculos();
+      montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade);
     };
     box.appendChild(b);
   });
@@ -1944,6 +1991,13 @@ function renderLinhasValores(){
     // chutar qual — aí o app oferece as opções logo abaixo e quem escolhe é o
     // Léo, mesma regra dos destinadores.
     let salvo=precoSalvo(l.chave)||{};
+    // Resíduo com destinador fixado entra com o PREÇO DE VENDA (custo + BDI).
+    // O custo nunca chega aqui: o campo recebe só o número que vai pro cliente.
+    if(tipoLinha(l.chave)==="res"){
+      const pv=precoVendaVinculado(l,unidadePorChave[l.chave]!==undefined
+        ? unidadePorChave[l.chave] : l.unidade);
+      if(pv) salvo={v:fmtDinheiro(pv.venda), u:pv.unidade||""};
+    }
     if(tipoLinha(l.chave)==="reci"){
       const lista=precosReci(l.nome);
       salvo=(lista.length===1)
@@ -2514,6 +2568,14 @@ let dest={bdi:63,precos:[],juntas:[],separadas:[],ordem:[]}, destAberto=false;
    moram. As funções são içadas; `let` e `const`, não. */
 const LS_PRECOS="corpus_precos_v1";
 let precos={reci:{},loc:{},repasse:35};
+
+/* Vínculo resíduo → destinador preferido. Chave própria, sem encostar em
+   corpus_precos_v1 nem na tabela de custos: é uma DECISÃO do Léo ("esse resíduo
+   eu mando pra esse parceiro"), não um dado da planilha — reimportar preços não
+   pode desfazer escolha, e desfazer escolha não pode mexer em preço.
+   Formato: { "NOME DO RESÍDUO": {d:destinador, r:resíduo na planilha, v:custo, u:unidade} } */
+const LS_VINC="corpus_vinculos_v1";
+let vinculos={};
 function carregarCatalogo(){
   try{
     const s=localStorage.getItem(LS_CATALOGO);
@@ -2745,6 +2807,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarCatalogo();
   carregarDest();
   carregarPrecos();
+  carregarVinculos();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   mostrarAba("proposta");
@@ -3172,15 +3235,25 @@ function renderDest(){
       quantosNoGrupo[c.grupo]=(quantosNoGrupo[c.grupo]||0)+1;
     });
 
-    celulas.forEach(c=>{
+    celulas.forEach((c,ic)=>{
       const td=document.createElement("td");
       if(!c){ td.className="vazia"; td.textContent="–"; tr.appendChild(td); return; }
       const v=destVendo==="venda"?comBDI(c.v):c.v;
-      if(quantosNoGrupo[c.grupo]>1&&c.base===menorNoGrupo[c.grupo]) td.className="melhor";
+      const classes=[];
+      if(quantosNoGrupo[c.grupo]>1&&c.base===menorNoGrupo[c.grupo]) classes.push("melhor");
+      // Um vínculo vale pro grupo inteiro (os nomes que viraram uma linha só),
+      // então basta bater o parceiro e o resíduo estar entre os do grupo.
+      const vinc=g.nomes.map(n=>vinculoDe(n)).find(Boolean);
+      const fixada=vinc&&vinc.d===parceiros[ic]&&g.nomes.includes(vinc.r);
+      if(fixada) classes.push("fixado");
+      td.className=classes.join(" ");
       td.innerHTML='<span class="n"></span><span class="u"></span>';
       td.querySelector(".n").textContent=fmtDinheiro(v);
       td.querySelector(".u").textContent="/"+c.u+(c.varios?" *":"");
-      if(c.varios) td.title="mais de um preço aqui — mostrando o menor:\n"+c.varios;
+      td.title=(c.varios?"mais de um preço aqui — mostrando o menor:\n"+c.varios+"\n\n":"")+
+        (fixada?"parceiro fixado para este resíduo — toque pra desfazer"
+               :"toque pra fixar "+parceiros[ic]+" como destinador deste resíduo");
+      td.onclick=()=>alternarVinculo(c.r||g.rotulo,{d:parceiros[ic],r:c.r||g.rotulo,v:c.v,u:c.u});
       tr.appendChild(td);
     });
     tb.appendChild(tr);
@@ -3214,6 +3287,25 @@ function renderDest(){
 // LS_PRECOS e `precos` são declarados lá em cima, junto do resto do estado:
 // precoSalvo() é chamado por montarLinhas() já na abertura do app, antes deste
 // ponto do arquivo, e `let` não existe antes da linha que o declara.
+function carregarVinculos(){
+  try{
+    const s=localStorage.getItem(LS_VINC);
+    if(s) vinculos=JSON.parse(s)||{};
+  }catch(e){ console.warn("vínculos: não deu pra ler o que estava salvo",e); }
+}
+function gravarVinculos(){
+  try{localStorage.setItem(LS_VINC,JSON.stringify(vinculos));}catch(e){}
+}
+function vinculoDe(nomeResiduo){ return vinculos[nomeResiduo]||null; }
+/* Tocar na célula vincula; tocar de novo na mesma desvincula; tocar em outra
+   troca de parceiro. Guarda o custo junto pra saber, na proposta, de onde saiu
+   o número mesmo que a planilha mude depois. */
+function alternarVinculo(nomeResiduo,p){
+  const atual=vinculos[nomeResiduo];
+  if(atual&&atual.d===p.d&&atual.r===p.r) delete vinculos[nomeResiduo];
+  else vinculos[nomeResiduo]={d:p.d,r:p.r,v:p.v,u:p.u||""};
+  gravarVinculos(); renderDest(); renderLinhasValores();
+}
 function carregarPrecos(){
   try{
     const s=localStorage.getItem(LS_PRECOS);
@@ -4442,7 +4534,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-6";
+const APP_VERSION="2026.08.20-7";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
