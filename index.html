@@ -203,6 +203,8 @@
   .passo-resumo .passo-valor{font-size:.85rem;font-weight:600;color:var(--verde);flex:1;line-height:1.3;}
   .passo-resumo .passo-editar{font-size:.72rem;color:var(--suave);flex:0 0 auto;}
   .chip-gerenciar{border-style:dashed;color:var(--suave);}
+  /* Cliente da base rápida: tracejado pra diferenciar de quem está no cofre */
+  .chip-rapido{border-style:dashed;}
   .dest-barra{display:flex;justify-content:space-between;align-items:center;gap:8px;
     flex-wrap:wrap;margin-bottom:6px;}
   .dest-visao{display:flex;gap:4px;}
@@ -403,6 +405,18 @@
   <div class="card">
     <h2>Meus clientes <span class="badge" id="badgeClientes">–</span></h2>
     <div id="clientesCorpo">
+      <!-- A lista fica FORA do bloco da senha: os clientes vindos das propostas
+           não são criptografados e precisam aparecer com o cofre fechado. Com o
+           cofre aberto, as duas origens aparecem juntas, marcadas com 🔒. -->
+      <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
+      <div class="chips" id="listaClientes" style="margin-top:8px"></div>
+      <div class="sub" id="avisoRapidos"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCofre()">Cofre com senha<span class="seta" id="setaCofre">▾</span></h2>
+    <div id="cofreCorpo" class="oculto">
       <div id="cofreBloqueado">
         <label>Senha do cofre</label>
         <div class="row2">
@@ -412,8 +426,6 @@
         <div class="sub" id="avisoCofre">Primeira vez? Digite uma senha nova e toque em Abrir para criar o cofre.</div>
       </div>
       <div id="cofreAberto" class="oculto">
-        <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
-        <div class="chips" id="listaClientes" style="margin-top:8px"></div>
         <button class="btn-sec btn-full" onclick="salvarClienteAtual()">Salvar o cliente do formulário no cofre</button>
         <div class="row2" style="margin-top:8px">
           <button class="btn-sec" onclick="document.getElementById('arqClientes').click()">Importar lista</button>
@@ -1376,7 +1388,7 @@ const ABAS={
   destinadores:()=>renderDest(),
   reciclaveis:()=>renderPrecosReci(),
   equipamentos:()=>renderPrecosEquip(),
-  clientes:null,
+  clientes:()=>listarClientes(),
   salvas:()=>renderHistorico(),
   ajustes:null
 };
@@ -1449,6 +1461,12 @@ function contatosParaDocumento(){
 // quem mostra e esconde é a barra de abas. As duas continuam existindo porque
 // atalhos espalhados pelo app ainda chamam por elas.
 function toggleClientes(){ mostrarAba("clientes"); }
+let cofreCardAberto=false;
+function toggleCofre(){
+  cofreCardAberto=!cofreCardAberto;
+  document.getElementById("cofreCorpo").classList.toggle("oculto",!cofreCardAberto);
+  document.getElementById("setaCofre").classList.toggle("aberta",cofreCardAberto);
+}
 function montarChipsColeta(){
   chips("chipsColeta",["Mesmo endereço do cliente","Endereço diferente"],
     mesmoEnd?"Mesmo endereço do cliente":"Endereço diferente",op=>{
@@ -2638,6 +2656,13 @@ let precos={reci:{},loc:{},repasse:35};
    Formato: { "NOME DO RESÍDUO": {d:destinador, r:resíduo na planilha, v:custo, u:unidade} } */
 const LS_VINC="corpus_vinculos_v1";
 let vinculos={};
+
+/* Base rápida de clientes, alimentada por toda proposta gerada. Aqui em cima
+   pelo mesmo motivo do resto: a inicialização carrega antes do bloco onde as
+   funções moram, e `let` não existe antes da linha que o declara. Foi a
+   terceira vez que esse tropeço apareceu neste arquivo. */
+const LS_RAPIDOS="corpus_clientes_rapidos_v1";
+let clientesRapidos=[];
 function carregarCatalogo(){
   try{
     const s=localStorage.getItem(LS_CATALOGO);
@@ -2870,6 +2895,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarDest();
   carregarPrecos();
   carregarVinculos();
+  carregarClientesRapidos();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   mostrarAba("proposta");
@@ -3759,6 +3785,7 @@ function salvarPropostaAtual(){
   // Só aqui a sequência anda: esta função roda depois de gerar os arquivos, e é
   // o único momento em que o número virou documento de verdade.
   registrarNumeroUsado(registro.numero);
+  registrarClienteRapido();
   // Teto pra não estourar a cota do navegador com o tempo
   if(propostas.length>300) propostas=propostas.slice(0,300);
   gravarPropostas(); atualizarBadgeHistorico();
@@ -4538,19 +4565,98 @@ async function abrirCofre(){
   document.getElementById("senhaCofre").value="";
   listarClientes();
 }
+/* ---- Base rápida ----
+   Toda proposta gerada deixa o cliente aqui, com o mínimo pra reaproveitar
+   depois. É SEPARADA do cofre: sem senha, mesma classe de dado das propostas
+   salvas, que já ficam abertas. O cofre criptografado continua existindo e é
+   pra onde vai o que merece senha — daí o botão de promover.
+
+   Sem CNPJ válido não grava: uma base cheia de registro quebrado é pior que uma
+   base pequena, porque some com o cliente certo no meio do lixo. */
+// LS_RAPIDOS e clientesRapidos são declarados lá em cima, junto do resto do
+// estado — a inicialização chama carregarClientesRapidos() antes deste ponto.
+function carregarClientesRapidos(){
+  try{
+    const s=localStorage.getItem(LS_RAPIDOS);
+    if(s) clientesRapidos=JSON.parse(s)||[];
+  }catch(e){ clientesRapidos=[]; }
+}
+function gravarClientesRapidos(){
+  try{localStorage.setItem(LS_RAPIDOS,JSON.stringify(clientesRapidos));}catch(e){}
+}
+function registrarClienteRapido(){
+  const g=id=>(document.getElementById(id).value||"").trim();
+  const cnpj=so(g("cnpj"));
+  if(!cnpjValido(cnpj)) return;                 // sem documento válido, não entra
+  const c=contatosParaDocumento();
+  const novo={razaoSocial:g("razaoSocial").toUpperCase(), cnpj:g("cnpj"),
+              contato:c.primeiro.nome, telefone:c.primeiro.fone, em:Date.now()};
+  // Dedup por CNPJ (só os dígitos): cliente repetido atualiza, não duplica.
+  const i=clientesRapidos.findIndex(x=>so(x.cnpj)===cnpj);
+  if(i>=0) clientesRapidos[i]=Object.assign(clientesRapidos[i],novo);
+  else clientesRapidos.unshift(novo);
+  if(clientesRapidos.length>400) clientesRapidos=clientesRapidos.slice(0,400);
+  gravarClientesRapidos();
+  if(!document.getElementById("aba-clientes").hidden) listarClientes();
+}
+async function promoverParaCofre(cnpj){
+  // Sem o cofre destrancado não dá: a chave de criptografia só existe depois
+  // que a senha foi digitada nesta sessão.
+  if(!chaveCofre){
+    avisar("Abra o cofre com a sua senha primeiro — é pra lá que este cliente vai.");
+    return;
+  }
+  const r=clientesRapidos.find(x=>so(x.cnpj)===so(cnpj));
+  if(!r) return;
+  const i=clientes.findIndex(x=>so(x.cnpj)===so(cnpj));
+  const reg={razaoSocial:r.razaoSocial,cnpj:r.cnpj,ie:"",email:"",
+             contato:[r.contato,r.telefone].filter(Boolean).join(" - "),endereco:""};
+  if(i>=0) clientes[i]=Object.assign({},clientes[i],reg); else clientes.push(reg);
+  await gravarCofre();
+  listarClientes();
+  document.getElementById("avisoCofre").textContent=r.razaoSocial+" foi pro cofre.";
+}
 function listarClientes(){
   const q=semAc(document.getElementById("buscaCliente").value);
-  const vis=clientes.filter(c=>!q||semAc(c.razaoSocial).includes(q)||so(c.cnpj).includes(so(q)));
-  document.getElementById("badgeClientes").textContent=clientes.length;
+  const bate=c=>!q||semAc(c.razaoSocial||"").includes(q)||so(c.cnpj||"").includes(so(q));
+  const doCofre=clientes.filter(bate);
+  // O que já está no cofre não precisa aparecer duas vezes
+  const noCofre=new Set(clientes.map(c=>so(c.cnpj||"")).filter(Boolean));
+  const rapidos=clientesRapidos.filter(c=>bate(c)&&!noCofre.has(so(c.cnpj||"")));
+  document.getElementById("badgeClientes").textContent=clientes.length+rapidos.length;
   const el=document.getElementById("listaClientes");
   el.innerHTML="";
-  vis.slice(0,40).forEach((c,i)=>{
+  doCofre.slice(0,40).forEach(c=>{
     const b=document.createElement("button");
-    b.className="chip";b.textContent=c.razaoSocial.slice(0,38);
+    b.className="chip";b.textContent="🔒 "+c.razaoSocial.slice(0,36);
+    b.title="do cofre (com senha)";
     b.onclick=()=>carregarCliente(clientes.indexOf(c));
     el.appendChild(b);
   });
-  if(!vis.length) el.innerHTML='<span class="sub">Nenhum cliente encontrado.</span>';
+  rapidos.slice(0,40).forEach(c=>{
+    const b=document.createElement("button");
+    b.className="chip chip-rapido";b.textContent=c.razaoSocial.slice(0,36);
+    b.title="veio de uma proposta gerada — sem senha. Toque e segure pra mandar pro cofre.";
+    b.onclick=()=>carregarClienteRapido(c);
+    b.oncontextmenu=ev=>{ev.preventDefault();promoverParaCofre(c.cnpj);};
+    el.appendChild(b);
+  });
+  if(!doCofre.length&&!rapidos.length)
+    el.innerHTML='<span class="sub">Nenhum cliente encontrado.</span>';
+  const aviso=document.getElementById("avisoRapidos");
+  if(aviso) aviso.textContent=rapidos.length
+    ? rapidos.length+" cliente(s) sem 🔒 vieram das propostas geradas — base de acesso rápido, sem senha. O cofre com senha continua sendo o cofre."
+    : "";
+}
+function carregarClienteRapido(c){
+  document.getElementById("razaoSocial").value=(c.razaoSocial||"").toUpperCase();
+  conferirRazaoSocial();
+  const elc=document.getElementById("cnpj");elc.value=c.cnpj||"";mascaraCNPJ(elc);conferirCNPJ();
+  document.getElementById("solicitante").value=c.contato||"";
+  const elt=document.getElementById("telefone");elt.value=c.telefone||"";mascaraTelefone(elt);
+  document.getElementById("statusCNPJ").textContent="Carregado da base rápida — confira antes de gerar.";
+  mostrarAba("proposta");
+  document.getElementById("cardCliente").scrollIntoView({behavior:"smooth",block:"start"});
 }
 function carregarCliente(i){
   const c=clientes[i];if(!c)return;
@@ -4614,7 +4720,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-8";
+const APP_VERSION="2026.08.20-9";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
