@@ -301,6 +301,14 @@
   .mat-linha textarea{font-size:.78rem;min-height:0;padding:8px 10px;}
   .ficha-grade{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .ficha-grade label{margin-top:6px;}
+  /* Capacidade e diária andam em par: o mesmo veículo tem modelo de 10 e de 12 m³ */
+  .titulinho-ficha{font-size:.68rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.04em;font-weight:600;margin:11px 0 5px;}
+  .cap-linha{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;
+    margin-bottom:6px;}
+  .cap-linha .mat-tira{font-size:.9rem;padding:0 4px;}
+  .ficha-equip{border-top:1px dashed var(--campo-borda);margin-top:9px;}
+  .ficha-equip input,.ficha-equip textarea{padding:8px 10px;font-size:.86rem;}
   .mat-cliente{font-size:.76rem;margin-top:6px;}
   .mat-cliente b{color:var(--verde);}
   .mat-conta{color:var(--suave);font-size:.72rem;}
@@ -324,16 +332,17 @@
   .dest-tab.compacta tbody th{font-size:.64rem;max-width:150px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .dest-tab.compacta td .u{font-size:.58rem;}
-  /* BDI numa linha só, com olho pra esconder o número */
-  .dest-bdi{display:flex;align-items:center;gap:6px;}
-  .dest-bdi .rot{font-size:.72rem;color:var(--suave);text-transform:uppercase;
+  /* Número sensível numa linha só, com olho pra esconder: BDI dos
+     destinadores e repasse dos recicláveis usam o mesmo desenho. */
+  .campo-olho{display:flex;align-items:center;gap:6px;}
+  .campo-olho .rot{font-size:.72rem;color:var(--suave);text-transform:uppercase;
     letter-spacing:.04em;font-weight:600;}
-  .dest-bdi input{width:66px;padding:7px 8px;font-size:.9rem;text-align:right;}
-  .dest-bdi .pct{font-size:.8rem;color:var(--suave);}
-  .dest-bdi .sub{flex:1;min-width:0;font-size:.7rem;}
-  .dest-bdi .olho{background:none;border:none;font-size:1rem;padding:4px 2px;
+  .campo-olho input{width:66px;padding:7px 8px;font-size:.9rem;text-align:right;}
+  .campo-olho .pct{font-size:.8rem;color:var(--suave);}
+  .campo-olho .sub{flex:1;min-width:0;font-size:.7rem;}
+  .campo-olho .olho{background:none;border:none;font-size:1rem;padding:4px 2px;
     color:var(--suave);font-family:inherit;line-height:1;}
-  .dest-bdi.escondido input{letter-spacing:.18em;color:var(--suave);}
+  .campo-olho.escondido input{letter-spacing:.18em;color:var(--suave);}
   /* Menu de exibição: fechado por padrão, os controles moram dentro dele */
   .dest-exib-abre{display:flex;align-items:center;gap:5px;background:none;border:none;
     color:var(--verde);font-size:.76rem;font-weight:600;font-family:inherit;
@@ -347,6 +356,39 @@
   .dest-tab td input.cel-edit{width:100%;min-width:64px;padding:1px 3px;font-size:inherit;
     text-align:right;font-family:inherit;border:1.5px solid var(--verde);border-radius:4px;
     background:var(--branco);color:var(--texto);}
+  /* Lista de clientes: uma linha por cliente, só a razão social */
+  .cli-linha{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+    background:var(--branco);border:1px solid var(--card-borda);border-radius:10px;
+    padding:11px 12px;margin-bottom:6px;color:inherit;font-family:inherit;}
+  .cli-linha .rs{flex:1;min-width:0;font-size:.85rem;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .cli-linha .seta-cli{color:var(--suave);font-size:.8rem;flex:0 0 auto;}
+  /* Ficha aberta no popup */
+  .ficha-cli{display:grid;gap:9px;margin-top:6px;}
+  .ficha-cli .campo{display:grid;gap:2px;}
+  .ficha-cli .rot{font-size:.68rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.04em;font-weight:600;}
+  .ficha-cli .val{font-size:.86rem;word-break:break-word;}
+  .ficha-cli a.val{color:var(--verde);font-weight:600;text-decoration:none;}
+  .ficha-cli .zap{display:inline-flex;align-items:center;gap:5px;}
+  .ficha-cli .vazio{color:var(--suave);font-style:italic;font-size:.8rem;}
+  /* Lista de linhas de custo do popup de link */
+  .link-lista{max-height:46vh;overflow-y:auto;margin-top:8px;}
+  .link-lista button{display:block;width:100%;text-align:left;background:var(--campo);
+    border:1.5px solid var(--campo-borda);border-radius:10px;padding:8px 10px;
+    margin-bottom:6px;color:inherit;font-family:inherit;}
+  .link-lista button.ativo{border-color:var(--verde);background:var(--verde-claro);}
+  .link-lista b{display:block;font-size:.8rem;font-weight:600;}
+  .link-lista .c{display:block;font-size:.7rem;color:var(--suave);margin-top:2px;}
+  .link-lista .de{font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--verde);font-weight:700;}
+  /* Nota de origem do preço, dentro do card da linha de serviço */
+  .dest-sug .linkado{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+  .dest-sug .linkado .solta{background:none;border:none;color:var(--alerta);
+    font-size:.7rem;font-family:inherit;padding:0;}
+  .btn-linkar{background:none;border:1px dashed var(--campo-borda);border-radius:9px;
+    color:var(--verde);font-size:.72rem;font-weight:600;font-family:inherit;
+    padding:6px 10px;margin-top:6px;width:100%;}
   /* Nomes que entraram num grupo mesclado */
   .grupo-nomes{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 12px;}
   .grupo-nomes span{background:var(--campo);border:1px solid var(--campo-borda);
@@ -478,37 +520,16 @@
   <div class="card">
     <h2>Meus clientes <span class="badge" id="badgeClientes">–</span></h2>
     <div id="clientesCorpo">
-      <!-- A lista fica FORA do bloco da senha: os clientes vindos das propostas
-           não são criptografados e precisam aparecer com o cofre fechado. Com o
-           cofre aberto, as duas origens aparecem juntas, marcadas com 🔒. -->
+      <!-- Só a base rápida, alimentada pelas propostas geradas. O cofre com
+           senha mudou pra Ajustes: são coisas diferentes, e misturar as duas
+           numa lista só obrigava a explicar o cadeado toda vez. A lista mostra
+           apenas a razão social — o resto abre no toque. -->
       <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
-      <div class="chips" id="listaClientes" style="margin-top:8px"></div>
+      <div id="listaClientes" style="margin-top:8px"></div>
       <div class="sub" id="avisoRapidos"></div>
     </div>
   </div>
 
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleCofre()">Cofre com senha<span class="seta" id="setaCofre">▾</span></h2>
-    <div id="cofreCorpo" class="oculto">
-      <div id="cofreBloqueado">
-        <label>Senha do cofre</label>
-        <div class="row2">
-          <input type="password" id="senhaCofre" inputmode="text" placeholder="sua senha">
-          <button class="btn-sec" onclick="abrirCofre()">Abrir</button>
-        </div>
-        <div class="sub" id="avisoCofre">Primeira vez? Digite uma senha nova e toque em Abrir para criar o cofre.</div>
-      </div>
-      <div id="cofreAberto" class="oculto">
-        <button class="btn-sec btn-full" onclick="salvarClienteAtual()">Salvar o cliente do formulário no cofre</button>
-        <div class="row2" style="margin-top:8px">
-          <button class="btn-sec" onclick="document.getElementById('arqClientes').click()">Importar lista</button>
-          <button class="btn-sec" onclick="exportarClientes()">Exportar lista</button>
-        </div>
-        <input type="file" id="arqClientes" accept="application/json" class="oculto" onchange="importarClientes(this)">
-        <div class="sub">Guardado só neste aparelho, criptografado com sua senha. O cofre nasce vazio — traga sua lista pelo botão Importar.</div>
-      </div>
-    </div>
-  </div>
 </section>
 
 <section class="aba-conteudo" id="aba-salvas" hidden>
@@ -541,7 +562,7 @@
            outro lado. O resto da explicação foi pro card de ajuda lá embaixo;
            só o aviso de que o custo não vai pro cliente fica sempre à vista —
            é segurança, não decoração. -->
-      <div class="dest-bdi">
+      <div class="campo-olho" id="caixaBDI">
         <span class="rot">BDI</span>
         <input type="text" id="bdiDest" inputmode="numeric" placeholder="63" oninput="mudouBDI(this)">
         <span class="pct">%</span>
@@ -589,10 +610,12 @@
   <div class="card">
     <h2>Recicláveis <span class="badge" id="badgeReci">0</span></h2>
 
-    <label>Repasse ao cliente (%)</label>
-    <div class="row2">
+    <div class="campo-olho" id="caixaRepasse">
+      <span class="rot">Repasse</span>
       <input type="text" id="repasseReci" inputmode="numeric" placeholder="35" oninput="mudouRepasse(this)">
-      <div class="sub" id="exemploRepasse" style="align-self:center"></div>
+      <span class="pct">%</span>
+      <span class="sub" id="exemploRepasse"></span>
+      <button type="button" class="olho" id="olhoRepasse" onclick="alternarOlhoRepasse()"></button>
     </div>
     <div class="sub" style="margin-bottom:10px">
       A Corpus <strong>vende</strong> o material pra usina e <strong>compra</strong> do
@@ -621,13 +644,14 @@
     <div class="status" id="statusEquip"></div>
   </div>
 
-  <!-- Frota separada dos locáveis: a natureza do dado é outra (diária, km,
-       medidas x preço de locação), e misturar tudo numa lista só recriaria a
-       poluição que tiramos da aba Destinadores. -->
+  <!-- Frota separada dos locáveis: a natureza do dado é outra (capacidade e
+       diária por modelo x preço de locação e medida da peça), e misturar tudo
+       numa lista só recriaria a poluição que tiramos da aba Destinadores. -->
   <div class="card">
     <h2>Frota <span class="badge" id="badgeFrota">0</span></h2>
     <div class="sub" style="margin-bottom:10px">
-      Ficha de cada veículo, pra consulta rápida na hora de dimensionar.
+      Ficha de cada veículo, pra consulta rápida na hora de dimensionar. O mesmo
+      veículo pode ter mais de uma capacidade, cada uma com sua diária.
       <strong>Nada daqui entra na proposta sozinho</strong> — o valor por km ainda
       é coeficiente médio, e virar cálculo automático antes do modelo de custo
       fechar produziria número errado com cara de número certo.
@@ -755,6 +779,46 @@
 </section>
 
 <section class="aba-conteudo" id="aba-ajustes" hidden>
+  <!-- Um lugar só pras observações que saem na proposta. Elas nascem espalhadas
+       por seis editores de catálogo, e quem só quer trocar a frase não tem por
+       que saber em qual mexer. -->
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleObsPadrao()">Observações padrão
+      <span class="badge" id="badgeObsP">0</span><span class="seta" id="setaObsP">▾</span></h2>
+    <div id="obsPadraoCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        O texto que já vem preenchido na observação de cada linha da proposta.
+        Deixe vazio pra usar o de fábrica. Veículos ficam de fora daqui porque
+        têm uma frase por modalidade — essas duas se editam em
+        <strong>✎ editar lista</strong>, no passo dos veículos.
+      </div>
+      <input type="text" id="buscaObsP" placeholder="Buscar item..." oninput="renderObsPadrao()">
+      <div id="listaObsP" style="margin-top:8px"></div>
+      <div class="status" id="statusObsP"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCofre()">Cofre com senha<span class="seta" id="setaCofre">▾</span></h2>
+    <div id="cofreCorpo" class="oculto">
+      <div id="cofreBloqueado">
+        <label>Senha do cofre</label>
+        <div class="row2">
+          <input type="password" id="senhaCofre" inputmode="text" placeholder="sua senha">
+          <button class="btn-sec" onclick="abrirCofre()">Abrir</button>
+        </div>
+        <div class="sub" id="avisoCofre">Primeira vez? Digite uma senha nova e toque em Abrir para criar o cofre.</div>
+      </div>
+      <div id="cofreAberto" class="oculto">
+        <button class="btn-sec btn-full" onclick="salvarClienteAtual()">Salvar o cliente do formulário no cofre</button>
+        <div class="row2" style="margin-top:8px">
+          <button class="btn-sec" onclick="document.getElementById('arqClientes').click()">Importar lista</button>
+          <button class="btn-sec" onclick="exportarClientes()">Exportar lista</button>
+        </div>
+        <input type="file" id="arqClientes" accept="application/json" class="oculto" onchange="importarClientes(this)">
+        <div class="sub">Guardado só neste aparelho, criptografado com sua senha. O cofre nasce vazio — traga sua lista pelo botão Importar.</div>
+      </div>
+    </div>
+  </div>
   <div class="card">
     <h2 class="clicavel" onclick="toggleDownloads()">Downloads <span class="badge" id="badgePasta">padrão</span><span class="seta" id="setaDownloads">▾</span></h2>
     <div id="downloadsCorpo" class="oculto">
@@ -832,6 +896,42 @@
     <div class="chips" id="selChips" style="margin-top:8px"></div>
     <div class="sub" id="selDica"></div>
     <button class="btn-principal btn-full" style="margin-top:10px" onclick="fecharSelecao()">Pronto</button>
+  </div>
+</div>
+
+<!-- Ficha do cliente. A lista mostra só a razão social; tudo que é contato
+     abre aqui, e o telefone vira conversa no WhatsApp em um toque. -->
+<div class="modal-fundo oculto" id="modalCliente">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3 id="cliTitulo">Cliente</h3>
+      <button class="modal-fechar" onclick="fecharCliente()">✕</button>
+    </div>
+    <div class="ficha-cli" id="cliCorpo"></div>
+    <button class="btn-principal btn-full" style="margin-top:12px" id="cliUsar">Usar nesta proposta</button>
+    <button class="btn-sec btn-full" style="margin-top:8px" id="cliCofre">Guardar no cofre com senha</button>
+  </div>
+</div>
+
+<!-- Linkar uma linha da proposta a uma linha de custo escolhida a dedo.
+     Existe porque o casamento automático por palavras só alcança o que tem
+     nome parecido, e o vocabulário de cada parceiro é o que é. -->
+<div class="modal-fundo oculto" id="modalLink">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3>Linkar a uma linha de custo</h3>
+      <button class="modal-fechar" onclick="fecharLink()">✕</button>
+    </div>
+    <div class="sub" id="linkAlvoNome"></div>
+    <label>Nome que sai na proposta</label>
+    <input type="text" id="linkRotulo">
+    <div class="sub">Deixe vazio pra manter o nome do catálogo. O nome da tabela
+      de custos nunca aparece pro cliente.</div>
+    <input type="text" id="linkBusca" placeholder="Buscar em Destinadores e Recicláveis..."
+           oninput="pintarLink()" style="margin-top:10px">
+    <div class="link-lista" id="linkLista"></div>
+    <div class="sub aviso-sigilo">O que vai pro campo é o <strong>preço de venda</strong>.
+      Custo e nome do parceiro não saem daqui.</div>
   </div>
 </div>
 
@@ -2093,6 +2193,17 @@ function montarLinhas(){
     if(tipoLinha(l.chave)!=="loc") return l;
     const p=precoSalvo(l.chave);
     return (p&&p.o)?Object.assign({},l,{obsBase:p.o}):l;
+  }).map(l=>{
+    // Observação escolhida pelo usuário vence a de fábrica. Vem antes do link
+    // customizado só por ordem de leitura; as duas coisas não se cruzam.
+    const op=obsPadraoDe(l.chave);
+    return op!==null?Object.assign({},l,{obsBase:op}):l;
+  }).map(l=>{
+    // Nome próprio dado no link manual. Troca só o que o CLIENTE lê (`residuo`)
+    // e o que aparece no card; `nome` continua sendo a chave do catálogo, senão
+    // as buscas de preço e as sugestões parariam de achar a própria linha.
+    const v=vincCustomDe(l.chave);
+    return (v&&v.rot)?Object.assign({},l,{rotulo:v.rot,residuo:v.rot}):l;
   });
 }
 function montarLinhasBase(){
@@ -2293,8 +2404,81 @@ function montarOpcoesReci(alvo,linha,campoValor,campoUnidade){
   alvo.appendChild(box);
   return true;
 }
+/* ---- Popup de link manual ---- */
+let linkEditando=null;
+function abrirLink(chave,nomeLinha){
+  linkEditando={chave, nome:nomeLinha};
+  const v=vincCustomDe(chave);
+  document.getElementById("linkAlvoNome").textContent="Linha da proposta: "+nomeLinha;
+  document.getElementById("linkRotulo").value=(v&&v.rot)||"";
+  document.getElementById("linkRotulo").placeholder=nomeLinha;
+  document.getElementById("linkBusca").value="";
+  document.getElementById("modalLink").classList.remove("oculto");
+  pintarLink();
+}
+function fecharLink(){
+  linkEditando=null;
+  document.getElementById("modalLink").classList.add("oculto");
+}
+function pintarLink(){
+  if(!linkEditando) return;
+  const el=document.getElementById("linkLista");
+  const busca=semAc(document.getElementById("linkBusca").value.trim());
+  const atual=vincCustomDe(linkEditando.chave);
+  const todas=linhasDeCusto();
+  el.innerHTML="";
+  if(!todas.length){
+    el.innerHTML='<span class="sub">Nenhuma linha de custo cadastrada ainda. '+
+      'Importe a planilha em Destinadores ou preencha preços em Recicláveis.</span>';
+    return;
+  }
+  const vistas=todas.filter(x=>!busca||semAc(x.rotulo+" "+(x.cl||"")).includes(busca));
+  if(!vistas.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  vistas.slice(0,80).forEach(x=>{
+    const b=document.createElement("button");
+    b.type="button";
+    const ligada=atual&&atual.fonte===x.fonte&&
+      (x.fonte==="dest"?(atual.d===x.d&&atual.r===x.r):(atual.n===x.n&&atual.r===x.r));
+    if(ligada) b.className="ativo";
+    b.innerHTML='<span class="de"></span><b></b><span class="c"></span>';
+    b.querySelector(".de").textContent=x.fonte==="dest"?"destinador":"reciclável";
+    b.querySelector("b").textContent=x.rotulo;
+    b.querySelector(".c").textContent=x.detalhe;
+    b.onclick=()=>{
+      ligarVincCustom(linkEditando.chave,x,document.getElementById("linkRotulo").value);
+      fecharLink();
+    };
+    el.appendChild(b);
+  });
+  if(vistas.length>80){
+    const s=document.createElement("div");
+    s.className="sub";
+    s.textContent="+"+(vistas.length-80)+" linhas — refine a busca.";
+    el.appendChild(s);
+  }
+}
 function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
-  if(montarOpcoesReci(alvo,linha,campoValor,campoUnidade)) return;
+  // Link manual manda em tudo: foi uma escolha explícita, e escolha explícita
+  // não pode ser sobrescrita por palpite de casamento de nomes.
+  const lk=custoVinculado(linha.chave);
+  if(lk){
+    alvo.innerHTML="";
+    const nota=document.createElement("div");
+    nota.className="titulo vinculado linkado";
+    const onde=lk.fonte==="dest"?(lk.d+" · "+lk.r):(lk.n+(lk.r&&lk.r!==lk.n?" · "+lk.r:""));
+    nota.innerHTML='<span></span><button type="button" class="solta">desfazer</button>';
+    nota.querySelector("span").textContent="🔗 Linkado a: "+onde+" — R$ "+
+      fmtDinheiro(lk.preco)+(lk.u?"/"+lk.u:"")+(lk.sumiu?"  (linha saiu da tabela)":"");
+    nota.querySelector(".solta").onclick=()=>desligarVincCustom(linha.chave);
+    alvo.appendChild(nota);
+    const trocar=document.createElement("button");
+    trocar.type="button"; trocar.className="btn-linkar";
+    trocar.textContent="🔗 trocar a linha de custo";
+    trocar.onclick=()=>abrirLink(linha.chave,linha.nome);
+    alvo.appendChild(trocar);
+    return;
+  }
+  if(montarOpcoesReci(alvo,linha,campoValor,campoUnidade)){ oferecerLink(alvo,linha); return; }
   alvo.innerHTML="";
   const unidade=leUnidade();
   // De onde veio o número: sem isso o valor aparece pronto no campo e ninguém
@@ -2308,7 +2492,7 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
     alvo.appendChild(nota);
   }
   const achados=custosSugeridos(linha,unidade);
-  if(!achados.length) return;
+  if(!achados.length){ oferecerLink(alvo,linha); return; }
   const t=document.createElement("div");
   t.className="titulo";
   t.textContent=pv?"Trocar de destinador:":"Custo do destinador → preço com BDI de "+dest.bdi+"%:";
@@ -2339,6 +2523,21 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
     box.appendChild(b);
   });
   alvo.appendChild(box);
+  oferecerLink(alvo,linha);
+}
+/* O convite pro link manual. Só onde faz sentido — resíduo e reciclável são os
+   dois que têm linha de custo do outro lado. Veículo, cargo e locação têm preço
+   próprio no catálogo deles, não uma tabela de parceiro pra apontar. */
+function oferecerLink(alvo,linha){
+  const t=tipoLinha(linha.chave);
+  if(t!=="res"&&t!=="reci") return;
+  if(!linhasDeCusto().length) return;
+  const b=document.createElement("button");
+  b.type="button"; b.className="btn-linkar";
+  b.textContent="🔗 não achou? linke a uma linha de custo";
+  b.title="Aponte à mão qual linha de Destinadores ou Recicláveis alimenta esta linha da proposta";
+  b.onclick=()=>abrirLink(linha.chave,linha.nome);
+  alvo.appendChild(b);
 }
 
 function renderLinhasValores(){
@@ -2371,7 +2570,7 @@ function renderLinhasValores(){
     // e é por isso que a caixa de observação nascia cortada e só se corrigia
     // depois de alguma interação forçar um novo cálculo com o card já na tela.
     alvo.appendChild(div);
-    div.querySelector(".nome").textContent=l.nome;
+    div.querySelector(".nome").textContent=l.rotulo||l.nome;
     // Preço cadastrado na aba do catálogo entra como ponto de partida, e só se
     // ainda não houver nada digitado nesta sessão — o que a pessoa acabou de
     // escrever sempre vale mais que o cadastro. Sem preço salvo, o campo nasce
@@ -2394,6 +2593,9 @@ function renderLinhasValores(){
         ? {v:fmtDinheiro(lista[0].cliente), u:lista[0].unidade||""}
         : {};
     }
+    // Link manual por último: é escolha explícita e vence qualquer sugestão.
+    const lkPreco=custoVinculado(l.chave);
+    if(lkPreco) salvo={v:fmtDinheiro(lkPreco.preco), u:lkPreco.u||salvo.u||""};
     const iv=div.querySelector('[data-campo="valor"]');
     iv.value=valorPorChave[l.chave]!==undefined?valorPorChave[l.chave]:(salvo.v||"");
     iv.oninput=()=>{mascaraValor(iv);valorPorChave[l.chave]=iv.value;};
@@ -3062,6 +3264,34 @@ let precos={reci:{},loc:{},repasse:35};
 const LS_VINC="corpus_vinculos_v1";
 let vinculos={};
 
+/* Vínculo CUSTOMIZADO: linha da proposta → linha de custo escolhida a dedo.
+
+   O vínculo acima só alcança o que o casamento por palavras encontra. Quando o
+   parceiro escreve "ÁGUA PLUVIAL" e a proposta diz "Água de Chuva", nenhum
+   termo bate, o resíduo não aparece nas sugestões e não tem como fixar nada —
+   o custo existe, está na tabela, e mesmo assim precisa ser digitado à mão toda
+   vez. Este aqui é a ponte manual: o Léo aponta a linha, e pronto.
+
+   Indexado pela chave da linha da proposta ("res:Não Recicláveis - Classe II"),
+   que é estável e já é a chave de tudo mais no fluxo. Aponta pra Destinadores
+   OU pra Recicláveis, e pode carregar um nome próprio pra sair na proposta.
+   Formato:
+   { "res:Água de Chuva": {fonte:"dest", d:"MARCA", r:"ÁGUA PLUVIAL",
+                           rot:"Água de Chuva", v:115, u:"TON", em:"2026-08-22"} } */
+const LS_VINCC="corpus_vinculos_customizados_v1";
+let vincCustom={};
+
+/* Observação padrão de cada item, escolhida pelo usuário.
+
+   As observações de fábrica estão espalhadas por seis editores de catálogo, e
+   quem só quer trocar o texto que sai na proposta não tem por que saber em qual
+   deles mexer — nem outra pessoa que adote o app precisa herdar as frases da
+   Corpus. Esta chave é o lugar único: o que estiver aqui vence o catálogo; o que
+   não estiver, cai no texto de fábrica de sempre.
+   Formato: { "res:Madeira - Classe II": "Tratamento: reaproveitamento." } */
+const LS_OBSP="corpus_observacoes_padrao_v1";
+let obsPadraoCustom={};
+
 /* Base rápida de clientes, alimentada por toda proposta gerada. Aqui em cima
    pelo mesmo motivo do resto: a inicialização carrega antes do bloco onde as
    funções moram, e `let` não existe antes da linha que o declara. Foi a
@@ -3307,6 +3537,8 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarDest();
   carregarPrecos();
   carregarVinculos();
+  carregarVincCustom();
+  carregarObsPadrao();
   carregarClientesRapidos();
   carregarFichas();
   fluxo();montarObjeto();montarChipsColeta();render();
@@ -3357,7 +3589,7 @@ function alternarOlhoBDI(){
   gravarDest(); pintarOlhoBDI();
 }
 function pintarOlhoBDI(){
-  const caixa=document.querySelector(".dest-bdi");
+  const caixa=document.getElementById("caixaBDI");
   const campo=document.getElementById("bdiDest");
   const olho=document.getElementById("olhoBDI");
   if(!caixa||!campo||!olho) return;
@@ -3949,6 +4181,189 @@ function alternarVinculo(nomeResiduo,p){
   else vinculos[nomeResiduo]={d:p.d,r:p.r,v:p.v,u:p.u||""};
   gravarVinculos(); renderDest(); renderLinhasValores();
 }
+/* ---- Vínculo customizado: a ponte manual entre nomenclaturas ---- */
+/* ---- Editor das observações padrão (aba Ajustes) ---- */
+let obsPAberta=false, obsPItemAberto=null;
+function toggleObsPadrao(){
+  obsPAberta=!obsPAberta;
+  document.getElementById("obsPadraoCorpo").classList.toggle("oculto",!obsPAberta);
+  document.getElementById("setaObsP").classList.toggle("aberta",obsPAberta);
+  if(obsPAberta) renderObsPadrao();
+}
+function abrirItemObsP(chave){
+  obsPItemAberto=(obsPItemAberto===chave)?null:chave;
+  renderObsPadrao();
+}
+/* Todos os itens que têm UMA observação, agrupados pela origem. Veículo fica de
+   fora de propósito: lá são duas frases (por coleta e por equipamento), e
+   espremer as duas num campo só apagaria a distinção que existe justamente
+   porque o texto muda com a modalidade. */
+function itensObsPadrao(){
+  const g=[];
+  g.push({titulo:"Resíduos — Classe II", itens:listaResiduos("CLASSE II").map(x=>"res:"+x.n)});
+  g.push({titulo:"Resíduos — Classe I",  itens:listaResiduos("CLASSE I").map(x=>"res:"+x.n)});
+  g.push({titulo:"Recicláveis",          itens:listaReciclaveis().map(x=>"reci:"+x.n)});
+  g.push({titulo:"Equipamentos",         itens:listaLocacoes().map(x=>"loc:"+x.n)});
+  g.push({titulo:"Mão de obra",          itens:listaCargos().map(n=>"cargo:"+n)});
+  return g;
+}
+function renderObsPadrao(){
+  const el=document.getElementById("listaObsP");
+  if(!el) return;
+  document.getElementById("badgeObsP").textContent=Object.keys(obsPadraoCustom).length;
+  const busca=semAc(document.getElementById("buscaObsP").value.trim());
+  el.innerHTML="";
+  let achou=0;
+  itensObsPadrao().forEach(grupo=>{
+    const vis=grupo.itens.filter(k=>!busca||semAc(k.slice(k.indexOf(":")+1)).includes(busca));
+    if(!vis.length) return;
+    achou+=vis.length;
+    const t=document.createElement("div");
+    t.className="titulinho-ficha"; t.textContent=grupo.titulo;
+    el.appendChild(t);
+    vis.forEach(chave=>{
+      const nome=chave.slice(chave.indexOf(":")+1);
+      const custom=obsPadraoDe(chave);
+      const fabrica=obsDeFabrica(chave);
+      const aberto=obsPItemAberto===chave;
+      const div=document.createElement("div");
+      div.className="mat-linha"+(aberto?" aberto":"")+(custom?" tem-preco":"");
+      div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
+                    (aberto?'<div class="mat-corpo"></div>':'');
+      el.appendChild(div);
+      div.querySelector(".mat-nome").textContent=nome;
+      const pintarResumo=()=>{
+        const c=obsPadraoDe(chave);
+        div.querySelector(".mat-resumo").textContent=
+          c?"sua":(fabrica?"de fábrica":"sem texto");
+        div.classList.toggle("tem-preco",!!c);
+      };
+      pintarResumo();
+      div.querySelector(".mat-cab").onclick=()=>abrirItemObsP(chave);
+      if(!aberto) return;
+      const corpo=div.querySelector(".mat-corpo");
+      const ta=document.createElement("textarea");
+      ta.rows=2;
+      ta.value=custom||"";
+      ta.placeholder=fabrica||"nenhum texto de fábrica — escreva o seu";
+      corpo.appendChild(ta);
+      const nota=document.createElement("div");
+      nota.className="sub";
+      nota.textContent=fabrica
+        ? "De fábrica: "+fabrica
+        : "Este item não tem texto de fábrica.";
+      corpo.appendChild(nota);
+      ta.oninput=()=>{
+        ajustarAltura(ta);
+        const v=ta.value.trim();
+        if(v) obsPadraoCustom[chave]=ta.value; else delete obsPadraoCustom[chave];
+        gravarObsPadrao();
+        document.getElementById("badgeObsP").textContent=Object.keys(obsPadraoCustom).length;
+        pintarResumo();
+        renderLinhasValores();
+      };
+      ajustarAltura(ta);
+    });
+  });
+  if(!achou) el.innerHTML='<span class="sub">Nada encontrado.</span>';
+}
+function carregarObsPadrao(){
+  try{
+    const s=localStorage.getItem(LS_OBSP);
+    if(s) obsPadraoCustom=JSON.parse(s)||{};
+  }catch(e){ console.warn("observações padrão: não deu pra ler o que estava salvo",e); }
+}
+function gravarObsPadrao(){
+  try{localStorage.setItem(LS_OBSP,JSON.stringify(obsPadraoCustom));}catch(e){}
+}
+function obsPadraoDe(chave){
+  const v=obsPadraoCustom[chave];
+  return (v&&String(v).trim())?String(v):null;
+}
+/* O texto que o app usaria sem customização nenhuma. Serve de placeholder no
+   editor — ver o que já sai hoje é o que evita reescrever o que já estava bom. */
+function obsDeFabrica(chave){
+  const t=tipoLinha(chave), nome=String(chave).slice(t.length+1);
+  if(t==="res"){
+    const r=listaResiduos("CLASSE II").find(x=>x.n===nome)
+          ||listaResiduos("CLASSE I").find(x=>x.n===nome);
+    return (r&&r.o)||"";
+  }
+  if(t==="reci"){
+    const r=listaReciclaveis().find(x=>x.n===nome);
+    return (r&&r.o)||"";
+  }
+  if(t==="loc"){
+    const p=precoSalvo(chave);
+    return (p&&p.o)||OBS_LOC;
+  }
+  return "";
+}
+function carregarVincCustom(){
+  try{
+    const s=localStorage.getItem(LS_VINCC);
+    if(s) vincCustom=JSON.parse(s)||{};
+  }catch(e){ console.warn("vínculos customizados: não deu pra ler o que estava salvo",e); }
+}
+function gravarVincCustom(){
+  try{localStorage.setItem(LS_VINCC,JSON.stringify(vincCustom));}catch(e){}
+}
+function vincCustomDe(chave){ return vincCustom[chave]||null; }
+/* Todas as linhas de custo do app numa lista só, pra escolher a dedo.
+
+   Destinadores e Recicláveis são catálogos de naturezas diferentes — um é o que
+   o parceiro cobra, o outro é o que a usina paga —, mas na hora de perguntar
+   "de onde sai o preço desta linha?" a resposta pode estar em qualquer um dos
+   dois. Juntar aqui é o que deixa a busca ser uma só. */
+function linhasDeCusto(){
+  const fora=[];
+  dest.precos.forEach((p,i)=>{
+    fora.push({fonte:"dest", i, d:p.d, r:p.r, cl:p.cl||"", v:p.v, u:normUnid(p.u)||p.u||"",
+      rotulo:p.d+" · "+p.r,
+      // O que vai pro campo é sempre o preço de VENDA. Custo não sai daqui.
+      preco:comBDI(p.v),
+      detalhe:"venda R$ "+fmtDinheiro(comBDI(p.v))+(p.u?"/"+(normUnid(p.u)||p.u):"")+
+              "  ·  BDI "+dest.bdi+"%"+(p.cl?"  ·  "+p.cl:"")});
+  });
+  listaReciclaveis().forEach(x=>{
+    precosReci(x.n).forEach((it,j)=>{
+      fora.push({fonte:"reci", n:x.n, j, r:it.rotulo||x.n, v:it.venda, u:it.unidade||"",
+        rotulo:x.n+(it.rotulo?" · "+it.rotulo:""),
+        // Em reciclável quem vai pra proposta é o preço AO CLIENTE
+        preco:it.cliente,
+        detalhe:"ao cliente R$ "+fmtDinheiro(it.cliente)+(it.unidade?"/"+it.unidade:"")+
+                "  ·  repasse "+(it.repasse||repassePadrao())+"%"});
+    });
+  });
+  return fora;
+}
+/* Refaz o preço a partir da tabela viva, não do número congelado no vínculo.
+   Reajustou o custo do parceiro na aba Destinadores? A proposta seguinte já
+   nasce com o valor novo — que é o motivo de existir a edição inline de lá.
+   O número guardado no vínculo é só memória de quanto era no dia. */
+function custoVinculado(chave){
+  const v=vincCustomDe(chave);
+  if(!v) return null;
+  const atual=linhasDeCusto().find(x=>v.fonte==="dest"
+    ? (x.fonte==="dest"&&x.d===v.d&&x.r===v.r)
+    : (x.fonte==="reci"&&x.n===v.n&&x.r===v.r));
+  // Linha sumiu da tabela (planilha nova sem aquele resíduo): mantém o que foi
+  // combinado, mas avisa que o número é o do dia do vínculo.
+  if(!atual) return {...v, preco:(v.fonte==="dest"?comBDI(v.v):v.v), sumiu:true};
+  return {...v, ...atual, sumiu:false};
+}
+function ligarVincCustom(chave,linha,rotulo){
+  vincCustom[chave]={
+    fonte:linha.fonte, d:linha.d, n:linha.n, r:linha.r,
+    rot:(rotulo||"").trim(), v:linha.v, u:linha.u,
+    em:new Date().toISOString().slice(0,10)
+  };
+  gravarVincCustom(); renderLinhasValores();
+}
+function desligarVincCustom(chave){
+  delete vincCustom[chave];
+  gravarVincCustom(); renderLinhasValores();
+}
 function carregarPrecos(){
   try{
     const s=localStorage.getItem(LS_PRECOS);
@@ -4007,7 +4422,11 @@ function precosReci(nome){
 function guardarPreco(tipo,nome,dados){
   precos[tipo]=precos[tipo]||{};
   const limpo={};
-  ["v","u","o"].forEach(k=>{ if(dados[k]&&String(dados[k]).trim()) limpo[k]=String(dados[k]).trim(); });
+  // med e oi são ficha interna do equipamento (medidas e anotação de operação).
+  // Ficam guardados aqui junto do preço porque é a mesma peça, mas NUNCA são
+  // lidos por montarLinhas() — só `o` alimenta a observação que vai pro cliente.
+  const limpo_campos=["v","u","o","med","oi"];
+  limpo_campos.forEach(k=>{ if(dados[k]&&String(dados[k]).trim()) limpo[k]=String(dados[k]).trim(); });
   if(Object.keys(limpo).length) precos[tipo][nome]=limpo;
   else delete precos[tipo][nome];   // esvaziou tudo: volta a ser item sem preço
   gravarPrecos();
@@ -4049,7 +4468,8 @@ function montarCatalogoPrecos(cfg){
          <input type="text" placeholder="unid." data-c="u">
        </div>
        <div class="sugestoes na-linha" data-c="unidades"></div>
-       <textarea rows="1" data-c="o"></textarea>`;
+       <textarea rows="1" data-c="o"></textarea>
+       <div class="ficha-equip"></div>`;
     el.appendChild(div);
     div.classList.toggle("tem-preco",!!p.v);
     div.querySelector(".preco-nome").textContent=x.n;
@@ -4063,10 +4483,29 @@ function montarCatalogoPrecos(cfg){
     io.value=p.o||"";
     io.placeholder=cfg.obsPadrao(x)||"Observação que vai na proposta (opcional)";
     ajustarAltura(io);
-    const salvar=()=>guardarPreco(cfg.tipo,x.n,{v:iv.value,u:iu.value,o:io.value});
+    // Ficha interna: só onde faz sentido. Medida de caixa e container é o que
+    // decide se cabe no pátio do cliente; num cargo ou num resíduo não existe.
+    const fichaEl=div.querySelector(".ficha-equip");
+    let imed=null, ioi=null;
+    if(cfg.ficha&&fichaEl){
+      fichaEl.innerHTML=
+        `<div class="titulinho-ficha">Ficha interna — não vai pra proposta</div>
+         <label>Medidas (C × L × A)</label>
+         <input type="text" placeholder="ex.: 6,20 × 2,40 × 2,10 m" data-c="med">
+         <label>Anotação de operação</label>
+         <textarea rows="1" data-c="oi" placeholder="ex.: reforçada pra entulho; precisa de caminhão poliguincho"></textarea>`;
+      imed=fichaEl.querySelector('[data-c="med"]');
+      ioi=fichaEl.querySelector('[data-c="oi"]');
+      imed.value=p.med||""; ioi.value=p.oi||"";
+      ajustarAltura(ioi);
+    }
+    const salvar=()=>guardarPreco(cfg.tipo,x.n,{v:iv.value,u:iu.value,o:io.value,
+      med:imed?imed.value:p.med, oi:ioi?ioi.value:p.oi});
     iv.oninput=()=>{mascaraValor(iv);salvar();};
     iu.oninput=()=>{salvar();montarUnid();};
     io.oninput=()=>{ajustarAltura(io);salvar();};
+    if(imed) imed.oninput=salvar;
+    if(ioi) ioi.oninput=()=>{ajustarAltura(ioi);salvar();};
     div.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
     const montarUnid=()=>{
       const chips=div.querySelector('[data-c="unidades"]');
@@ -4102,6 +4541,71 @@ function renderExemploRepasse(){
   const el=document.getElementById("exemploRepasse");
   if(el) el.textContent="venda R$ 1,00 → cliente R$ "+fmtDinheiro(precoAoCliente("1,00"));
 }
+/* Olho do repasse, mesmo espírito do BDI: a tela é aberta na frente do cliente
+   e do parceiro, e a diferença entre o que a usina paga e o que a Corpus repassa
+   não é assunto de nenhum dos dois. Esconde o percentual, o exemplo e a linha
+   "ao cliente = venda × X%" — que denuncia a conta inteira. */
+function alternarOlhoRepasse(){
+  precos.reciOculto=!precos.reciOculto;
+  gravarPrecos(); renderPrecosReci();
+}
+function pintarOlhoRepasse(){
+  const caixa=document.getElementById("caixaRepasse");
+  const campo=document.getElementById("repasseReci");
+  const olho=document.getElementById("olhoRepasse");
+  if(!caixa||!campo||!olho) return;
+  const escondido=!!precos.reciOculto;
+  caixa.classList.toggle("escondido",escondido);
+  campo.type=escondido?"password":"text";
+  olho.textContent=escondido?"🙈":"👁";
+  olho.title=escondido?"mostrar o repasse":"esconder o repasse";
+  document.getElementById("exemploRepasse").classList.toggle("oculto",escondido);
+}
+/* Unidades oferecidas por material. Nasce com as três de sempre; se o Léo quiser
+   M³ pra um material específico, a lista é dele — editar aqui não mexe em
+   nenhum outro. O campo continua livre pra digitar, como em todo canto. */
+const UNID_RECI_PADRAO=["KG","Tonelada","Unidade"];
+function unidadesDoMaterial(nome){
+  const g=(precos.reci||{})[nome];
+  const l=(g&&Array.isArray(g.un)&&g.un.length)?g.un:UNID_RECI_PADRAO;
+  return l.slice();
+}
+function guardarUnidadesMaterial(nome,lista){
+  precos.reci=precos.reci||{};
+  const g=precos.reci[nome]||{itens:[],o:""};
+  const limpa=lista.map(u=>u.trim()).filter(Boolean);
+  // Igual ao padrão? Não guarda nada: lista vazia é o mesmo que "usa o padrão",
+  // e assim mudar o padrão um dia alcança quem nunca personalizou.
+  if(!limpa.length||limpa.join("|")===UNID_RECI_PADRAO.join("|")) delete g.un;
+  else g.un=limpa;
+  precos.reci[nome]=g;
+  gravarPrecos();
+}
+async function editarUnidadesMaterial(nome){
+  const atual=unidadesDoMaterial(nome).join(", ");
+  const r=await pedirTexto("Unidades de "+nome,
+    "Separe por vírgula. Deixe vazio pra voltar ao padrão ("+UNID_RECI_PADRAO.join(", ")+").",
+    atual);
+  if(r===null) return;
+  guardarUnidadesMaterial(nome,String(r).split(","));
+  renderPrecosReci();
+}
+/* Popup de unidade do reciclável. Mesma lista de seleção do resto do app, com o
+   "editar lista" que a Parte 3 pediu — e a conversão KG↔TON vem junto. */
+function abrirUnidadesReci(campo,nome,aoTrocar){
+  selAtual={
+    titulo:"Unidade", opcoes:unidadesDoMaterial(nome),
+    escolha:campo.value.trim()?[campo.value.trim()]:[],
+    onPick:u=>{ campo.value=u; if(aoTrocar) aoTrocar(u); fecharSelecao(); },
+    gerenciar:()=>editarUnidadesMaterial(nome)
+  };
+  document.getElementById("selTitulo").textContent="Unidade — "+nome;
+  document.getElementById("selBusca").value="";
+  document.getElementById("selBusca").classList.add("oculto");
+  document.getElementById("modalSelecao").classList.remove("oculto");
+  pintarSelecao();
+  document.getElementById("selDica").textContent="Ou digite direto no campo. Trocar entre KG e Tonelada refaz o valor.";
+}
 function abrirMaterialReci(nome){
   reciAberto=(reciAberto===nome)?null:nome;   // toca de novo e fecha
   const g=(precos.reci||{})[reciAberto];
@@ -4125,7 +4629,10 @@ function guardarReci(nome,dados){
   precos.reci=precos.reci||{};
   const itens=(dados.itens||[]).filter(x=>x&&String(x.v||"").trim());
   const o=String(dados.o||"").trim();
-  if(itens.length||o) precos.reci[nome]={itens,o};
+  // A lista de unidades do material é configuração, não preço: sobrevive a
+  // esvaziar os valores e não some junto com eles.
+  const un=((precos.reci[nome]||{}).un)||null;
+  if(itens.length||o||un) precos.reci[nome]=Object.assign({itens,o},un?{un}:{});
   else delete precos.reci[nome];
   gravarPrecos(); atualizarBadgesPrecos(); renderLinhasValores();
 }
@@ -4135,6 +4642,7 @@ function renderPrecosReci(){
   const rep=document.getElementById("repasseReci");
   if(rep&&document.activeElement!==rep) rep.value=repassePadrao();
   renderExemploRepasse();
+  pintarOlhoRepasse();
   atualizarBadgesPrecos();
   const busca=semAc(document.getElementById("buscaReci").value.trim());
   const itens=listaReciclaveis().filter(x=>!busca||semAc(x.n).includes(busca));
@@ -4183,7 +4691,11 @@ function renderPrecosReci(){
       ir.value=it.r||""; iv.value=it.v||""; iu.value=it.u||""; irep.value=it.rep||"";
       const mostrar=()=>{
         const c=precoAoCliente(iv.value,irep.value);
-        p.querySelector(".mat-cliente").innerHTML= iv.value
+        const caixa=p.querySelector(".mat-cliente");
+        // Com o olho fechado a linha inteira some: ela traz o preço ao cliente E
+        // a conta que o produz, ou seja, o repasse por extenso.
+        caixa.classList.toggle("oculto",!!precos.reciOculto);
+        caixa.innerHTML= iv.value
           ? 'ao cliente <b>R$ '+fmtDinheiro(c)+(iu.value?"/"+iu.value:"")+'</b>'+
             '<span class="mat-conta"> = venda '+fmtDinheiro(numeroBR(iv.value))+
             ' × '+(irep.value?numeroBR(irep.value):repassePadrao())+'%</span>'
@@ -4195,7 +4707,13 @@ function renderPrecosReci(){
       };
       iv.oninput=()=>{mascaraValor(iv);guardaCampo();};
       irep.oninput=()=>{irep.value=irep.value.replace(/[^\d,.]/g,"");guardaCampo();};
-      ir.oninput=guardaCampo; iu.oninput=guardaCampo;
+      ir.oninput=guardaCampo;
+      // Unidade: popup com a lista do material (editável) e conversão KG↔TON
+      const converterReci=ligarConversaoMassa(iv,iu.value,()=>guardaCampo());
+      const trocouUnid=u=>{converterReci(u);guardaCampo();};
+      iu.oninput=()=>trocouUnid(iu.value);
+      iu.onclick=()=>abrirUnidadesReci(iu,x.n,trocouUnid);
+      iu.placeholder="unid.";
       p.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
       p.querySelector(".mat-tira").onclick=()=>{
         linhas.splice(i,1);
@@ -4229,6 +4747,7 @@ function renderPrecosEquip(){
     tipo:"loc", alvo:"listaEquip", badge:"badgeEquip", busca:"buscaEquip",
     itens:()=>listaLocacoes(),
     unidades:UNIDADES_POR_TIPO.loc,
+    ficha:true,
     obsPadrao:()=>OBS_LOC
   });
 }
@@ -4239,39 +4758,71 @@ function carregarFichas(){
     const s=localStorage.getItem(LS_FICHAS);
     if(s) fichas=JSON.parse(s)||{};
   }catch(e){ console.warn("fichas: não deu pra ler o que estava salvo",e); }
+  migrarFichas();
 }
 function gravarFichas(){
   try{localStorage.setItem(LS_FICHAS,JSON.stringify(fichas));}catch(e){}
 }
 function fichaDe(chave){ return fichas[chave]||{}; }
-function guardarFicha(chave,dados){
-  const limpo={};
-  ["diaria","km","cap","med","obs"].forEach(k=>{
-    if(dados[k]&&String(dados[k]).trim()) limpo[k]=String(dados[k]).trim();
-  });
-  if(Object.keys(limpo).length) fichas[chave]=limpo; else delete fichas[chave];
-  gravarFichas();
-  const b=document.getElementById("badgeFrota");
-  if(b) b.textContent=listaVeiculos().filter(v=>Object.keys(fichaDe("veic:"+v.n)).length).length;
+/* A ficha nasceu com UMA capacidade e UMA diária. Só que o mesmo veículo tem
+   modelo de 10 m³ e de 12 m³, com diária diferente — e escolher qual cadastrar
+   era perder metade da frota. Agora capacidade e diária andam em par, numa
+   lista. O valor por km fica fora: é coeficiente do veículo, igual pros dois.
+
+   Quem já tinha a ficha antiga não perde nada — vira o primeiro par da lista.
+   As medidas saem da frota (é capacidade que importa aqui; medida é assunto do
+   equipamento locável), mas o texto não é jogado fora: desce pra observação,
+   onde continua à mão de quem escreveu. */
+function migrarFicha(f){
+  if(!f||Array.isArray(f.caps)) return f;
+  const nova={km:f.km||"", caps:[], obs:f.obs||""};
+  if(f.cap||f.diaria) nova.caps.push({c:f.cap||"", d:f.diaria||""});
+  if(f.med) nova.obs=(nova.obs?nova.obs+"\n":"")+"Medidas: "+f.med;
+  return nova;
 }
-let frotaAberta=null;
+function migrarFichas(){
+  let mudou=false;
+  Object.entries(fichas).forEach(([k,f])=>{
+    if(f&&!Array.isArray(f.caps)){ fichas[k]=migrarFicha(f); mudou=true; }
+  });
+  if(mudou) gravarFichas();
+}
+function fichaTemDado(f){
+  if(!f) return false;
+  return !!(String(f.km||"").trim()||String(f.obs||"").trim()||
+            (f.caps||[]).some(c=>String(c.c||"").trim()||String(c.d||"").trim()));
+}
+function guardarFicha(chave,dados){
+  const caps=(dados.caps||[])
+    .map(c=>({c:String(c.c||"").trim(), d:String(c.d||"").trim()}))
+    .filter(c=>c.c||c.d);
+  const limpo={km:String(dados.km||"").trim(), obs:String(dados.obs||"").trim(), caps};
+  if(fichaTemDado(limpo)) fichas[chave]=limpo; else delete fichas[chave];
+  gravarFichas();
+  pintarBadgeFrota();
+}
+function pintarBadgeFrota(){
+  const b=document.getElementById("badgeFrota");
+  if(b) b.textContent=listaVeiculos().filter(v=>fichaTemDado(fichaDe("veic:"+v.n))).length;
+}
+let frotaAberta=null, frotaCaps=null;
 function abrirVeiculo(nome){
   frotaAberta=(frotaAberta===nome)?null:nome;
+  frotaCaps=null;                       // rascunho é por veículo aberto
   renderFrota();
 }
 function renderFrota(){
   const el=document.getElementById("listaFrota");
   if(!el) return;
   const veics=listaVeiculos();
-  document.getElementById("badgeFrota").textContent=
-    veics.filter(v=>Object.keys(fichaDe("veic:"+v.n)).length).length;
+  pintarBadgeFrota();
   const busca=semAc(document.getElementById("buscaFrota").value.trim());
   const vis=veics.filter(v=>!busca||semAc(v.n).includes(busca));
   el.innerHTML="";
   if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
   vis.forEach(v=>{
     const chave="veic:"+v.n, f=fichaDe(chave), aberto=frotaAberta===v.n;
-    const temFicha=Object.keys(f).length>0;
+    const temFicha=fichaTemDado(f);
     const div=document.createElement("div");
     div.className="mat-linha"+(aberto?" aberto":"")+(temFicha?" tem-preco":"");
     div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
@@ -4281,10 +4832,13 @@ function renderFrota(){
     // Atualiza só o texto do resumo, sem redesenhar a linha: redesenhar a cada
     // tecla tiraria o foco do campo no meio da digitação.
     const pintarResumo=()=>{
-      const g=fichaDe(chave), tem=Object.keys(g).length>0;
+      const g=fichaDe(chave), tem=fichaTemDado(g);
+      const caps=(g.caps||[]).filter(c=>c.c||c.d);
       div.querySelector(".mat-resumo").textContent=
         !tem ? "sem ficha"
-        : [g.diaria?"R$ "+g.diaria+"/dia":null, g.cap||null].filter(Boolean).join(" · ")||"ficha preenchida";
+        : caps.length===0 ? "ficha preenchida"
+        : caps.length===1 ? [caps[0].c,caps[0].d?"R$ "+caps[0].d+"/dia":null].filter(Boolean).join(" · ")
+        : caps.length+" capacidades";
       div.classList.toggle("tem-preco",tem);
     };
     pintarResumo();
@@ -4292,41 +4846,54 @@ function renderFrota(){
     if(!aberto) return;
 
     const corpo=div.querySelector(".mat-corpo");
+    // Rascunho em memória: uma capacidade recém-adicionada nasce vazia, e
+    // guardarFicha() descarta par vazio — sem o rascunho a linha nova sumiria no
+    // mesmo instante em que aparece (foi o que aconteceu nos recicláveis).
+    if(frotaAberta===v.n&&!frotaCaps) frotaCaps=(f.caps&&f.caps.length)
+      ? f.caps.map(c=>Object.assign({},c)) : [{c:"",d:""}];
+    const caps=frotaCaps;
     corpo.innerHTML=
-      `<div class="ficha-grade">
-         <div><label>Custo por diária</label>
-           <div class="campo-calc">
-             <input type="text" inputmode="numeric" placeholder="0,00" data-f="diaria">
-             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
-           </div></div>
-         <div><label>Valor por km</label>
-           <input type="text" inputmode="numeric" placeholder="0,00" data-f="km"></div>
-       </div>
-       <div class="ficha-grade">
-         <div><label>Capacidade</label>
-           <input type="text" placeholder="ex.: 12 m³ / 5 ton" data-f="cap"></div>
-         <div><label>Medidas (C × L × A)</label>
-           <input type="text" placeholder="ex.: 6,20 × 2,40 × 2,10 m" data-f="med"></div>
-       </div>
+      `<label>Valor por km <span class="sub">(igual pra todos os modelos)</span></label>
+       <input type="text" inputmode="numeric" placeholder="0,00" data-f="km">
+       <div class="titulinho-ficha">Capacidades</div>
+       <div class="caps"></div>
+       <button type="button" class="btn-sec btn-mini" style="width:100%" data-f="mais">+ adicionar capacidade</button>
        <label>Observações / especificações</label>
        <textarea rows="1" data-f="obs" placeholder="ex.: precisa de área de manobra; opera com munck acoplado"></textarea>`;
-    const campos={};
-    ["diaria","km","cap","med","obs"].forEach(k=>{
-      campos[k]=corpo.querySelector(`[data-f="${k}"]`);
-      campos[k].value=f[k]||"";
-    });
+    const ikm=corpo.querySelector('[data-f="km"]'), iobs=corpo.querySelector('[data-f="obs"]');
+    ikm.value=f.km||""; iobs.value=f.obs||"";
     const salvar=()=>{
-      guardarFicha(chave,{
-        diaria:campos.diaria.value, km:campos.km.value, cap:campos.cap.value,
-        med:campos.med.value, obs:campos.obs.value});
+      guardarFicha(chave,{km:ikm.value, obs:iobs.value, caps});
       pintarResumo();
     };
-    campos.diaria.oninput=()=>{mascaraValor(campos.diaria);salvar();};
-    campos.km.oninput=()=>{mascaraValor(campos.km);salvar();};
-    campos.cap.oninput=salvar; campos.med.oninput=salvar;
-    campos.obs.oninput=()=>{ajustarAltura(campos.obs);salvar();};
-    corpo.querySelector(".abre-calc").onclick=()=>abrirCalc(campos.diaria);
-    ajustarAltura(campos.obs);
+    const listaCaps=corpo.querySelector(".caps");
+    caps.forEach((cp,i)=>{
+      const l=document.createElement("div");
+      l.className="cap-linha";
+      l.innerHTML=
+        `<input type="text" placeholder="ex.: 12 m³" data-k="c">
+         <div class="campo-calc">
+           <input type="text" inputmode="numeric" placeholder="diária 0,00" data-k="d">
+           <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
+         </div>
+         <button type="button" class="mat-tira" title="Remover esta capacidade">✕</button>`;
+      listaCaps.appendChild(l);
+      const ic=l.querySelector('[data-k="c"]'), id=l.querySelector('[data-k="d"]');
+      ic.value=cp.c||""; id.value=cp.d||"";
+      const guarda=()=>{ cp.c=ic.value; cp.d=id.value; salvar(); };
+      ic.oninput=guarda;
+      id.oninput=()=>{mascaraValor(id);guarda();};
+      l.querySelector(".abre-calc").onclick=()=>abrirCalc(id);
+      l.querySelector(".mat-tira").onclick=()=>{
+        caps.splice(i,1);
+        if(!caps.length) caps.push({c:"",d:""});
+        salvar(); renderFrota();
+      };
+    });
+    corpo.querySelector('[data-f="mais"]').onclick=()=>{ caps.push({c:"",d:""}); renderFrota(); };
+    ikm.oninput=()=>{mascaraValor(ikm);salvar();};
+    iobs.oninput=()=>{ajustarAltura(iobs);salvar();};
+    ajustarAltura(iobs);
   });
 }
 
@@ -5241,8 +5808,11 @@ function registrarClienteRapido(){
   const cnpj=so(g("cnpj"));
   if(!cnpjValido(cnpj)) return;                 // sem documento válido, não entra
   const c=contatosParaDocumento();
+  // E-mail e endereço entram junto: a ficha do cliente mostra os quatro, e
+  // guardar só nome e telefone obrigava a reabrir a proposta antiga pro resto.
   const novo={razaoSocial:g("razaoSocial").toUpperCase(), cnpj:g("cnpj"),
-              contato:c.primeiro.nome, telefone:c.primeiro.fone, em:Date.now()};
+              contato:c.primeiro.nome, telefone:c.primeiro.fone,
+              email:g("email"), endereco:g("enderecoUnico"), em:Date.now()};
   // Dedup por CNPJ (só os dígitos): cliente repetido atualiza, não duplica.
   const i=clientesRapidos.findIndex(x=>so(x.cnpj)===cnpj);
   if(i>=0) clientesRapidos[i]=Object.assign(clientesRapidos[i],novo);
@@ -5261,44 +5831,112 @@ async function promoverParaCofre(cnpj){
   const r=clientesRapidos.find(x=>so(x.cnpj)===so(cnpj));
   if(!r) return;
   const i=clientes.findIndex(x=>so(x.cnpj)===so(cnpj));
-  const reg={razaoSocial:r.razaoSocial,cnpj:r.cnpj,ie:"",email:"",
-             contato:[r.contato,r.telefone].filter(Boolean).join(" - "),endereco:""};
+  // Leva tudo o que a base rápida tem: desde a Parte 5 ela guarda e-mail e
+  // endereço, e promover jogando os dois fora seria perder dado no caminho.
+  const reg={razaoSocial:r.razaoSocial,cnpj:r.cnpj,ie:"",email:r.email||"",
+             contato:[r.contato,r.telefone].filter(Boolean).join(" - "),
+             endereco:r.endereco||""};
   if(i>=0) clientes[i]=Object.assign({},clientes[i],reg); else clientes.push(reg);
   await gravarCofre();
   listarClientes();
   document.getElementById("avisoCofre").textContent=r.razaoSocial+" foi pro cofre.";
 }
+/* A lista é a base rápida e só ela. O cofre com senha vive em Ajustes agora:
+   são duas coisas de naturezas diferentes, e tê-las lado a lado obrigava a
+   explicar o cadeado toda vez que alguém batia o olho aqui.
+
+   Na linha, só a razão social. Contato, telefone, e-mail e endereço abrem no
+   toque — é a informação que se procura uma vez por cliente, não a que se lê
+   varrendo a lista. */
 function listarClientes(){
   const q=semAc(document.getElementById("buscaCliente").value);
-  const bate=c=>!q||semAc(c.razaoSocial||"").includes(q)||so(c.cnpj||"").includes(so(q));
-  const doCofre=clientes.filter(bate);
-  // O que já está no cofre não precisa aparecer duas vezes
-  const noCofre=new Set(clientes.map(c=>so(c.cnpj||"")).filter(Boolean));
-  const rapidos=clientesRapidos.filter(c=>bate(c)&&!noCofre.has(so(c.cnpj||"")));
-  document.getElementById("badgeClientes").textContent=clientes.length+rapidos.length;
+  // so(q) some quando a busca não tem dígito nenhum — e includes("") é sempre
+  // verdadeiro, então "xyz" casava com todo CNPJ da lista. Só compara documento
+  // quando existe documento pra comparar.
+  const qd=so(q);
+  const bate=c=>!q||semAc(c.razaoSocial||"").includes(q)||(!!qd&&so(c.cnpj||"").includes(qd));
+  const rapidos=clientesRapidos.filter(bate);
+  document.getElementById("badgeClientes").textContent=clientesRapidos.length;
   const el=document.getElementById("listaClientes");
   el.innerHTML="";
-  doCofre.slice(0,40).forEach(c=>{
+  if(!rapidos.length){
+    el.innerHTML=clientesRapidos.length
+      ? '<span class="sub">Nenhum cliente encontrado.</span>'
+      : '<span class="sub">A lista se enche sozinha: cada proposta gerada deixa o cliente aqui.</span>';
+  }
+  rapidos.slice(0,60).forEach(c=>{
     const b=document.createElement("button");
-    b.className="chip";b.textContent="🔒 "+c.razaoSocial.slice(0,36);
-    b.title="do cofre (com senha)";
-    b.onclick=()=>carregarCliente(clientes.indexOf(c));
+    b.type="button"; b.className="cli-linha";
+    b.innerHTML='<span class="rs"></span><span class="seta-cli">›</span>';
+    b.querySelector(".rs").textContent=c.razaoSocial||"(sem razão social)";
+    b.title=c.razaoSocial||"";
+    b.onclick=()=>abrirFichaCliente(c);
     el.appendChild(b);
   });
-  rapidos.slice(0,40).forEach(c=>{
-    const b=document.createElement("button");
-    b.className="chip chip-rapido";b.textContent=c.razaoSocial.slice(0,36);
-    b.title="veio de uma proposta gerada — sem senha. Toque e segure pra mandar pro cofre.";
-    b.onclick=()=>carregarClienteRapido(c);
-    b.oncontextmenu=ev=>{ev.preventDefault();promoverParaCofre(c.cnpj);};
-    el.appendChild(b);
-  });
-  if(!doCofre.length&&!rapidos.length)
-    el.innerHTML='<span class="sub">Nenhum cliente encontrado.</span>';
   const aviso=document.getElementById("avisoRapidos");
-  if(aviso) aviso.textContent=rapidos.length
-    ? rapidos.length+" cliente(s) sem 🔒 vieram das propostas geradas — base de acesso rápido, sem senha. O cofre com senha continua sendo o cofre."
+  if(aviso) aviso.textContent=clientesRapidos.length
+    ? "Alimentada pelas propostas geradas, sem senha, só neste aparelho. O cofre com senha está em Ajustes."
     : "";
+}
+/* Telefone brasileiro pro formato que o WhatsApp entende: só dígitos, com o 55
+   na frente. Devolve null quando não dá pra ter certeza — abrir uma conversa
+   com o número errado é pior que não oferecer o atalho. */
+function linkWhatsApp(fone){
+  const d=so(fone||"");
+  if(d.length===10||d.length===11) return "https://wa.me/55"+d;      // DDD + número
+  if((d.length===12||d.length===13)&&d.startsWith("55")) return "https://wa.me/"+d;
+  return null;
+}
+let clienteAberto=null;
+function abrirFichaCliente(c){
+  clienteAberto=c;
+  document.getElementById("cliTitulo").textContent=c.razaoSocial||"Cliente";
+  const el=document.getElementById("cliCorpo");
+  el.innerHTML="";
+  const campo=(rot,valor,montar)=>{
+    const d=document.createElement("div");
+    d.className="campo";
+    const r=document.createElement("div"); r.className="rot"; r.textContent=rot;
+    d.appendChild(r);
+    if(!String(valor||"").trim()){
+      const v=document.createElement("div"); v.className="vazio";
+      v.textContent="não informado"; d.appendChild(v);
+    }else d.appendChild(montar?montar(valor):Object.assign(
+      document.createElement("div"),{className:"val",textContent:valor}));
+    el.appendChild(d);
+  };
+  campo("Razão social",c.razaoSocial);
+  campo("CNPJ",c.cnpj);
+  campo("Contato",c.contato);
+  campo("Telefone",c.telefone,v=>{
+    const zap=linkWhatsApp(v);
+    if(!zap){ return Object.assign(document.createElement("div"),{className:"val",textContent:v}); }
+    const a=document.createElement("a");
+    a.className="val zap"; a.href=zap; a.target="_blank"; a.rel="noopener";
+    a.textContent="💬 "+v+"  ·  abrir no WhatsApp";
+    return a;
+  });
+  campo("E-mail",c.email,v=>{
+    const a=document.createElement("a");
+    a.className="val"; a.href="mailto:"+v; a.textContent=v;
+    return a;
+  });
+  campo("Endereço",c.endereco);
+  document.getElementById("cliUsar").onclick=()=>{
+    fecharCliente();
+    carregarClienteRapido(c);
+  };
+  // O caminho pro cofre morava num toque-e-segure no chip, que ninguém acha.
+  // Aqui é um botão com nome.
+  document.getElementById("cliCofre").onclick=()=>{
+    promoverParaCofre(c.cnpj);
+    if(chaveCofre) fecharCliente();
+  };
+  document.getElementById("modalCliente").classList.remove("oculto");
+}
+function fecharCliente(){
+  clienteAberto=null;
+  document.getElementById("modalCliente").classList.add("oculto");
 }
 function carregarClienteRapido(c){
   document.getElementById("razaoSocial").value=(c.razaoSocial||"").toUpperCase();
@@ -5306,6 +5944,12 @@ function carregarClienteRapido(c){
   const elc=document.getElementById("cnpj");elc.value=c.cnpj||"";mascaraCNPJ(elc);conferirCNPJ();
   document.getElementById("solicitante").value=c.contato||"";
   const elt=document.getElementById("telefone");elt.value=c.telefone||"";mascaraTelefone(elt);
+  if(c.email) document.getElementById("email").value=c.email;
+  if(c.endereco){
+    document.getElementById("enderecoUnico").value=c.endereco;
+    ultimoEnderecoLido[""]="";
+    quebrarEndereco();
+  }
   document.getElementById("statusCNPJ").textContent="Carregado da base rápida — confira antes de gerar.";
   mostrarAba("proposta");
   document.getElementById("cardCliente").scrollIntoView({behavior:"smooth",block:"start"});
@@ -5372,7 +6016,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.22-2";
+const APP_VERSION="2026.08.22-3";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
