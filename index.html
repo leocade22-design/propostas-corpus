@@ -233,6 +233,25 @@
   .dest-tab td.melhor{background:var(--verde-claro);}
   .dest-tab td.melhor .n{color:var(--verde);font-weight:700;}
   /* Linha editável dos catálogos de preço (recicláveis, equipamentos) */
+  /* Recicláveis: linha fechada que expande */
+  .mat-linha{border:1px solid var(--card-borda);border-radius:10px;margin-bottom:7px;overflow:hidden;}
+  .mat-linha.tem-preco{border-color:var(--verde-borda);}
+  .mat-cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+    padding:11px 12px;cursor:pointer;}
+  .mat-linha.aberto .mat-cab{background:var(--verde-claro);}
+  .mat-nome{font-size:.85rem;font-weight:600;}
+  .mat-resumo{font-size:.76rem;color:var(--suave);white-space:nowrap;}
+  .mat-linha.tem-preco .mat-resumo{color:var(--verde);font-weight:600;}
+  .mat-corpo{padding:4px 12px 12px;}
+  .mat-preco{border-top:1px dashed var(--campo-borda);padding-top:9px;margin-top:6px;}
+  .mat-nums{display:grid;grid-template-columns:1.4fr .8fr .7fr;gap:6px;margin-top:6px;}
+  .mat-linha input{padding:8px 10px;font-size:.86rem;}
+  .mat-linha textarea{font-size:.78rem;min-height:0;padding:8px 10px;}
+  .mat-cliente{font-size:.76rem;margin-top:6px;}
+  .mat-cliente b{color:var(--verde);}
+  .mat-conta{color:var(--suave);font-size:.72rem;}
+  .mat-tira{background:none;border:none;color:var(--alerta);font-size:.72rem;
+    padding:4px 0 0;font-family:inherit;}
   .preco-linha{border:1px solid var(--card-borda);border-radius:10px;
     padding:10px;margin-bottom:8px;}
   .preco-linha.tem-preco{border-color:var(--verde-borda);background:var(--verde-claro);}
@@ -439,15 +458,23 @@
 
 <section class="aba-conteudo" id="aba-reciclaveis" hidden>
   <div class="card">
-    <h2>Recicláveis — preço de venda <span class="badge" id="badgeReci">0</span></h2>
-    <div class="sub" style="margin-bottom:10px">
-      Quanto a Corpus <strong>recebe</strong> por material reciclável. Diferente da
-      destinação, aqui o dinheiro entra — por isso vai direto pra proposta, sem BDI.
-      O que estiver preenchido aparece já no campo de valor quando você marcar o
-      material, e continua editável.
+    <h2>Recicláveis <span class="badge" id="badgeReci">0</span></h2>
+
+    <label>Repasse ao cliente (%)</label>
+    <div class="row2">
+      <input type="text" id="repasseReci" inputmode="numeric" placeholder="35" oninput="mudouRepasse(this)">
+      <div class="sub" id="exemploRepasse" style="align-self:center"></div>
     </div>
+    <div class="sub" style="margin-bottom:10px">
+      A Corpus <strong>vende</strong> o material pra usina e <strong>compra</strong> do
+      cliente por uma fração disso. O que vai pra proposta é sempre o
+      <strong>preço ao cliente</strong> — o de venda fica só aqui, como referência
+      sua. Dá pra usar um repasse diferente em algum material específico.
+    </div>
+
     <input type="text" id="buscaReci" placeholder="Buscar material..." oninput="renderPrecosReci()">
     <div id="listaReci" style="margin-top:8px"></div>
+    <button class="btn-sec btn-mini" style="width:100%;margin-top:8px" onclick="incluirMaterialReci()">+ incluir material</button>
     <div class="status" id="statusReci"></div>
   </div>
 </section>
@@ -1641,6 +1668,9 @@ function quebrarTamanhoLocacao(s){
    o item pra proposta. */
 function montarLinhas(){
   return montarLinhasBase().map(l=>{
+    // Só equipamentos: a observação do reciclável é anotação interna (peso do
+    // fardo, como vai embalado) e não pode escorregar pro documento do cliente.
+    if(tipoLinha(l.chave)!=="loc") return l;
     const p=precoSalvo(l.chave);
     return (p&&p.o)?Object.assign({},l,{obsBase:p.o}):l;
   });
@@ -1788,7 +1818,41 @@ function custosSugeridos(linha,unidadeLinha){
     .sort((a,b)=>b.s-a.s||a.c-b.c)
     .slice(0,6);
 }
-function montarSugestoesCusto(alvo,linha,campoValor,leUnidade){
+/* Reciclável com mais de uma variação de preço: mostra as opções pra escolher.
+   Mesmo componente das sugestões de custo do destinador, e pela mesma razão —
+   quando existe mais de um número possível, o app oferece em vez de adivinhar. */
+function montarOpcoesReci(alvo,linha,campoValor,campoUnidade){
+  const lista=precosReci(linha.nome);
+  if(lista.length<2) return false;
+  alvo.innerHTML="";
+  const t=document.createElement("div");
+  t.className="titulo";
+  t.textContent="Preço ao cliente (venda × repasse) — escolha a variação:";
+  alvo.appendChild(t);
+  const box=document.createElement("div");
+  box.className="opcoes";
+  lista.forEach(x=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.innerHTML='<b></b><span class="c"></span>';
+    b.querySelector("b").textContent=(x.rotulo||linha.nome)+" — R$ "+fmtDinheiro(x.cliente)+(x.unidade?"/"+x.unidade:"");
+    b.querySelector(".c").textContent="venda "+fmtDinheiro(x.venda)+(x.unidade?"/"+x.unidade:"")+
+      " · repasse "+(x.repasse||repassePadrao())+"%";
+    b.onclick=()=>{
+      campoValor.value=fmtDinheiro(x.cliente);
+      campoValor.dispatchEvent(new Event("input"));
+      if(x.unidade&&campoUnidade){
+        campoUnidade.value=x.unidade;
+        campoUnidade.dispatchEvent(new Event("input"));
+      }
+    };
+    box.appendChild(b);
+  });
+  alvo.appendChild(box);
+  return true;
+}
+function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
+  if(montarOpcoesReci(alvo,linha,campoValor,campoUnidade)) return;
   alvo.innerHTML="";
   const unidade=leUnidade();
   const achados=custosSugeridos(linha,unidade);
@@ -1854,7 +1918,17 @@ function renderLinhasValores(){
     // ainda não houver nada digitado nesta sessão — o que a pessoa acabou de
     // escrever sempre vale mais que o cadastro. Sem preço salvo, o campo nasce
     // vazio exatamente como antes.
-    const salvo=precoSalvo(l.chave)||{};
+    // Em reciclável o que preenche é o preço AO CLIENTE (venda × repasse), nunca
+    // o de venda. Com uma variação só dá pra preencher; com mais de uma seria
+    // chutar qual — aí o app oferece as opções logo abaixo e quem escolhe é o
+    // Léo, mesma regra dos destinadores.
+    let salvo=precoSalvo(l.chave)||{};
+    if(tipoLinha(l.chave)==="reci"){
+      const lista=precosReci(l.nome);
+      salvo=(lista.length===1)
+        ? {v:fmtDinheiro(lista[0].cliente), u:lista[0].unidade||""}
+        : {};
+    }
     const iv=div.querySelector('[data-campo="valor"]');
     iv.value=valorPorChave[l.chave]!==undefined?valorPorChave[l.chave]:(salvo.v||"");
     iv.oninput=()=>{mascaraValor(iv);valorPorChave[l.chave]=iv.value;};
@@ -1877,7 +1951,7 @@ function renderLinhasValores(){
     };
     // O custo sugerido depende da unidade (TON vira KG), então acompanha ela.
     const custos=div.querySelector('[data-campo="custos"]');
-    const aplicarCustos=()=>montarSugestoesCusto(custos,l,iv,()=>iu.value);
+    const aplicarCustos=()=>montarSugestoesCusto(custos,l,iv,()=>iu.value,iu);
     const trocouUnidade=u=>{unidadePorChave[l.chave]=u;aplicarObs();aplicarCustos();};
     iu.oninput=()=>{trocouUnidade(iu.value);montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);};
     montarChipsUnidade(chips,iu,l.chave,trocouUnidade,l.descricao);
@@ -2418,7 +2492,7 @@ let dest={bdi:63,precos:[],juntas:[],separadas:[],ordem:[]}, destAberto=false;
    montarLinhas() logo na abertura, muito antes do bloco onde essas funções
    moram. As funções são içadas; `let` e `const`, não. */
 const LS_PRECOS="corpus_precos_v1";
-let precos={reci:{},loc:{}};
+let precos={reci:{},loc:{},repasse:35};
 function carregarCatalogo(){
   try{
     const s=localStorage.getItem(LS_CATALOGO);
@@ -3096,8 +3170,22 @@ function renderDest(){
 function carregarPrecos(){
   try{
     const s=localStorage.getItem(LS_PRECOS);
-    if(s) precos=Object.assign({reci:{},loc:{}},JSON.parse(s));
+    if(s) precos=Object.assign({reci:{},loc:{},repasse:35},JSON.parse(s));
   }catch(e){ console.warn("preços: não deu pra ler o que estava salvo",e); }
+  migrarPrecosReci();
+}
+/* Recicláveis passaram de UM preço por material pra uma LISTA (papelão branco e
+   papelão misto valem diferente). Quem já tinha cadastrado no formato antigo
+   não pode perder o número — o registro vira o primeiro item da lista. */
+function migrarPrecosReci(){
+  let mudou=false;
+  Object.entries(precos.reci||{}).forEach(([nome,p])=>{
+    if(p&&!Array.isArray(p.itens)){
+      precos.reci[nome]={itens:(p.v?[{r:"",v:p.v,u:p.u||""}]:[]), o:p.o||""};
+      mudou=true;
+    }
+  });
+  if(mudou) gravarPrecos();
 }
 function gravarPrecos(){
   try{localStorage.setItem(LS_PRECOS,JSON.stringify(precos));}catch(e){}
@@ -3108,6 +3196,31 @@ function precoSalvo(chave){
   const t=tipoLinha(chave), nome=String(chave||"").slice(t.length+1);
   const tab=precos[t];
   return (tab&&tab[nome])||null;
+}
+
+/* ---- Recicláveis: venda → repasse → preço ao cliente ----
+   Aqui o dinheiro entra: a Corpus VENDE o material pra usina e COMPRA do
+   cliente por uma fração disso. É o espelho do BDI dos destinadores — lá o
+   percentual acrescenta (custo → venda), aqui ele reduz (venda → compra).
+
+   Quem vai pra proposta é sempre o preço ao CLIENTE. O preço de venda é
+   referência interna: se vazasse pro documento, o cliente veria a margem
+   inteira da operação. */
+function numeroBR(v){ return Number(String(v??"").replace(/\./g,"").replace(",","."))||0; }
+function repassePadrao(){ const r=Number(precos.repasse); return isFinite(r)&&r>0?r:35; }
+function precoAoCliente(venda,repasseProprio){
+  const pct=(repasseProprio!==undefined&&repasseProprio!==null&&String(repasseProprio).trim()!=="")
+    ? numeroBR(repasseProprio) : repassePadrao();
+  return numeroBR(venda)*pct/100;
+}
+// Lista pronta pra tela e pra proposta: já com o preço ao cliente calculado.
+function precosReci(nome){
+  const p=(precos.reci||{})[nome];
+  if(!p||!Array.isArray(p.itens)) return [];
+  return p.itens.filter(x=>x&&x.v).map(x=>({
+    rotulo:x.r||"", unidade:x.u||"", venda:numeroBR(x.v), repasse:x.rep,
+    cliente:precoAoCliente(x.v,x.rep)
+  }));
 }
 function guardarPreco(tipo,nome,dados){
   precos[tipo]=precos[tipo]||{};
@@ -3122,13 +3235,12 @@ function guardarPreco(tipo,nome,dados){
 /* Só o contador — redesenhar a lista inteira a cada tecla tiraria o foco do
    campo no meio da digitação. */
 function atualizarBadgesPrecos(){
-  const conta=(tipo,itens)=>itens.filter(x=>{
-    const p=precoSalvo(tipo+":"+x.n); return p&&p.v;
-  }).length;
   const r=document.getElementById("badgeReci");
-  if(r) r.textContent=conta("reci",listaReciclaveis());
+  if(r) r.textContent=listaReciclaveis().filter(x=>precosReci(x.n).length).length;
   const e=document.getElementById("badgeEquip");
-  if(e) e.textContent=conta("loc",listaLocacoes());
+  if(e) e.textContent=listaLocacoes().filter(x=>{
+    const p=precoSalvo("loc:"+x.n); return p&&p.v;
+  }).length;
 }
 /* Uma linha editável por item do catálogo. Os dois catálogos usam o mesmo
    desenho — muda só a lista de origem, as unidades sugeridas e onde salva. */
@@ -3188,12 +3300,146 @@ function montarCatalogoPrecos(cfg){
     montarUnid();
   });
 }
+/* ---- Aba Recicláveis ----
+   Linha fechada mostrando o essencial (nome · preço ao cliente · unidade); toca
+   e abre pra editar, uma de cada vez. Com 7 materiais de fábrica mais os que o
+   Léo criar, a lista toda aberta viraria uma parede de campos. */
+let reciAberto=null;
+/* Linhas de preço do material ABERTO, em memória. A lista renderizada não pode
+   vir direto do que está salvo: uma linha recém-adicionada ainda está vazia, e
+   guardarReci() descarta preço sem valor — ela sumiria no mesmo instante em que
+   fosse criada. Aqui ela existe enquanto está sendo preenchida; no arquivo, só
+   entra quando tem valor. */
+let reciLinhas=[];
+function mudouRepasse(el){
+  el.value=el.value.replace(/[^\d,.]/g,"");
+  precos.repasse=numeroBR(el.value)||0;
+  gravarPrecos(); renderExemploRepasse(); renderPrecosReci(); renderLinhasValores();
+}
+function renderExemploRepasse(){
+  const el=document.getElementById("exemploRepasse");
+  if(el) el.textContent="venda R$ 1,00 → cliente R$ "+fmtDinheiro(precoAoCliente("1,00"));
+}
+function abrirMaterialReci(nome){
+  reciAberto=(reciAberto===nome)?null:nome;   // toca de novo e fecha
+  const g=(precos.reci||{})[reciAberto];
+  reciLinhas=(g&&g.itens&&g.itens.length)?g.itens.map(x=>Object.assign({},x))
+                                         :[{r:"",v:"",u:"",rep:""}];
+  renderPrecosReci();
+}
+async function incluirMaterialReci(){
+  const nome=(await pedirTexto("Novo material","Nome do material reciclável",""))||"";
+  if(!nome.trim()) return;
+  catalogo.reciclaveis=catalogo.reciclaveis||[];
+  if(!listaReciclaveis().some(x=>x.n===nome.trim())){
+    catalogo.reciclaveis.push({n:nome.trim(),o:"Receita. Sujeito a avaliação de qualidade. Tratamento: Usina de reaproveitamento."});
+    gravarCatalogo();
+  }
+  reciAberto=nome.trim();
+  renderPrecosReci(); fluxo();
+}
+// Cada mexida grava o material inteiro: a lista de preços é um bloco só.
+function guardarReci(nome,dados){
+  precos.reci=precos.reci||{};
+  const itens=(dados.itens||[]).filter(x=>x&&String(x.v||"").trim());
+  const o=String(dados.o||"").trim();
+  if(itens.length||o) precos.reci[nome]={itens,o};
+  else delete precos.reci[nome];
+  gravarPrecos(); atualizarBadgesPrecos(); renderLinhasValores();
+}
 function renderPrecosReci(){
-  montarCatalogoPrecos({
-    tipo:"reci", alvo:"listaReci", badge:"badgeReci", busca:"buscaReci",
-    itens:()=>listaReciclaveis(),
-    unidades:UNIDADES_POR_TIPO.reci,
-    obsPadrao:x=>x.o||""
+  const el=document.getElementById("listaReci");
+  if(!el) return;
+  const rep=document.getElementById("repasseReci");
+  if(rep&&document.activeElement!==rep) rep.value=repassePadrao();
+  renderExemploRepasse();
+  atualizarBadgesPrecos();
+  const busca=semAc(document.getElementById("buscaReci").value.trim());
+  const itens=listaReciclaveis().filter(x=>!busca||semAc(x.n).includes(busca));
+  el.innerHTML="";
+  if(!itens.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+
+  itens.forEach(x=>{
+    const guardado=(precos.reci||{})[x.n]||{itens:[],o:""};
+    const lista=precosReci(x.n);
+    const aberto=reciAberto===x.n;
+    const div=document.createElement("div");
+    div.className="mat-linha"+(aberto?" aberto":"")+(lista.length?" tem-preco":"");
+    div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
+                  (aberto?'<div class="mat-corpo"></div>':'');
+    el.appendChild(div);
+    div.querySelector(".mat-nome").textContent=x.n;
+    div.querySelector(".mat-resumo").textContent=
+      !lista.length ? "sem preço"
+      : lista.length===1 ? "R$ "+fmtDinheiro(lista[0].cliente)+(lista[0].unidade?"/"+lista[0].unidade:"")
+      : lista.length+" preços";
+    div.querySelector(".mat-cab").onclick=()=>abrirMaterialReci(x.n);
+    if(!aberto) return;
+
+    const corpo=div.querySelector(".mat-corpo");
+    if(!reciLinhas.length) reciLinhas=[{r:"",v:"",u:"",rep:""}];
+    const linhas=reciLinhas;
+    const salvar=()=>guardarReci(x.n,{itens:linhas,o:corpo.querySelector('[data-c="o"]').value});
+
+    linhas.forEach((it,i)=>{
+      const p=document.createElement("div");
+      p.className="mat-preco";
+      p.innerHTML=
+        `<input type="text" placeholder="variação (ex.: branco)" data-c="r">
+         <div class="mat-nums">
+           <div class="campo-calc">
+             <input type="text" inputmode="numeric" placeholder="venda 0,00" data-c="v">
+             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
+           </div>
+           <input type="text" placeholder="unid." data-c="u">
+           <input type="text" inputmode="numeric" placeholder="${repassePadrao()}%" data-c="rep">
+         </div>
+         <div class="mat-cliente"></div>
+         <button class="mat-tira" title="Remover este preço">remover</button>`;
+      corpo.appendChild(p);
+      const [ir,iv,iu,irep]=["r","v","u","rep"].map(k=>p.querySelector(`[data-c="${k}"]`));
+      ir.value=it.r||""; iv.value=it.v||""; iu.value=it.u||""; irep.value=it.rep||"";
+      const mostrar=()=>{
+        const c=precoAoCliente(iv.value,irep.value);
+        p.querySelector(".mat-cliente").innerHTML= iv.value
+          ? 'ao cliente <b>R$ '+fmtDinheiro(c)+(iu.value?"/"+iu.value:"")+'</b>'+
+            '<span class="mat-conta"> = venda '+fmtDinheiro(numeroBR(iv.value))+
+            ' × '+(irep.value?numeroBR(irep.value):repassePadrao())+'%</span>'
+          : '<span class="mat-conta">preencha a venda pra ver o preço ao cliente</span>';
+      };
+      const guardaCampo=()=>{
+        it.r=ir.value; it.v=iv.value; it.u=iu.value; it.rep=irep.value;
+        mostrar(); salvar();
+      };
+      iv.oninput=()=>{mascaraValor(iv);guardaCampo();};
+      irep.oninput=()=>{irep.value=irep.value.replace(/[^\d,.]/g,"");guardaCampo();};
+      ir.oninput=guardaCampo; iu.oninput=guardaCampo;
+      p.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
+      p.querySelector(".mat-tira").onclick=()=>{
+        linhas.splice(i,1);
+        if(!linhas.length) linhas.push({r:"",v:"",u:"",rep:""});
+        guardarReci(x.n,{itens:linhas,o:corpo.querySelector('[data-c="o"]').value});
+        renderPrecosReci();
+      };
+      mostrar();
+    });
+
+    const mais=document.createElement("button");
+    mais.className="btn-sec btn-mini"; mais.style.width="100%";
+    mais.textContent="+ outro preço para este material";
+    // Só redesenha: a linha nova nasce vazia e ainda não tem o que gravar.
+    mais.onclick=()=>{ linhas.push({r:"",v:"",u:"",rep:""}); renderPrecosReci(); };
+    corpo.appendChild(mais);
+
+    const rot=document.createElement("label");
+    rot.textContent="Observação interna (não vai pra proposta)";
+    corpo.appendChild(rot);
+    const io=document.createElement("textarea");
+    io.rows=1; io.dataset.c="o"; io.value=guardado.o||"";
+    io.placeholder="ex.: papelão vai em fardo, peso médio 180 kg";
+    io.oninput=()=>{ajustarAltura(io);salvar();};
+    corpo.appendChild(io);
+    ajustarAltura(io);
   });
 }
 function renderPrecosEquip(){
@@ -4149,7 +4395,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.20-4";
+const APP_VERSION="2026.08.20-5";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
