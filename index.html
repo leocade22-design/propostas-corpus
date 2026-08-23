@@ -507,59 +507,29 @@
 
 <nav class="abas" id="barraAbas">
   <div class="abas-int">
-    <button data-aba="proposta" onclick="mostrarAba('proposta')">Proposta</button>
-    <button data-aba="destinadores" onclick="mostrarAba('destinadores')">Destinadores</button>
-    <button data-aba="reciclaveis" onclick="mostrarAba('reciclaveis')">Recicláveis</button>
+    <button data-aba="proposta" onclick="mostrarAba('proposta')">Gerador PO e Aceite</button>
+    <button data-aba="destinacoes" onclick="mostrarAba('destinacoes')">Destinações</button>
     <button data-aba="equipamentos" onclick="mostrarAba('equipamentos')">Equipamentos</button>
-    <button data-aba="clientes" onclick="mostrarAba('clientes')">Clientes</button>
-    <button data-aba="salvas" onclick="mostrarAba('salvas')">Salvas <span class="badge" id="badgeAbaSalvas">0</span></button>
+    <button data-aba="carteira" onclick="mostrarAba('carteira')">Propostas e Clientes <span class="badge" id="badgeAbaSalvas">0</span></button>
     <button data-aba="ajustes" onclick="mostrarAba('ajustes')">Ajustes</button>
   </div>
 </nav>
 
 <div class="wrap">
 
-<section class="aba-conteudo" id="aba-clientes" hidden>
-  <div class="card">
-    <h2>Meus clientes <span class="badge" id="badgeClientes">–</span></h2>
-    <div id="clientesCorpo">
-      <!-- Só a base rápida, alimentada pelas propostas geradas. O cofre com
-           senha mudou pra Ajustes: são coisas diferentes, e misturar as duas
-           numa lista só obrigava a explicar o cadeado toda vez. A lista mostra
-           apenas a razão social — o resto abre no toque. -->
-      <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
-      <div id="listaClientes" style="margin-top:8px"></div>
-      <div class="sub" id="avisoRapidos"></div>
-    </div>
-  </div>
 
-</section>
 
-<section class="aba-conteudo" id="aba-salvas" hidden>
-  <div class="card">
-    <h2>Propostas salvas <span class="badge" id="badgeHistorico">0</span></h2>
-    <div id="historicoCorpo">
-      <div class="sub" id="avisoHistorico" style="margin-bottom:8px">
-        Toda proposta é guardada sozinha quando você gera os arquivos. Abra pra editar
-        e gerar de novo. Fica só neste aparelho — e, diferente do cofre de clientes,
-        <strong>sem senha</strong>: quem abrir o app vê a lista.
-      </div>
-      <input type="text" id="buscaProposta" placeholder="Buscar por cliente ou número..." oninput="renderHistorico()">
-      <div id="listaHistorico" style="margin-top:8px"></div>
-      <div class="row2" style="margin-top:8px">
-        <button class="btn-sec" onclick="document.getElementById('arqPropostas').click()">Importar</button>
-        <button class="btn-sec" onclick="exportarPropostas()">Exportar</button>
-      </div>
-      <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
-      <div class="status" id="statusHistorico"></div>
-    </div>
-  </div>
-</section>
 
-<section class="aba-conteudo" id="aba-destinadores" hidden>
+
+<!-- Destinadores e Recicláveis viraram uma aba só: os dois respondem à mesma
+     pergunta ("pra onde vai e quanto custa"), e separá-los obrigava a trocar de
+     aba no meio de montar uma proposta. Cada um guarda o próprio card, com
+     colapso próprio — e o app lembra qual você deixou aberto. -->
+<section class="aba-conteudo" id="aba-destinacoes" hidden>
   <div class="card">
-    <h2>Destinadores e custos <span class="badge" id="badgeDest">0</span></h2>
-    <div id="destCorpo">
+    <h2 class="clicavel" onclick="toggleCard('dest')">Destinadores e custos
+      <span class="badge" id="badgeDest">0</span><span class="seta" id="seta-dest">▾</span></h2>
+    <div id="corpo-dest">
       <!-- O BDI continua no topo, mas numa linha só e com olho pra esconder: a
            tela é mostrada em reunião, e a margem não é assunto de quem está do
            outro lado. O resto da explicação foi pro card de ajuda lá embaixo;
@@ -607,11 +577,10 @@
       </div>
     </div>
   </div>
-</section>
-
-<section class="aba-conteudo" id="aba-reciclaveis" hidden>
   <div class="card">
-    <h2>Recicláveis <span class="badge" id="badgeReci">0</span></h2>
+    <h2 class="clicavel" onclick="toggleCard('reci')">Recicláveis
+      <span class="badge" id="badgeReci">0</span><span class="seta" id="seta-reci">▾</span></h2>
+    <div id="corpo-reci">
 
     <div class="campo-olho" id="caixaRepasse">
       <span class="rot">Repasse</span>
@@ -631,6 +600,44 @@
     <div id="listaReci" style="margin-top:8px"></div>
     <button class="btn-sec btn-mini" style="width:100%;margin-top:8px" onclick="incluirMaterialReci()">+ incluir material</button>
     <div class="status" id="statusReci"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Propostas salvas e Clientes na mesma aba: a lista de clientes é alimentada
+     pelas propostas geradas, então são as duas pontas da mesma coisa. -->
+<section class="aba-conteudo" id="aba-carteira" hidden>
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('salvas')">Propostas salvas
+      <span class="badge" id="badgeHistorico">0</span><span class="seta" id="seta-salvas">▾</span></h2>
+    <div id="corpo-salvas">
+      <div class="sub" id="avisoHistorico" style="margin-bottom:8px">
+        Toda proposta é guardada sozinha quando você gera os arquivos. Abra pra editar
+        e gerar de novo. Fica só neste aparelho — e, diferente do cofre de clientes,
+        <strong>sem senha</strong>: quem abrir o app vê a lista.
+      </div>
+      <input type="text" id="buscaProposta" placeholder="Buscar por cliente ou número..." oninput="renderHistorico()">
+      <div id="listaHistorico" style="margin-top:8px"></div>
+      <div class="row2" style="margin-top:8px">
+        <button class="btn-sec" onclick="document.getElementById('arqPropostas').click()">Importar</button>
+        <button class="btn-sec" onclick="exportarPropostas()">Exportar</button>
+      </div>
+      <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
+      <div class="status" id="statusHistorico"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('clientes')">Meus clientes
+      <span class="badge" id="badgeClientes">–</span><span class="seta" id="seta-clientes">▾</span></h2>
+    <div id="corpo-clientes">
+      <!-- Só a base rápida, alimentada pelas propostas geradas. O cofre com
+           senha mudou pra Ajustes: são coisas diferentes, e misturar as duas
+           numa lista só obrigava a explicar o cadeado toda vez. A lista mostra
+           apenas a razão social — o resto abre no toque. -->
+      <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
+      <div id="listaClientes" style="margin-top:8px"></div>
+      <div class="sub" id="avisoRapidos"></div>
+    </div>
   </div>
 </section>
 
@@ -1214,7 +1221,6 @@ const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agos
 const OBJETO_PADRAO="COLETA, TRANSPORTE E DESTINAÇÃO FINAL DE RESÍDUO";
 const SUBOBJETO_PADRAO="PRESTAÇÃO";
 let itens=[], sel={}, objetoSel=OBJETO_PADRAO, subObjetoSel=SUBOBJETO_PADRAO, mesmoEnd=true;
-let clientesAberto=false;
 /* Contatos ALÉM do primeiro. O campo "Contato"/"Telefone" de cima continua
    sendo o responsável — é ele, sozinho, que vai pra Proposta. No Aceite saem
    todos, separados por barra. */
@@ -1726,16 +1732,68 @@ function renderResumoEndereco(sufixo){
 
    As abas de catálogo desenham na hora de aparecer (e não a cada mudança), pra
    não gastar trabalho com tabela que ninguém está olhando. */
+/* Cinco abas. Destinadores e Recicláveis viraram "Destinações" porque respondem
+   à mesma pergunta — pra onde vai o resíduo e quanto custa —, e Salvas e
+   Clientes viraram uma só porque a lista de clientes é alimentada pelas
+   propostas geradas: são as duas pontas do mesmo movimento.
+
+   O id "proposta" fica como está de propósito, mesmo com o rótulo novo: ele
+   aparece em oito chamadas espalhadas e num rascunho já salvo no aparelho de
+   quem usa. Trocar o id não mudaria nada na tela e quebraria as duas coisas.
+
+   Ao fundir, o callback da aba precisa desenhar OS DOIS cards — quem entra em
+   Destinações espera achar a tabela de custos e os recicláveis prontos. */
 const ABAS={
   proposta:null,
-  destinadores:()=>renderDest(),
-  reciclaveis:()=>renderPrecosReci(),
+  destinacoes:()=>{renderDest();renderPrecosReci();},
   equipamentos:()=>{renderPrecosEquip();renderFrota();},
-  clientes:()=>listarClientes(),
-  salvas:()=>renderHistorico(),
+  carteira:()=>{renderHistorico();listarClientes();},
   ajustes:null
 };
 let abaAtual="proposta";
+
+/* ---- Cards recolhíveis das abas fundidas ----
+   Guardar o estado é o que faz o colapso valer a pena: fechar um card e
+   encontrá-lo aberto de novo na visita seguinte anula o motivo de ter fechado.
+
+   O padrão de cada um não é "fechado" nem "aberto" por regra geral: em cada aba
+   o card principal nasce aberto e o segundo fechado, senão entrar na aba já
+   entrega duas telas empilhadas. */
+const LS_CARDS="corpus_cards_v1";
+const CARDS_PADRAO={dest:true, reci:false, salvas:true, clientes:false};
+let cardsAbertos={};
+function carregarCards(){
+  try{
+    const g=localStorage.getItem(LS_CARDS);
+    cardsAbertos=Object.assign({},CARDS_PADRAO,g?JSON.parse(g):{});
+  }catch(e){ cardsAbertos=Object.assign({},CARDS_PADRAO); }
+}
+function gravarCards(){
+  try{localStorage.setItem(LS_CARDS,JSON.stringify(cardsAbertos));}catch(e){}
+}
+function pintarCard(id){
+  const corpo=document.getElementById("corpo-"+id);
+  const seta=document.getElementById("seta-"+id);
+  if(!corpo) return;
+  const aberto=cardsAbertos[id]!==false;
+  corpo.classList.toggle("oculto",!aberto);
+  if(seta) seta.classList.toggle("aberta",aberto);
+}
+function pintarCards(){ Object.keys(CARDS_PADRAO).forEach(pintarCard); }
+function toggleCard(id){
+  cardsAbertos[id]=(cardsAbertos[id]===false);
+  gravarCards(); pintarCard(id);
+}
+/* Atalhos antigos apontavam pra abas que não existem mais. Levam pra aba nova e
+   abrem o card certo — senão o toque levaria a uma aba onde o que se procurava
+   está fechado. */
+function irParaCard(aba,id){
+  mostrarAba(aba);
+  if(cardsAbertos[id]===false){ cardsAbertos[id]=true; gravarCards(); }
+  pintarCard(id);
+  const c=document.getElementById("corpo-"+id);
+  if(c) c.scrollIntoView({behavior:"smooth",block:"start"});
+}
 /* A altura da barra de abas depende da fonte do aparelho, então é medida em vez
    de chutada — o padding de baixo do body soma esse valor. */
 function medirBarraAbas(){
@@ -1914,7 +1972,9 @@ document.addEventListener("touchcancel",soltarSwipe,{passive:true});
 // Clientes e histórico viraram abas próprias — o cabeçalho não recolhe mais,
 // quem mostra e esconde é a barra de abas. As duas continuam existindo porque
 // atalhos espalhados pelo app ainda chamam por elas.
-function toggleClientes(){ mostrarAba("clientes"); }
+function toggleClientes(){
+  irParaCard("carteira","clientes");
+}
 let cofreCardAberto=false;
 function toggleCofre(){
   cofreCardAberto=!cofreCardAberto;
@@ -3586,6 +3646,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarVincCustom();
   carregarObsPadrao();
   carregarExcluidos();
+  carregarCards();
   carregarClientesRapidos();
   carregarFichas();
   iniciarSync();
@@ -3593,6 +3654,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
   medirAlturaVisivel();
+  pintarCards();
   mostrarAba("proposta");
 })();
 
@@ -3629,7 +3691,7 @@ function fmtDinheiro(v){
 }
 // Destinadores virou aba própria — não recolhe mais, quem controla a exibição
 // é a barra de abas. Mantida porque os atalhos antigos ainda chamam por ela.
-function toggleDest(){ mostrarAba("destinadores"); }
+function toggleDest(){ irParaCard("destinacoes","dest"); }
 /* Olho do BDI. Esconder é visual — o número continua valendo pra conta de
    venda, só não fica na tela. É o caso de mostrar a tabela pro cliente ou pro
    parceiro sem entregar a margem junto. */
@@ -4985,7 +5047,7 @@ const CAMPOS_FORM=["razaoSocial","cnpj","ie","solicitante","telefone","email","e
   "logradouro","bairro","uf","cep","cidade",
   "enderecoColetaUnico","logradouroColeta","bairroColeta","ufColeta","cepColeta","cidadeColeta",
   "proposalNumber","dataProposta"];
-let propostas=[], propostaAtualId=null, historicoAberto=false;
+let propostas=[], propostaAtualId=null;
 
 /* ============ RASCUNHO EM ANDAMENTO ============
    Minimizar o app, o navegador descartar a aba pra liberar memória ou o celular
@@ -5061,7 +5123,9 @@ function atualizarBadgeHistorico(){
   const naAba=document.getElementById("badgeAbaSalvas");
   if(naAba) naAba.textContent=propostas.length;
 }
-function toggleHistorico(){ mostrarAba("salvas"); }
+function toggleHistorico(){
+  irParaCard("carteira","salvas");
+}
 
 // Chamado depois de gerar os arquivos: grava ou atualiza a proposta em edição.
 function salvarPropostaAtual(){
@@ -6296,7 +6360,7 @@ function registrarClienteRapido(){
   else clientesRapidos.unshift(novo);
   if(clientesRapidos.length>400) clientesRapidos=clientesRapidos.slice(0,400);
   gravarClientesRapidos();
-  if(!document.getElementById("aba-clientes").hidden) listarClientes();
+  if(!document.getElementById("aba-carteira").hidden) listarClientes();
 }
 async function promoverParaCofre(cnpj){
   // Sem o cofre destrancado não dá: a chave de criptografia só existe depois
