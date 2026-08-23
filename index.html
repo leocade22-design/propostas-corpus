@@ -4498,6 +4498,18 @@ function atualizarBadgesPrecos(){
 }
 /* Uma linha editável por item do catálogo. Os dois catálogos usam o mesmo
    desenho — muda só a lista de origem, as unidades sugeridas e onde salva. */
+/* Catálogo de preços no mesmo desenho da Frota e dos Recicláveis: linha fechada
+   com nome e resumo, abre uma de cada vez.
+
+   Antes desenhava TUDO de todos os itens sempre — preço, chips de unidade,
+   observação e a ficha interna inteira, para os doze equipamentos ao mesmo
+   tempo. Numa tela de celular isso é uma parede: pra chegar no último item
+   passavam onze formulários abertos que ninguém estava olhando. */
+let precoAberto={};
+function abrirItemPreco(tipo,nome,render){
+  precoAberto[tipo]=(precoAberto[tipo]===nome)?null:nome;
+  render();
+}
 function montarCatalogoPrecos(cfg){
   const el=document.getElementById(cfg.alvo);
   if(!el) return;
@@ -4507,13 +4519,31 @@ function montarCatalogoPrecos(cfg){
   const vis=itens.filter(x=>!busca||semAc(x.n).includes(busca));
   el.innerHTML="";
   if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  const redesenhar=()=>montarCatalogoPrecos(cfg);
   vis.forEach(x=>{
     const p=precoSalvo(cfg.tipo+":"+x.n)||{};
+    const aberto=precoAberto[cfg.tipo]===x.n;
     const div=document.createElement("div");
-    div.className="preco-linha";
-    div.innerHTML=
-      `<div class="preco-nome"></div>
-       <div class="preco-campos">
+    div.className="mat-linha"+(aberto?" aberto":"")+(p.v?" tem-preco":"");
+    div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
+                  (aberto?'<div class="mat-corpo"></div>':'');
+    el.appendChild(div);
+    div.querySelector(".mat-nome").textContent=x.n;
+    /* Atualiza só o texto do resumo, sem redesenhar a linha. É deliberado:
+       redesenhar a cada tecla tiraria o foco do campo no meio da digitação. */
+    const pintarResumo=()=>{
+      const g=precoSalvo(cfg.tipo+":"+x.n)||{};
+      div.querySelector(".mat-resumo").textContent=
+        g.v ? "R$ "+g.v+(g.u?"/"+g.u:"") : "sem preço";
+      div.classList.toggle("tem-preco",!!g.v);
+    };
+    pintarResumo();
+    div.querySelector(".mat-cab").onclick=()=>abrirItemPreco(cfg.tipo,x.n,redesenhar);
+    if(!aberto) return;
+
+    const corpo=div.querySelector(".mat-corpo");
+    corpo.innerHTML=
+      `<div class="preco-campos">
          <div class="campo-calc">
            <input type="text" inputmode="numeric" placeholder="0,00" data-c="v">
            <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
@@ -4523,11 +4553,8 @@ function montarCatalogoPrecos(cfg){
        <div class="sugestoes na-linha" data-c="unidades"></div>
        <textarea rows="1" data-c="o"></textarea>
        <div class="ficha-equip"></div>`;
-    el.appendChild(div);
-    div.classList.toggle("tem-preco",!!p.v);
-    div.querySelector(".preco-nome").textContent=x.n;
-    const iv=div.querySelector('[data-c="v"]'), iu=div.querySelector('[data-c="u"]'),
-          io=div.querySelector('[data-c="o"]');
+    const iv=corpo.querySelector('[data-c="v"]'), iu=corpo.querySelector('[data-c="u"]'),
+          io=corpo.querySelector('[data-c="o"]');
     iv.value=p.v||""; iu.value=p.u||"";
     // A observação de fábrica fica como placeholder, não como valor: assim só
     // vai pro arquivo salvo o que for realmente escrito à mão. Preenchendo o
@@ -4538,7 +4565,7 @@ function montarCatalogoPrecos(cfg){
     ajustarAltura(io);
     // Ficha interna: só onde faz sentido. Medida de caixa e container é o que
     // decide se cabe no pátio do cliente; num cargo ou num resíduo não existe.
-    const fichaEl=div.querySelector(".ficha-equip");
+    const fichaEl=corpo.querySelector(".ficha-equip");
     let imed=null, ioi=null;
     if(cfg.ficha&&fichaEl){
       fichaEl.innerHTML=
@@ -4552,16 +4579,19 @@ function montarCatalogoPrecos(cfg){
       imed.value=p.med||""; ioi.value=p.oi||"";
       ajustarAltura(ioi);
     }
-    const salvar=()=>guardarPreco(cfg.tipo,x.n,{v:iv.value,u:iu.value,o:io.value,
-      med:imed?imed.value:p.med, oi:ioi?ioi.value:p.oi});
+    const salvar=()=>{
+      guardarPreco(cfg.tipo,x.n,{v:iv.value,u:iu.value,o:io.value,
+        med:imed?imed.value:p.med, oi:ioi?ioi.value:p.oi});
+      pintarResumo();
+    };
     iv.oninput=()=>{mascaraValor(iv);salvar();};
     iu.oninput=()=>{salvar();montarUnid();};
     io.oninput=()=>{ajustarAltura(io);salvar();};
     if(imed) imed.oninput=salvar;
     if(ioi) ioi.oninput=()=>{ajustarAltura(ioi);salvar();};
-    div.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
+    corpo.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
     const montarUnid=()=>{
-      const chips=div.querySelector('[data-c="unidades"]');
+      const chips=corpo.querySelector('[data-c="unidades"]');
       chips.innerHTML="";
       cfg.unidades.forEach(u=>{
         const b=document.createElement("button");
