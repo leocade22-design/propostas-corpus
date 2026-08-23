@@ -73,7 +73,6 @@
   .card h2.clicavel .seta.aberta{transform:rotate(180deg);}
   .previa.clicavel{cursor:pointer;}
   .previa.clicavel:active{opacity:.85;}
-  .previa .dica-alterar{display:block;margin-top:4px;font-size:.72rem;color:var(--suave);font-style:italic;}
   label{display:block;font-size:.8rem;color:var(--suave);margin:9px 0 4px;}
   /* Rótulo com um atalho do lado: mesma fonte e tamanho do rótulo, um tom acima
      pra dar a entender que ali se clica. */
@@ -217,16 +216,13 @@
   .resumo-quebra.incompleto{background:var(--alerta-bg);border-color:#e8b4b0;color:var(--alerta);}
   .resumo-quebra.incompleto .acao{color:var(--alerta);}
 
-  /* Passo já escolhido vira uma linha só, pra sobrar tela */
-  .passo-resumo{display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 12px;
-    background:var(--verde-claro);border:1px solid var(--verde-borda);border-radius:8px;}
-  .passo-resumo .passo-rotulo{font-size:.72rem;color:var(--suave);text-transform:uppercase;
-    letter-spacing:.04em;flex:0 0 auto;}
-  .passo-resumo .passo-valor{font-size:.85rem;font-weight:600;color:var(--verde);flex:1;line-height:1.3;}
-  .passo-resumo .passo-editar{font-size:.72rem;color:var(--suave);flex:0 0 auto;}
   .chip-gerenciar{border-style:dashed;color:var(--suave);}
   /* Card fechado que abre o popup de escolha. Ocupa uma linha só, em vez de
-     uma parede de chips que empurrava o resto da página pra baixo. */
+     uma parede de chips que empurrava o resto da página pra baixo.
+
+     Um desenho só pra escolha única e múltipla: antes eram dois (.passo-resumo
+     dizia "alterar", .passo-card dizia "N ✎") e a diferença não significava
+     nada pra quem usa — os dois são o mesmo gesto, tocar pra abrir a lista. */
   .passo-card{display:flex;align-items:center;gap:10px;cursor:pointer;
     background:var(--campo);border:1.5px solid var(--campo-borda);border-radius:12px;
     padding:11px 13px;}
@@ -749,15 +745,13 @@
       <div><label>Nº da proposta (PO)</label><input type="text" id="proposalNumber"></div>
       <div><label>Data</label><input type="date" id="dataProposta"></div>
     </div>
-    <label>Objeto</label>
-    <div id="objetoEdicao">
-      <div class="chips" id="chipsObjeto"></div>
-      <div id="blocoSubObjeto" class="oculto">
-        <div class="etapa-titulo" style="margin-top:8px">Subcategoria</div>
-        <div class="chips" id="chipsSubObjeto"></div>
-      </div>
-    </div>
-    <div class="previa clicavel" id="previaObjeto" style="margin-top:9px" onclick="toggleObjeto()"></div>
+    <!-- Objeto e subcategoria passaram a ser passos do wizard como os outros:
+         entram na mesma regra de tamanho (6 opções → recolhido + popup; 2 →
+         chips inline) e perdem o mecanismo próprio de recolher, que fazia a
+         mesma coisa com outro desenho. -->
+    <div id="passoObjeto"></div>
+    <div id="passoSubObjeto" class="oculto" style="margin-top:8px"></div>
+    <div class="previa oculto" id="previaObjeto" style="margin-top:9px"></div>
   </div>
 
   <div class="card">
@@ -932,7 +926,7 @@
     <input type="text" id="selBusca" placeholder="Buscar..." oninput="pintarSelecao()">
     <div class="chips" id="selChips" style="margin-top:8px"></div>
     <div class="sub" id="selDica"></div>
-    <button class="btn-principal btn-full" style="margin-top:10px" onclick="fecharSelecao()">Pronto</button>
+    <button class="btn-principal btn-full" id="selPronto" style="margin-top:10px" onclick="fecharSelecao()">Pronto</button>
   </div>
 </div>
 
@@ -1220,7 +1214,7 @@ const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agos
 const OBJETO_PADRAO="COLETA, TRANSPORTE E DESTINAÇÃO FINAL DE RESÍDUO";
 const SUBOBJETO_PADRAO="PRESTAÇÃO";
 let itens=[], sel={}, objetoSel=OBJETO_PADRAO, subObjetoSel=SUBOBJETO_PADRAO, mesmoEnd=true;
-let objetoAberto=false, clientesAberto=false;
+let clientesAberto=false;
 /* Contatos ALÉM do primeiro. O campo "Contato"/"Telefone" de cima continua
    sendo o responsável — é ele, sozinho, que vai pra Proposta. No Aceite saem
    todos, separados por barra. */
@@ -1229,7 +1223,6 @@ let contatosExtras=[];
 // um endereço que a Receita já entregou certinho e separado.
 let ultimoEnderecoLido={"":"","Coleta":""};
 // Passo do wizard que o usuário abriu pra alterar (os demais ficam recolhidos)
-let passoAberto=null;
 // Declarados aqui em cima, e não junto das funções de rascunho lá embaixo, porque
 // o render() da carga inicial já chama agendarRascunho() — com "let" declarado
 // depois, isso estoura "Cannot access 'timerRascunho' before initialization" e
@@ -1306,74 +1299,80 @@ function chips(cont,opcoes,ativo,onPick){
     el.appendChild(b);
   });
 }
-/* Um passo do wizard. Enquanto não tem escolha, mostra os chips; depois de
-   escolhido vira uma linha-resumo (a menos que seja o passo que o usuário
-   abriu pra alterar, ou uma multi-seleção, que fica sempre aberta). */
+/* Um passo do wizard.
+
+   Quem decide o formato é o TAMANHO DA LISTA, não o tipo de seleção. Antes era
+   o contrário, e dava nos dois extremos ao mesmo tempo: escolher entre CLASSE II
+   e CLASSE I abria um popup inteiro com botão "Pronto" — para duas coisas —,
+   enquanto a Categoria, com oito, despejava uma parede de chips que empurrava
+   o resto da página pra baixo.
+
+   Até três opções cabem na tela sem atrapalhar: chips inline, aplica no toque.
+   De quatro pra cima vira uma linha recolhida que abre a lista num popup. Vale
+   igual pra escolha única e múltipla — o que muda é só o que o popup faz depois
+   do toque (única fecha, múltipla continua marcando).
+
+   A contagem é a das opções QUE VÃO APARECER, não a da lista de origem:
+   listaCategorias() já filtrou as ocultas, e é o que sobrou que ocupa tela. */
+const LIMITE_CHIPS_INLINE=3;
 function renderPasso(idAlvo,titulo,opcoes,escolha,onPick,opts){
   opts=opts||{};
   const el=document.getElementById(idAlvo);
   el.classList.remove("oculto");
   const multi=!!opts.multi;
-  const temEscolha=multi?(escolha&&escolha.length>0):!!escolha;
+  const marcados=multi?(escolha||[]):(escolha?[escolha]:[]);
 
-  if(temEscolha&&!multi&&passoAberto!==idAlvo){
-    el.innerHTML="";
-    const linha=document.createElement("div");
-    linha.className="passo-resumo";
-    linha.innerHTML=`<span class="passo-rotulo">${titulo}</span>`+
-      `<span class="passo-valor"></span><span class="passo-editar">alterar</span>`;
-    linha.querySelector(".passo-valor").textContent=escolha;
-    linha.onclick=()=>{passoAberto=idAlvo;fluxo();};
-    el.appendChild(linha);
-    return;
-  }
-
-  /* Escolha múltipla (veículos, resíduos, recicláveis, cargos) não sai mais como
-     parede de chips: vira um card de uma linha que abre um popup. Com 12
-     veículos ou 40 resíduos, os chips empurravam o resto da página pra baixo e
-     obrigavam a rolar pra achar onde digitar o valor. */
-  if(multi){
-    el.innerHTML="";
-    const card=document.createElement("div");
-    card.className="passo-card"+(escolha.length?" tem":"");
-    card.innerHTML='<span class="rot"></span><span class="val"></span><span class="abrir">escolher</span>';
-    card.querySelector(".rot").textContent=titulo;
-    const val=card.querySelector(".val");
-    if(!escolha.length){ val.className="val vazio"; val.textContent="nenhum selecionado"; }
-    else{
-      // Mostra os primeiros e resume o resto: a lista inteira estouraria a linha
-      val.textContent=escolha.slice(0,2).join(", ")+(escolha.length>2?" +"+(escolha.length-2):"");
-      card.querySelector(".abrir").textContent=escolha.length+" ✎";
-      card.title=escolha.join("  ·  ");
+  if(opcoes.length<=LIMITE_CHIPS_INLINE){
+    el.innerHTML=`<div class="etapa-titulo">${titulo}</div>`;
+    const cont=document.createElement("div");
+    cont.className="chips";
+    opcoes.forEach(op=>{
+      const b=document.createElement("button");
+      b.className="chip"+(marcados.includes(op)?" ativo":"");
+      b.textContent=op;
+      b.onclick=()=>onPick(op);
+      cont.appendChild(b);
+    });
+    if(opts.gerenciar){
+      const g=document.createElement("button");
+      g.className="chip chip-gerenciar";
+      g.textContent="✎ editar lista";
+      g.onclick=opts.gerenciar;
+      cont.appendChild(g);
     }
-    card.onclick=()=>abrirSelecao({titulo,opcoes,escolha,onPick,gerenciar:opts.gerenciar});
-    el.appendChild(card);
+    el.appendChild(cont);
     return;
   }
 
-  el.innerHTML=`<div class="etapa-titulo">${titulo}</div>`;
-  const cont=document.createElement("div");
-  cont.className="chips";
-  opcoes.forEach(op=>{
-    const b=document.createElement("button");
-    b.className="chip"+(op===escolha?" ativo":"");
-    b.textContent=op;
-    b.onclick=()=>onPick(op);
-    cont.appendChild(b);
-  });
-  if(opts.gerenciar){
-    const g=document.createElement("button");
-    g.className="chip chip-gerenciar";
-    g.textContent="✎ editar lista";
-    g.onclick=opts.gerenciar;
-    cont.appendChild(g);
+  // Lista grande: uma linha só, mesma cara pra única e pra múltipla.
+  el.innerHTML="";
+  const card=document.createElement("div");
+  card.className="passo-card"+(marcados.length?" tem":"");
+  card.innerHTML='<span class="rot"></span><span class="val"></span><span class="abrir"></span>';
+  card.querySelector(".rot").textContent=titulo;
+  const val=card.querySelector(".val");
+  if(!marcados.length){
+    val.className="val vazio";
+    val.textContent=multi?"nenhum selecionado":"escolher";
+    card.querySelector(".abrir").textContent="escolher";
+  }else{
+    // Mostra os primeiros e resume o resto: a lista inteira estouraria a linha
+    val.textContent=marcados.slice(0,2).join(", ")+(marcados.length>2?" +"+(marcados.length-2):"");
+    card.querySelector(".abrir").textContent="alterar";
+    card.title=marcados.join("  ·  ");
   }
-  el.appendChild(cont);
+  card.onclick=()=>abrirSelecao({titulo,opcoes,escolha,onPick,multi,gerenciar:opts.gerenciar});
+  el.appendChild(card);
 }
 
 /* ---- Popup de escolha ----
    A seleção é aplicada NA HORA, não ao confirmar: assim fechar o popup por fora
-   ou pelo ✕ nunca descarta o que já foi marcado. O botão "Pronto" só fecha. */
+   ou pelo ✕ nunca descarta o que já foi marcado. O botão "Pronto" só fecha.
+
+   Dois modos. Múltiplo: cada toque marca/desmarca e o popup segue aberto, porque
+   ainda pode vir outro. Único: o toque é a resposta inteira, então aplica e
+   fecha — deixar aberto obrigaria a um segundo toque em "Pronto" pra dizer o que
+   já ficou dito. */
 let selAtual=null;
 function abrirSelecao(cfg){
   selAtual=cfg;
@@ -1381,6 +1380,8 @@ function abrirSelecao(cfg){
   document.getElementById("selBusca").value="";
   // Busca só aparece quando a lista é grande o bastante pra justificar
   document.getElementById("selBusca").classList.toggle("oculto",cfg.opcoes.length<12);
+  // "Pronto" só faz sentido no múltiplo; no único o próprio toque encerra.
+  document.getElementById("selPronto").classList.toggle("oculto",!cfg.multi);
   document.getElementById("modalSelecao").classList.remove("oculto");
   pintarSelecao();
 }
@@ -1392,7 +1393,10 @@ function pintarSelecao(){
   if(!selAtual) return;
   const cx=document.getElementById("selChips");
   const busca=semAc(document.getElementById("selBusca").value.trim());
-  const marcados=selAtual.escolha||[];
+  // escolha chega como string na única e como array na múltipla — mesma origem
+  // do renderPasso, que não converte pra não perder a referência do array.
+  const marcados=selAtual.multi?(selAtual.escolha||[])
+                               :(selAtual.escolha?[selAtual.escolha]:[]);
   cx.innerHTML="";
   selAtual.opcoes.filter(op=>!busca||semAc(op).includes(busca)).forEach(op=>{
     const b=document.createElement("button");
@@ -1401,8 +1405,9 @@ function pintarSelecao(){
     b.onclick=()=>{
       // onPick chama alternar(), que muta o próprio array — então selAtual.escolha
       // continua apontando pro conjunto certo depois do fluxo() se redesenhar.
+      const eraMulti=selAtual.multi;
       selAtual.onPick(op);
-      pintarSelecao();
+      if(eraMulti) pintarSelecao(); else fecharSelecao();
     };
     cx.appendChild(b);
   });
@@ -1417,9 +1422,9 @@ function pintarSelecao(){
     g.onclick=()=>{ fecharSelecao(); acao(); };
     cx.appendChild(g);
   }
-  document.getElementById("selDica").textContent=
-    marcados.length?marcados.length+" selecionado(s) — sai uma linha de serviço pra cada."
-                   :"Pode marcar vários — sai uma linha de serviço pra cada.";
+  document.getElementById("selDica").textContent= !selAtual.multi ? "Toque na opção que vale."
+    : marcados.length?marcados.length+" selecionado(s) — sai uma linha de serviço pra cada."
+                     :"Pode marcar vários — sai uma linha de serviço pra cada.";
 }
 function esconderPassos(de){
   for(let i=de;i<=4;i++) document.getElementById("passo"+i).classList.add("oculto");
@@ -2044,32 +2049,24 @@ function objetoCompleto(){
   return o.sub?!!subObjetoSel:true;
 }
 function montarObjeto(){
-  chips("chipsObjeto",OBJETOS.map(o=>o.n),objetoSel,op=>{
-    objetoSel=op;subObjetoSel=null;objetoAberto=true;
+  // Seis opções: cai na faixa do recolhido + popup, como Categoria e Resíduos.
+  renderPasso("passoObjeto","Objeto",OBJETOS.map(o=>o.n),objetoSel,op=>{
+    objetoSel=op; subObjetoSel=null;
     montarObjeto();
   });
-  // O tipo de serviço e a subcategoria (PRESTAÇÃO/LIMPEZA) aparecem juntos:
-  // abrir o Objeto mostra os dois de uma vez, sem um segundo toque.
+  /* A subcategoria (PRESTAÇÃO / LIMPEZA) continua aparecendo junto assim que o
+     objeto que a exige é escolhido — o popup do objeto fecha e ela já está ali,
+     em dois chips, sem um segundo toque pra descobrir que faltava responder. */
   const obj=objetoSel?OBJETOS.find(x=>x.n===objetoSel):null;
   const temSub=!!(obj&&obj.sub);
-  document.getElementById("blocoSubObjeto").classList.toggle("oculto",!temSub);
-  if(temSub) chips("chipsSubObjeto",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,s=>{subObjetoSel=s;objetoAberto=false;montarObjeto();});
-  // Só recolhe quando a escolha está completa — enquanto falta a subcategoria,
-  // as opções continuam visíveis mesmo com objetoAberto=false.
-  const recolhido=!objetoAberto&&objetoCompleto();
-  document.getElementById("objetoEdicao").classList.toggle("oculto",recolhido);
+  const blocoSub=document.getElementById("passoSubObjeto");
+  blocoSub.classList.toggle("oculto",!temSub);
+  if(temSub) renderPasso("passoSubObjeto","Subcategoria",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,
+    v=>{subObjetoSel=v;montarObjeto();});
+  // A prévia vira só leitura: quem recolhe e reabre agora é o card do passo.
   const previaEl=document.getElementById("previaObjeto");
-  previaEl.classList.toggle("oculto",!objetoSel);
-  previaEl.innerHTML=objetoSel
-    ?`<b>Objeto:</b> ${objetoTexto()}`
-      +(recolhido?'<span class="dica-alterar">▾ toque para trocar o objeto</span>'
-                 :'<span class="dica-alterar">▴ toque para recolher</span>')
-    :"";
-}
-function toggleObjeto(){
-  if(!objetoSel)return;
-  objetoAberto=!objetoAberto;
-  montarObjeto();
+  previaEl.classList.toggle("oculto",!objetoCompleto());
+  previaEl.innerHTML=objetoCompleto()?`<b>Objeto:</b> ${objetoTexto()}`:"";
 }
 function objetoTexto(){
   if(!objetoSel)return "(selecione)";
@@ -2133,7 +2130,6 @@ function montarCategorias(){
       sel.classe="CLASSE IIA E IIB";
     }
     if(op==="DESTINAÇÃO FINAL DE RESÍDUOS"||op==="RECICLÁVEIS MISTOS") sel.uni="POR KG";
-    passoAberto=null;
     esconderPassos(2);
     fluxo();
   },{gerenciar:()=>abrirCatalogo("categorias")});
@@ -2146,9 +2142,9 @@ function fluxo(){
   if(c==="COLETA DE RESÍDUOS"||c==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS"){
     sel.veics=sel.veics||[];
     renderPasso("passo2","Classe",["CLASSE IIA E IIB","CLASSE I"],sel.classe,
-      v=>{sel.classe=v;passoAberto=null;fluxo();});
+      v=>{sel.classe=v;fluxo();});
     if(sel.classe) renderPasso("passo3","Modalidade",["POR COLETA","POR EQUIPAMENTO","POR KG"],sel.mod,
-      v=>{sel.mod=v;passoAberto=null;fluxo();});
+      v=>{sel.mod=v;fluxo();});
     else esconderPassos(3);
     if(sel.classe&&sel.mod) renderPasso("passo4","Veículos",listaVeiculos().map(v=>v.n),sel.veics,
       v=>{alternar(sel.veics,v);fluxo();},
@@ -2164,7 +2160,7 @@ function fluxo(){
     renderPasso("passo2","Classe",["CLASSE II","CLASSE I"],sel.classes,
       v=>{alternar(sel.classes,v);sel.residuos=[];fluxo();},{multi:true});
     if(sel.classes.length) renderPasso("passo3","Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,
-      v=>{sel.uni=v;passoAberto=null;fluxo();});
+      v=>{sel.uni=v;fluxo();});
     else esconderPassos(3);
     if(sel.classes.length&&sel.uni){
       const listaCombinada=sel.classes.flatMap(cl=>listaResiduos(cl));
@@ -2179,7 +2175,7 @@ function fluxo(){
   } else if(c==="RECICLÁVEIS MISTOS"){
     sel.residuos=sel.residuos||[];
     renderPasso("passo2","Unidade",["POR KG","POR UNIDADE","POR TON"],sel.uni,
-      v=>{sel.uni=v;passoAberto=null;fluxo();});
+      v=>{sel.uni=v;fluxo();});
     if(sel.uni) renderPasso("passo3","Resíduos",listaReciclaveis().map(r=>r.n),sel.residuos,
       v=>{alternar(sel.residuos,v);fluxo();},
       {multi:true,gerenciar:()=>abrirCatalogo("reciclaveis")});
@@ -2687,7 +2683,7 @@ function adicionarItens(){
       obsBase:l.obsBase||"",
       sel:JSON.parse(JSON.stringify(sel))});
   });
-  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};passoAberto=null;
+  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
   esconderPassos(2);fluxo();render();
 }
 function removerItem(i){itens.splice(i,1);render();}
@@ -3131,19 +3127,10 @@ function montarChipsUnidade(campo,chave,aoTrocar,descricao){
 function abrirUnidades(campo,chave,aoTrocar,descricao){
   const opcoes=unidadesSugeridas(chave,descricao);
   if(!opcoes.length) return;
-  selAtual={
-    titulo:"Unidade", opcoes, escolha:campo.value.trim()?[campo.value.trim()]:[],
-    onPick:u=>{
-      campo.value=u;
-      if(aoTrocar) aoTrocar(u);
-      fecharSelecao();                    // unidade é escolha única: fecha na hora
-    }
-  };
-  document.getElementById("selTitulo").textContent="Unidade";
-  document.getElementById("selBusca").value="";
-  document.getElementById("selBusca").classList.add("oculto");
-  document.getElementById("modalSelecao").classList.remove("oculto");
-  pintarSelecao();
+  abrirSelecao({
+    titulo:"Unidade", opcoes, escolha:campo.value.trim()||null, multi:false,
+    onPick:u=>{ campo.value=u; if(aoTrocar) aoTrocar(u); }
+  });
   document.getElementById("selDica").textContent="Ou digite direto no campo, se a sua não estiver na lista.";
 }
 // No editor vale a mesma regra da linha do assistente: trocar a unidade refaz a
@@ -4659,17 +4646,12 @@ async function editarUnidadesMaterial(nome){
 /* Popup de unidade do reciclável. Mesma lista de seleção do resto do app, com o
    "editar lista" que a Parte 3 pediu — e a conversão KG↔TON vem junto. */
 function abrirUnidadesReci(campo,nome,aoTrocar){
-  selAtual={
-    titulo:"Unidade", opcoes:unidadesDoMaterial(nome),
-    escolha:campo.value.trim()?[campo.value.trim()]:[],
-    onPick:u=>{ campo.value=u; if(aoTrocar) aoTrocar(u); fecharSelecao(); },
+  abrirSelecao({
+    titulo:"Unidade — "+nome, opcoes:unidadesDoMaterial(nome),
+    escolha:campo.value.trim()||null, multi:false,
+    onPick:u=>{ campo.value=u; if(aoTrocar) aoTrocar(u); },
     gerenciar:()=>editarUnidadesMaterial(nome)
-  };
-  document.getElementById("selTitulo").textContent="Unidade — "+nome;
-  document.getElementById("selBusca").value="";
-  document.getElementById("selBusca").classList.add("oculto");
-  document.getElementById("modalSelecao").classList.remove("oculto");
-  pintarSelecao();
+  });
   document.getElementById("selDica").textContent="Ou digite direto no campo. Trocar entre KG e Tonelada refaz o valor.";
 }
 function abrirMaterialReci(nome){
@@ -5017,7 +4999,6 @@ function restaurarRascunho(){
   enderecoInformado=d.enderecoInformado||"";
   contatosExtras=Array.isArray(d.contatosExtras)?d.contatosExtras:[];
   renderContatosExtras();
-  objetoAberto=false;
   ultimoEnderecoLido={"":document.getElementById("enderecoUnico").value,
                       "Coleta":document.getElementById("enderecoColetaUnico").value};
   document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
@@ -5137,7 +5118,7 @@ async function abrirProposta(id,comoCopia){
   mesmoEnd=p.mesmoEnd!==false;
   contatosExtras=Array.isArray(p.contatosExtras)?JSON.parse(JSON.stringify(p.contatosExtras)):[];
   renderContatosExtras();
-  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; passoAberto=null; objetoAberto=false;
+  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; 
   limparResultado();
 
   if(comoCopia){
@@ -5220,8 +5201,8 @@ async function novaProposta(silencioso){
         {emoji:"↺",sim:"Começar nova"})) return;
   }
 
-  itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;objetoAberto=false;
-  mesmoEnd=true;passoAberto=null;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
+  itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;
+  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
   enderecoInformado="";
   contatosExtras=[];renderContatosExtras();
   document.getElementById("avisoDivergencia").classList.add("oculto");
