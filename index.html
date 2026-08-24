@@ -336,8 +336,26 @@
   .campo-olho input{width:66px;padding:7px 8px;font-size:.9rem;text-align:right;}
   .campo-olho .pct{font-size:.8rem;color:var(--suave);}
   .campo-olho .sub{flex:1;min-width:0;font-size:.7rem;}
-  .campo-olho .olho{background:none;border:none;font-size:1rem;padding:4px 2px;
-    color:var(--suave);font-family:inherit;line-height:1;}
+  /* Âncora fixa: mesma caixa nos dois estados, pra não pular quando troca */
+  .campo-olho .olho{background:none;border:none;padding:0;margin-left:2px;
+    color:var(--suave);line-height:0;flex:0 0 auto;
+    width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;}
+  .campo-olho .olho svg{display:block;}
+  .row3 button svg{vertical-align:-3px;width:15px;height:15px;}
+  .campo-olho.escondido .olho{color:var(--verde);}
+  /* Com o olho fechado os números somem, a estrutura fica. Bolinhas em vez de
+     apagar a célula: quem olha entende que ali existe um valor escondido, em
+     vez de achar que o parceiro não atende aquele resíduo. */
+  body.sem-valores-dest .dest-tab td .n,
+  body.sem-valores-reci .mat-resumo,
+  body.sem-valores-reci .mat-cliente{
+    color:transparent;position:relative;user-select:none;}
+  body.sem-valores-dest .dest-tab td .n::after,
+  body.sem-valores-reci .mat-resumo::after,
+  body.sem-valores-reci .mat-cliente::after{
+    content:"••••";position:absolute;right:0;top:0;color:var(--suave);letter-spacing:1px;}
+  body.sem-valores-dest .dest-tab td.melhor{background:var(--branco);}
+  body.sem-valores-dest .cel-edit{visibility:hidden;}
   .campo-olho.escondido input{letter-spacing:.18em;color:var(--suave);}
   /* Menu de exibição: fechado por padrão, os controles moram dentro dele */
   .dest-exib-abre{display:flex;align-items:center;gap:5px;background:none;border:none;
@@ -373,10 +391,13 @@
   .prop-linha .marca{font-size:.7rem;color:var(--verde);font-weight:600;}
   /* Ficha da proposta */
   .prop-itens{margin:6px 0 4px;}
-  .prop-itens .it{border-bottom:1px dashed var(--campo-borda);padding:7px 0;}
+  .prop-itens .it{display:flex;justify-content:space-between;align-items:baseline;
+    gap:12px;border-bottom:1px dashed var(--campo-borda);padding:6px 0;}
   .prop-itens .it:last-child{border-bottom:none;}
-  .prop-itens .d{font-size:.78rem;white-space:pre-line;line-height:1.3;}
-  .prop-itens .v{font-size:.78rem;font-weight:600;color:var(--verde);margin-top:2px;}
+  .prop-itens .d{font-size:.78rem;line-height:1.3;flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .prop-itens .v{font-size:.78rem;font-weight:600;color:var(--verde);
+    flex:0 0 auto;white-space:nowrap;}
   .prop-form{display:grid;gap:7px;margin-top:6px;}
   .prop-form label{margin:0;}
   .prop-form input{padding:8px 10px;font-size:.85rem;}
@@ -393,9 +414,12 @@
   .ficha-cli .rot{font-size:.68rem;color:var(--suave);text-transform:uppercase;
     letter-spacing:.04em;font-weight:600;}
   .ficha-cli .val{font-size:.86rem;word-break:break-word;}
-  .ficha-cli a.val{color:var(--verde);font-weight:600;text-decoration:none;}
-  .ficha-cli .zap{display:inline-flex;align-items:center;gap:5px;}
-  .ficha-cli .vazio{color:var(--suave);font-style:italic;font-size:.8rem;}
+  .ficha-cli .campo input{padding:8px 10px;font-size:.86rem;}
+  .cli-atalhos{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+  .cli-atalho{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;
+    font-weight:600;color:var(--verde);text-decoration:none;
+    background:var(--verde-claro);border:1px solid var(--verde-borda);
+    border-radius:9px;padding:6px 10px;}
   /* Lista de linhas de custo do popup de link */
   .link-lista{max-height:46vh;overflow-y:auto;margin-top:8px;}
   .link-lista button{display:block;width:100%;text-align:left;background:var(--campo);
@@ -413,10 +437,18 @@
   .btn-linkar{background:none;border:1px dashed var(--campo-borda);border-radius:9px;
     color:var(--verde);font-size:.72rem;font-weight:600;font-family:inherit;
     padding:6px 10px;margin-top:6px;width:100%;}
-  /* Nomes que entraram num grupo mesclado */
-  .grupo-nomes{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0 12px;}
-  .grupo-nomes span{background:var(--campo);border:1px solid var(--campo-borda);
-    border-radius:12px;padding:3px 9px;font-size:.74rem;}
+  /* O que entrou num grupo mesclado, com os preços de cada parceiro */
+  .grupo-lista{margin:8px 0 12px;max-height:38vh;overflow-y:auto;}
+  .grupo-item{border:1px solid var(--campo-borda);border-radius:9px;
+    padding:8px 10px;margin-bottom:6px;}
+  .grupo-item .gi-nome{font-size:.78rem;font-weight:700;margin-bottom:4px;}
+  .grupo-item .gi-preco{display:flex;justify-content:space-between;gap:10px;
+    font-size:.74rem;padding:2px 0;}
+  .grupo-item .gi-preco .d{color:var(--suave);}
+  .grupo-item .gi-preco .v{font-weight:600;color:var(--verde);white-space:nowrap;}
+  .grupo-item .gi-vazio{font-size:.72rem;color:var(--suave);font-style:italic;}
+  body.sem-valores-dest .gi-preco .v{color:transparent;}
+  body.sem-valores-dest .gi-preco .v::after{content:"••••";color:var(--suave);}
   /* Ordem das colunas */
   .dest-ordem{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:6px 0;}
   .dest-ordem button{background:var(--campo);border:1.5px solid var(--campo-borda);
@@ -576,28 +608,6 @@
       <div class="status" id="statusDest"></div>
     </div>
   </div>
-
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleAjudaDest()">Importar / exportar planilha<span class="seta" id="setaAjudaDest">▾</span></h2>
-    <div id="ajudaDestCorpo" class="oculto">
-      <div class="sub" style="margin-bottom:10px">
-        Aqui fica o que cada parceiro <strong>cobra da Corpus</strong> pra destinar
-        cada resíduo. É custo: a proposta sai com o preço de venda, que é esse
-        valor mais o BDI. Tudo fica só neste aparelho.
-      </div>
-      <div class="row2">
-        <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
-        <button class="btn-sec" onclick="exportarDest()">Exportar</button>
-      </div>
-      <input type="file" id="arqDest" accept=".xlsx,.json" class="oculto" onchange="importarDest(this)">
-      <div class="sub">
-        Aceita a sua planilha em .xlsx — colunas DESTINADOR, CLASSE, TIPO DE
-        RESÍDUO, VALOR UNIT. (R$) e UNID. As colunas são procuradas pelo título,
-        então a ordem delas não importa. Importar de novo substitui a tabela
-        inteira, mas as junções de resíduo que você fez continuam valendo.
-      </div>
-    </div>
-  </div>
   <div class="card">
     <h2 class="clicavel" onclick="toggleCard('reci')">Recicláveis
       <span class="badge" id="badgeReci">0</span><span class="seta" id="seta-reci">▾</span></h2>
@@ -621,6 +631,27 @@
     <div id="listaReci" style="margin-top:8px"></div>
     <button class="btn-sec btn-mini" style="width:100%;margin-top:8px" onclick="incluirMaterialReci()">+ incluir material</button>
     <div class="status" id="statusReci"></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleAjudaDest()">Importar / exportar planilha<span class="seta" id="setaAjudaDest">▾</span></h2>
+    <div id="ajudaDestCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        Aqui fica o que cada parceiro <strong>cobra da Corpus</strong> pra destinar
+        cada resíduo. É custo: a proposta sai com o preço de venda, que é esse
+        valor mais o BDI. Tudo fica só neste aparelho.
+      </div>
+      <div class="row2">
+        <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
+        <button class="btn-sec" onclick="exportarDest()">Exportar</button>
+      </div>
+      <input type="file" id="arqDest" accept=".xlsx,.json" class="oculto" onchange="importarDest(this)">
+      <div class="sub">
+        Aceita a sua planilha em .xlsx — colunas DESTINADOR, CLASSE, TIPO DE
+        RESÍDUO, VALOR UNIT. (R$) e UNID. As colunas são procuradas pelo título,
+        então a ordem delas não importa. Importar de novo substitui a tabela
+        inteira, mas as junções de resíduo que você fez continuam valendo.
+      </div>
     </div>
   </div>
 </section>
@@ -657,6 +688,7 @@
            apenas a razão social — o resto abre no toque. -->
       <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
       <div id="listaClientes" style="margin-top:8px"></div>
+      <button class="btn-sec btn-mini" style="width:100%;margin-top:8px" onclick="incluirClienteRapido()">+ incluir cliente</button>
       <div class="sub" id="avisoRapidos"></div>
     </div>
   </div>
@@ -779,7 +811,6 @@
          mesma coisa com outro desenho. -->
     <div id="passoObjeto"></div>
     <div id="passoSubObjeto" class="oculto" style="margin-top:8px"></div>
-    <div class="previa oculto" id="previaObjeto" style="margin-top:9px"></div>
   </div>
 
   <div class="card">
@@ -1031,8 +1062,9 @@
       <h3>Grupo mesclado</h3>
       <button class="modal-fechar" onclick="fecharGrupo()">✕</button>
     </div>
-    <div class="sub">Estes nomes viraram uma linha só na tabela:</div>
-    <div class="grupo-nomes" id="grupoNomes"></div>
+    <div class="sub">Estes nomes viraram uma linha só na tabela. Cada um com o
+      que os parceiros cobram por ele:</div>
+    <div class="grupo-lista" id="grupoNomes"></div>
     <label>Nome que aparece na coluna</label>
     <input type="text" id="grupoRotulo" placeholder="deixe vazio pra usar o nome mais curto">
     <div class="sub">Muda só o que você lê aqui. Cada parceiro continua com o nome
@@ -1335,6 +1367,21 @@ function sugerirNumeroNoCampo(){
 // Desenho em SVG no lugar do emoji de calculadora: em muitos celulares aquele
 // caractere não existe na fonte e aparece como quadradinho vazio. Assim o ícone
 // é sempre o mesmo, em qualquer aparelho, e acompanha a cor do tema.
+/* Olho em SVG, no mesmo peso de traço do resto do app. Antes era um emoji
+   trocado por outro, e emoji muda de desenho e de largura conforme o aparelho:
+   no Android o estado "escondido" virava um macaco tapando os olhos, e a linha
+   inteira mudava de largura junto. Aqui os dois estados têm a mesma caixa e a
+   mesma âncora — o que muda é só o traço cortando a pupila. */
+const ICONE_OLHO='<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">'+
+  '<path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z" fill="none" '+
+  'stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>'+
+  '<circle cx="12" cy="12" r="3.1" fill="currentColor"/></svg>';
+const ICONE_OLHO_CORTE='<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true">'+
+  '<path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z" fill="none" '+
+  'stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>'+
+  '<circle cx="12" cy="12" r="3.1" fill="currentColor"/>'+
+  '<path d="M4 20 20 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>'+
+  '</svg>';
 const ICONE_CALC='<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">'+
   '<rect x="4.5" y="2.5" width="15" height="19" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/>'+
   '<rect x="7.6" y="5.6" width="8.8" height="3.4" rx="1" fill="currentColor"/>'+
@@ -2172,10 +2219,10 @@ function montarObjeto(){
   blocoSub.classList.toggle("oculto",!temSub);
   if(temSub) renderPasso("passoSubObjeto","Subcategoria",["PRESTAÇÃO","LIMPEZA"],subObjetoSel,
     v=>{subObjetoSel=v;montarObjeto();});
-  // A prévia vira só leitura: quem recolhe e reabre agora é o card do passo.
-  const previaEl=document.getElementById("previaObjeto");
-  previaEl.classList.toggle("oculto",!objetoCompleto());
-  previaEl.innerHTML=objetoCompleto()?`<b>Objeto:</b> ${objetoTexto()}`:"";
+  /* A prévia "Objeto: X" saiu: o card do passo, logo acima, já mostra o mesmo
+     texto com o mesmo destaque — eram duas linhas dizendo a mesma coisa, uma
+     embaixo da outra. Quem precisa do texto composto é objetoTexto(), que segue
+     alimentando o documento. */
 }
 function objetoTexto(){
   if(!objetoSel)return "(selecione)";
@@ -3548,7 +3595,10 @@ function renderCategorias(){
     div.querySelector(".detalhe").textContent=notas.join(" · ");
     const bts=div.querySelectorAll(".row3 button");
     bts[0].onclick=()=>renomearCategoria(id);
-    bts[1].textContent=oculta?"👁 mostrar":"🚫 esconder";
+    // Mesmo par de ícones do olho do BDI, pelo mesmo motivo: emoji muda de
+    // desenho e de largura conforme o aparelho.
+    bts[1].innerHTML=(oculta?ICONE_OLHO:ICONE_OLHO_CORTE)+
+      '<span style="margin-left:5px">'+(oculta?"mostrar":"esconder")+'</span>';
     bts[1].onclick=()=>{
       if(oculta) c.ocultas=c.ocultas.filter(x=>x!==id);
       else if(listaCategorias().length<=1){
@@ -3758,9 +3808,17 @@ function pintarOlhoBDI(){
   // type=password some com o número sem tirar o campo do caminho: continua
   // editável, e o navegador já faz a máscara sozinho.
   campo.type=escondido?"password":"text";
-  olho.textContent=escondido?"🙈":"👁";
-  olho.title=escondido?"mostrar o BDI":"esconder o BDI";
-  document.getElementById("exemploBDI").classList.toggle("oculto",escondido);
+  olho.innerHTML=escondido?ICONE_OLHO_CORTE:ICONE_OLHO;
+  olho.title=escondido?"mostrar os valores":"esconder os valores";
+  // visibility, não display: sumindo do fluxo o flex reflui e o olho pula da
+  // direita pro meio da linha, que é exatamente o "fixado no mesmo ponto" que
+  // não pode acontecer.
+  document.getElementById("exemploBDI").style.visibility=escondido?"hidden":"";
+  /* Esconder só o BDI não escondia nada: a tabela ao lado continua com todo
+     custo à mostra, e é ela que se vê primeiro. O olho apaga os números da
+     matriz junto — a estrutura fica (resíduo, parceiro, unidade), os valores
+     viram ••••. */
+  document.body.classList.toggle("sem-valores-dest",escondido);
 }
 /* Menu de exibição. Fechado por padrão: são preferências de leitura, mexidas
    uma vez e esquecidas — não merecem ficar ocupando a tela acima da tabela. */
@@ -4050,10 +4108,35 @@ function abrirGrupo(rotulo){
   const g=gruposResiduos().find(x=>x.rotulo===rotulo);
   if(!g) return;
   grupoEditando=g;
+  /* Antes eram só os nomes soltos em chips: dava pra ver O QUE foi juntado, mas
+     não POR QUE aquilo faz sentido junto nem o que cada parceiro cobra por cada
+     um. Agora cada nome vem com os preços dele, um por linha — é a informação
+     que decide se o agrupamento está certo ou se juntou coisa diferente. */
   const lista=document.getElementById("grupoNomes");
   lista.innerHTML="";
   g.nomes.forEach(n=>{
-    const s=document.createElement("span"); s.textContent=n; lista.appendChild(s);
+    const bloco=document.createElement("div");
+    bloco.className="grupo-item";
+    const tit=document.createElement("div");
+    tit.className="gi-nome"; tit.textContent=n;
+    bloco.appendChild(tit);
+    const precos=dest.precos.filter(p=>p.r===n)
+      .sort((a,b)=>String(a.d).localeCompare(String(b.d),"pt-BR"));
+    if(!precos.length){
+      const v=document.createElement("div");
+      v.className="gi-vazio"; v.textContent="nenhum parceiro cobra por este nome";
+      bloco.appendChild(v);
+    }
+    precos.forEach(p=>{
+      const l=document.createElement("div");
+      l.className="gi-preco";
+      l.innerHTML='<span class="d"></span><span class="v"></span>';
+      l.querySelector(".d").textContent=p.d;
+      l.querySelector(".v").textContent="R$ "+fmtDinheiro(
+        destVendo==="venda"?comBDI(p.v):p.v)+"/"+(normUnid(p.u)||p.u||"–");
+      bloco.appendChild(l);
+    });
+    lista.appendChild(bloco);
   });
   const campo=document.getElementById("grupoRotulo");
   campo.value=((dest.rotulos||{})[g.chave]||"");
@@ -4751,9 +4834,11 @@ function pintarOlhoRepasse(){
   const escondido=!!precos.reciOculto;
   caixa.classList.toggle("escondido",escondido);
   campo.type=escondido?"password":"text";
-  olho.textContent=escondido?"🙈":"👁";
-  olho.title=escondido?"mostrar o repasse":"esconder o repasse";
-  document.getElementById("exemploRepasse").classList.toggle("oculto",escondido);
+  olho.innerHTML=escondido?ICONE_OLHO_CORTE:ICONE_OLHO;
+  olho.title=escondido?"mostrar os valores":"esconder os valores";
+  document.getElementById("exemploRepasse").style.visibility=escondido?"hidden":"";
+  // Mesma regra do BDI: some o percentual E os preços da lista de materiais.
+  document.body.classList.toggle("sem-valores-reci",escondido);
 }
 /* Unidades oferecidas por material. Nasce com as três de sempre; se o Léo quiser
    M³ pra um material específico, a lista é dele — editar aqui não mexe em
@@ -5258,13 +5343,23 @@ function abrirFichaProposta(id){
   lista.innerHTML="";
   const itensP=p.itens||[];
   if(!itensP.length) lista.innerHTML='<span class="sub">Sem linhas de serviço.</span>';
+  /* Uma linha por item: o nome do que foi cotado à esquerda, o valor à direita.
+     A descrição inteira tem três linhas ("COLETA DE RESÍDUOS / CLASSE IIA E IIB -
+     POR COLETA - / Caminhão Munck") porque é assim que ela sai no Word — aqui
+     isso viraria um parágrafo por item e uma ficha de duas telas. O que
+     identifica a linha pra quem confere é a última parte: o veículo, o resíduo,
+     o equipamento. */
   itensP.forEach(it=>{
     const d=document.createElement("div");
     d.className="it";
-    d.innerHTML='<div class="d"></div><div class="v"></div>';
-    d.querySelector(".d").textContent=[it.descricao,it.residuo&&it.residuo!=="-"?it.residuo:""]
-      .filter(Boolean).join("\n");
-    d.querySelector(".v").textContent="R$ "+(it.valor||"—")+(it.unidade?" / "+it.unidade:"");
+    d.innerHTML='<span class="d"></span><span class="v"></span>';
+    const partes=String(it.descricao||"").split("\n").map(x=>x.trim()).filter(Boolean);
+    const rotulo=(it.residuo&&it.residuo!=="-")
+      ? String(it.residuo).replace(/\n/g," ")
+      : (partes[partes.length-1]||"item");
+    d.querySelector(".d").textContent=rotulo;
+    d.querySelector(".d").title=partes.join(" · ");
+    d.querySelector(".v").textContent="R$ "+(it.valor||"—")+(it.unidade?"/"+it.unidade:"");
     lista.appendChild(d);
   });
 
@@ -6553,41 +6648,51 @@ function linkWhatsApp(fone){
   if((d.length===12||d.length===13)&&d.startsWith("55")) return "https://wa.me/"+d;
   return null;
 }
+/* A ficha do cliente era só leitura. Mas ela é alimentada pelo que a proposta
+   tinha no dia — e-mail digitado errado, contato que mudou de área, telefone
+   antigo — e não havia como consertar sem gerar outra proposta. Agora os
+   próprios campos são editáveis, e grava na base rápida ao sair do campo. */
 let clienteAberto=null;
+const CAMPOS_CLIENTE=[
+  ["razaoSocial","Razão social","text"],
+  ["cnpj","CNPJ","text"],
+  ["contato","Contato","text"],
+  ["telefone","Telefone","tel"],
+  ["email","E-mail","email"],
+  ["endereco","Endereço","text"]
+];
 function abrirFichaCliente(c){
   clienteAberto=c;
   document.getElementById("cliTitulo").textContent=c.razaoSocial||"Cliente";
   const el=document.getElementById("cliCorpo");
   el.innerHTML="";
-  const campo=(rot,valor,montar)=>{
+  CAMPOS_CLIENTE.forEach(([campo,rotulo,tipo])=>{
     const d=document.createElement("div");
     d.className="campo";
-    const r=document.createElement("div"); r.className="rot"; r.textContent=rot;
+    const r=document.createElement("div"); r.className="rot"; r.textContent=rotulo;
     d.appendChild(r);
-    if(!String(valor||"").trim()){
-      const v=document.createElement("div"); v.className="vazio";
-      v.textContent="não informado"; d.appendChild(v);
-    }else d.appendChild(montar?montar(valor):Object.assign(
-      document.createElement("div"),{className:"val",textContent:valor}));
+    const inp=document.createElement("input");
+    inp.type="text"; inp.value=c[campo]||"";
+    inp.placeholder="não informado";
+    if(campo==="cnpj") inp.inputMode="numeric";
+    if(campo==="telefone") inp.inputMode="tel";
+    inp.oninput=()=>{
+      if(campo==="cnpj") mascaraCNPJ(inp);
+      if(campo==="telefone") mascaraTelefone(inp);
+      c[campo]=inp.value;
+      if(campo==="razaoSocial") document.getElementById("cliTitulo").textContent=inp.value||"Cliente";
+      gravarClientesRapidos();
+      if(campo==="telefone"||campo==="email") pintarAtalhosCliente(c);
+    };
+    d.appendChild(inp);
     el.appendChild(d);
-  };
-  campo("Razão social",c.razaoSocial);
-  campo("CNPJ",c.cnpj);
-  campo("Contato",c.contato);
-  campo("Telefone",c.telefone,v=>{
-    const zap=linkWhatsApp(v);
-    if(!zap){ return Object.assign(document.createElement("div"),{className:"val",textContent:v}); }
-    const a=document.createElement("a");
-    a.className="val zap"; a.href=zap; a.target="_blank"; a.rel="noopener";
-    a.textContent="💬 "+v+"  ·  abrir no WhatsApp";
-    return a;
   });
-  campo("E-mail",c.email,v=>{
-    const a=document.createElement("a");
-    a.className="val"; a.href="mailto:"+v; a.textContent=v;
-    return a;
-  });
-  campo("Endereço",c.endereco);
+  /* Os atalhos (WhatsApp, e-mail) ficam embaixo dos campos e não dentro deles:
+     um campo que é link não dá pra editar, e editar é justamente o que faltava. */
+  const atalhos=document.createElement("div");
+  atalhos.className="cli-atalhos"; atalhos.id="cliAtalhos";
+  el.appendChild(atalhos);
+  pintarAtalhosCliente(c);
   document.getElementById("cliUsar").onclick=()=>{
     fecharCliente();
     carregarClienteRapido(c);
@@ -6600,9 +6705,39 @@ function abrirFichaCliente(c){
   };
   document.getElementById("modalCliente").classList.remove("oculto");
 }
+/* Cliente que nunca passou por uma proposta — o que o Léo atende antes de
+   cotar. Entra com o nome e o resto se preenche na ficha. */
+async function incluirClienteRapido(){
+  const nome=(await pedirTexto("Novo cliente","Razão social",""))||"";
+  if(!nome.trim()) return;
+  const novo={razaoSocial:nome.trim().toUpperCase(),cnpj:"",contato:"",
+              telefone:"",email:"",endereco:"",em:Date.now()};
+  clientesRapidos.unshift(novo);
+  gravarClientesRapidos(); listarClientes();
+  abrirFichaCliente(novo);
+}
+function pintarAtalhosCliente(c){
+  const el=document.getElementById("cliAtalhos");
+  if(!el) return;
+  el.innerHTML="";
+  const zap=linkWhatsApp(c.telefone);
+  if(zap){
+    const a=document.createElement("a");
+    a.className="cli-atalho"; a.href=zap; a.target="_blank"; a.rel="noopener";
+    a.textContent="💬 abrir no WhatsApp";
+    el.appendChild(a);
+  }
+  if(String(c.email||"").includes("@")){
+    const a=document.createElement("a");
+    a.className="cli-atalho"; a.href="mailto:"+c.email;
+    a.textContent="✉️ escrever e-mail";
+    el.appendChild(a);
+  }
+}
 function fecharCliente(){
   clienteAberto=null;
   document.getElementById("modalCliente").classList.add("oculto");
+  listarClientes();   // razão social editada precisa aparecer na lista
 }
 function carregarClienteRapido(c){
   document.getElementById("razaoSocial").value=(c.razaoSocial||"").toUpperCase();
