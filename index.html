@@ -436,6 +436,39 @@
   .btn-linkar{background:none;border:1px dashed var(--campo-borda);border-radius:9px;
     color:var(--verde);font-size:.72rem;font-weight:600;font-family:inherit;
     padding:6px 10px;margin-top:6px;width:100%;}
+  /* Apoio ao cliente: instrutivos, tabela de resíduos e arquivos locais */
+  .link-portal{display:inline-block;margin:8px 0;font-size:.8rem;font-weight:600;
+    color:var(--verde);text-decoration:none;background:var(--verde-claro);
+    border:1px solid var(--verde-borda);border-radius:9px;padding:8px 12px;}
+  .instrutivo{white-space:pre-wrap;font-size:.78rem;line-height:1.5;
+    background:var(--campo);border:1px solid var(--campo-borda);border-radius:10px;
+    padding:11px 12px;margin:8px 0;max-height:42vh;overflow-y:auto;}
+  .apoio-eu{display:grid;gap:7px;margin-top:7px;}
+  .apoio-eu input{padding:8px 10px;font-size:.85rem;}
+  .mtr-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:9px 0;}
+  .mtr-so-rev{font-size:.74rem;color:var(--suave);display:inline-flex;align-items:center;gap:5px;}
+  .res-linha{border:1px solid var(--card-borda);border-radius:10px;padding:9px 11px;
+    margin-bottom:7px;cursor:pointer;}
+  .res-linha.marcada{border-color:var(--verde);background:var(--verde-claro);}
+  .rl-cab{display:flex;align-items:baseline;gap:8px;}
+  .rl-check{width:15px;height:15px;border:1.6px solid var(--campo-borda);border-radius:4px;
+    flex:0 0 auto;align-self:center;}
+  .res-linha.marcada .rl-check{background:var(--verde);border-color:var(--verde);
+    position:relative;}
+  .res-linha.marcada .rl-check::after{content:"✓";position:absolute;inset:0;color:#fff;
+    font-size:11px;line-height:15px;text-align:center;}
+  .rl-nome{font-size:.82rem;font-weight:600;flex:1;min-width:0;}
+  .rl-cod{font-size:.74rem;font-weight:700;color:var(--verde);flex:0 0 auto;}
+  .rl-meta{font-size:.71rem;color:var(--suave);margin-top:3px;line-height:1.35;}
+  .rl-nota{font-size:.7rem;margin-top:5px;padding:5px 7px;border-radius:6px;
+    background:var(--campo);color:var(--suave);line-height:1.35;}
+  .rl-nota.grave{background:#fff4e5;color:#8a4b00;border:1px solid #f0c188;}
+  html[data-tema="escuro"] .rl-nota.grave{background:#3a2a12;color:#f3c98b;border-color:#6b4a1c;}
+  .apoio-arq{display:flex;align-items:center;gap:8px;border:1px solid var(--card-borda);
+    border-radius:9px;padding:8px 10px;margin-bottom:6px;}
+  .apoio-arq .aa-nome{flex:1;min-width:0;font-size:.79rem;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;}
+  .apoio-arq .aa-tam{font-size:.7rem;color:var(--suave);flex:0 0 auto;}
   /* Ficha do destinador */
   .fd-lista{max-height:44vh;overflow-y:auto;margin-top:8px;}
   .fd-linha{border:1px solid var(--card-borda);border-radius:9px;padding:8px;margin-bottom:7px;}
@@ -570,6 +603,7 @@
     <button data-aba="destinacoes" onclick="mostrarAba('destinacoes')">Destinações</button>
     <button data-aba="equipamentos" onclick="mostrarAba('equipamentos')">Equipamentos</button>
     <button data-aba="carteira" onclick="mostrarAba('carteira')">Propostas e Clientes <span class="badge" id="badgeAbaSalvas">0</span></button>
+    <button data-aba="apoio" onclick="mostrarAba('apoio')">Apoio ao Cliente</button>
     <button data-aba="ajustes" onclick="mostrarAba('ajustes')">Ajustes</button>
   </div>
 </nav>
@@ -651,9 +685,13 @@
         <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
         <button class="btn-sec" onclick="exportarDest()">Exportar</button>
       </div>
-      <input type="file" id="arqDest" accept=".xlsx,.json" class="oculto" onchange="importarDest(this)">
+      <button class="btn-sec btn-full" style="margin-top:8px" onclick="baixarModeloPlanilha()">Baixar planilha modelo (em branco)</button>
+      <div class="sub">A planilha modelo já vem com os cabeçalhos que o app procura
+        e uma linha de exemplo. Preencher nela evita o erro mais comum da
+        importação: coluna com nome que o app não reconhece.</div>
+      <input type="file" id="arqDest" accept=".xlsx,.csv,.json" class="oculto" onchange="importarDest(this)">
       <div class="sub">
-        Aceita a sua planilha em .xlsx — colunas DESTINADOR, CLASSE, TIPO DE
+        Aceita a sua planilha em .xlsx ou .csv — colunas DESTINADOR, CLASSE, TIPO DE
         RESÍDUO, VALOR UNIT. (R$) e UNID. As colunas são procuradas pelo título,
         então a ordem delas não importa. Importar de novo substitui a tabela
         inteira, mas as junções de resíduo que você fez continuam valendo.
@@ -841,6 +879,84 @@
     <div class="titulo-secao"><span>Na proposta <span class="badge" id="contagemNaProposta">0</span></span></div>
     <div class="vazio" id="listaVazia">Nenhum item adicionado ainda.</div>
     <div id="listaItensProposta"></div>
+  </div>
+</section>
+
+<!-- Apoio ao cliente: metade do trabalho de um analista comercial de resíduos é
+     ensinar o cliente a se cadastrar no portal do IEMA e a emitir o MTR. Isso
+     vivia em arquivos soltos no WhatsApp; aqui vira texto pronto pra copiar e
+     uma tabela de resíduos que se filtra e se manda. -->
+<section class="aba-conteudo" id="aba-apoio" hidden>
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('mtrCadastro')">1. Cadastro no portal do IEMA<span class="seta" id="seta-mtrCadastro">▾</span></h2>
+    <div id="corpo-mtrCadastro">
+      <div class="sub">O texto abaixo é o que você manda pro cliente que ainda não
+        tem cadastro. Toque em copiar e cole no WhatsApp ou no e-mail.</div>
+      <a class="link-portal" href="https://mtr.iema.es.gov.br/" target="_blank" rel="noopener">
+        Abrir o portal do IEMA &nbsp;↗</a>
+      <div class="instrutivo" id="txtCadastro"></div>
+      <button class="btn-sec btn-full" onclick="copiarInstrutivo('txtCadastro',this)">Copiar este texto</button>
+      <label style="margin-top:12px">Seus dados, pra entrar no texto como usuário 2</label>
+      <div class="sub">O cliente precisa cadastrar você como usuário pra você emitir
+        MTR por ele. Fica só neste aparelho — não vai pro repositório do app nem
+        pra sincronia.</div>
+      <div class="apoio-eu">
+        <input type="text" id="euNome" placeholder="Nome" oninput="guardarMeusDados()">
+        <input type="text" id="euCpf" placeholder="CPF" inputmode="numeric" oninput="mascaraCPFApoio(this);guardarMeusDados()">
+        <input type="text" id="euCargo" placeholder="Cargo" oninput="guardarMeusDados()">
+        <input type="text" id="euEmail" placeholder="E-mail" oninput="guardarMeusDados()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('mtrModelo')">2. Criar um modelo de MTR<span class="seta" id="seta-mtrModelo">▾</span></h2>
+    <div id="corpo-mtrModelo">
+      <div class="sub">Modelo serve pra MTR repetitivo: o que muda de um envio pro
+        outro é quantidade, tecnologia e data.</div>
+      <div class="instrutivo" id="txtModelo"></div>
+      <button class="btn-sec btn-full" onclick="copiarInstrutivo('txtModelo',this)">Copiar este texto</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('mtrEmitir')">3. Emitir o MTR<span class="seta" id="seta-mtrEmitir">▾</span></h2>
+    <div id="corpo-mtrEmitir">
+      <div class="instrutivo" id="txtEmitir"></div>
+      <button class="btn-sec btn-full" onclick="copiarInstrutivo('txtEmitir',this)">Copiar este texto</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('mtrResiduos')">4. Tabela de resíduos <span class="badge" id="badgeMTR">0</span><span class="seta" id="seta-mtrResiduos">▾</span></h2>
+    <div id="corpo-mtrResiduos">
+      <div class="sub">Marque os resíduos que o cliente pediu e copie só eles —
+        com código, classe, ONU e tecnologia, que é o que o portal cobra.</div>
+      <input type="text" id="buscaMTR" placeholder="Buscar resíduo, código ou tecnologia..." oninput="renderResiduosMTR()">
+      <div class="mtr-acoes">
+        <button class="btn-mini" onclick="marcarTodosMTR(true)">marcar os visíveis</button>
+        <button class="btn-mini" onclick="marcarTodosMTR(false)">limpar</button>
+        <label class="mtr-so-rev"><input type="checkbox" id="soRevisados" onchange="renderResiduosMTR()"> só os com ressalva</label>
+      </div>
+      <div id="listaMTR"></div>
+      <button class="btn-principal btn-full" style="margin-top:10px" onclick="copiarTabelaMTR(this)">Copiar os marcados</button>
+      <div class="sub aviso-sigilo">Os códigos vêm da lista do IBAMA (IN 13/2012) e
+        da RDC ANVISA 222/18. <strong>Confira antes de mandar</strong> — a
+        responsabilidade pelo enquadramento é de quem emite o MTR.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('mtrArquivos')">5. Meus arquivos de apoio <span class="badge" id="badgeApoio">0</span><span class="seta" id="seta-mtrArquivos">▾</span></h2>
+    <div id="corpo-mtrArquivos">
+      <div class="sub">Os PDFs do manual, o vídeo do portal, o que você quiser ter
+        à mão pra reenviar. Ficam <strong>neste aparelho</strong>, não sobem pro
+        app nem pra sincronia — então nada aqui vira público sem querer.</div>
+      <input type="file" id="arqApoio" multiple class="oculto" onchange="guardarArquivoApoio(this)">
+      <button class="btn-sec btn-full" onclick="document.getElementById('arqApoio').click()">+ guardar arquivo</button>
+      <div id="listaApoio" style="margin-top:9px"></div>
+      <div class="status" id="statusApoio"></div>
+    </div>
   </div>
 </section>
 
@@ -1874,6 +1990,7 @@ const ABAS={
   destinacoes:()=>{renderDest();renderPrecosReci();},
   equipamentos:()=>{renderPrecosEquip();renderFrota();},
   carteira:()=>{renderHistorico();listarClientes();},
+  apoio:()=>{carregarApoio();pintarInstrutivos();renderResiduosMTR();renderArquivosApoio();},
   ajustes:null
 };
 let abaAtual="proposta";
@@ -1886,7 +2003,8 @@ let abaAtual="proposta";
    o card principal nasce aberto e o segundo fechado, senão entrar na aba já
    entrega duas telas empilhadas. */
 const LS_CARDS="corpus_cards_v1";
-const CARDS_PADRAO={dest:true, reci:false, salvas:true, clientes:false};
+const CARDS_PADRAO={dest:true, reci:false, salvas:true, clientes:false,
+  mtrCadastro:true, mtrModelo:false, mtrEmitir:false, mtrResiduos:false, mtrArquivos:false};
 let cardsAbertos={};
 function carregarCards(){
   try{
@@ -3506,6 +3624,12 @@ let obsPadraoCustom={};
 /* Sincronia entre aparelhos. A configuração (endereço, chave pública, salt) é
    local e nunca sobe; a senha não é gravada em canto nenhum — vive só na
    memória desta sessão, dentro de syncChave. Ver o bloco SINCRONIA lá embaixo. */
+/* Apoio ao cliente: os dados que identificam o Léo como segundo usuário no
+   portal do cliente. Ficam só neste aparelho e NÃO entram na sincronia — é dado
+   pessoal (CPF), e a regra do app é que dado pessoal não viaja. */
+const LS_APOIO="corpus_apoio_v1";
+let meusDadosApoio={nome:"",cpf:"",cargo:"",email:""};
+
 const LS_SYNC="corpus_sync_v1";
 let sync={url:"",anon:"",salt:"",ligado:false,visto:0}, syncChave=null,
     syncTimer=null, syncOcupado=false, syncSujas={};
@@ -4006,7 +4130,9 @@ async function importarDest(input){
       // Planilha nova do parceiro: os preços são substituídos, mas as junções
       // continuam valendo — elas são por NOME de resíduo, então sobrevivem a um
       // reajuste de preço sem precisar refazer nada.
-      novos=planilhaParaPrecos(await lerXlsx(arq));
+      novos=/\.csv$/i.test(arq.name)
+        ? planilhaParaPrecos(lerCsv(await arq.text()))
+        : planilhaParaPrecos(await lerXlsx(arq));
     }
     if(!novos.length){ st.textContent="Nenhuma linha de preço encontrada no arquivo."; return; }
     dest.precos=novos;
@@ -4018,6 +4144,65 @@ async function importarDest(input){
   }catch(e){
     st.textContent="Não deu pra ler: "+(e.message||e);
   }
+}
+/* Planilha modelo pra importação.
+
+   O erro mais comum na importação não é dado errado: é cabeçalho com outro nome.
+   O app procura DESTINADOR, CLASSE, TIPO DE RESÍDUO, VALOR UNIT. (R$) e UNID.,
+   e quem monta a planilha do zero escreve "Fornecedor", "Preço", "Un" — e a
+   importação falha sem que ninguém entenda por quê. Baixar o modelo pronto
+   resolve isso antes de acontecer.
+
+   Sai em .csv com BOM: abre no Excel com acento certo, é uma linha de código em
+   vez de montar um .xlsx na mão, e o próprio importador já lê os dois. */
+/* Leitor de CSV. O modelo sai em .csv, então tem que voltar em .csv — dar um
+   modelo que o próprio app não lê de volta seria pior que não dar modelo.
+
+   Aspas duplas e ponto e vírgula dentro do campo são tratados porque nome de
+   parceiro tem vírgula ("SÓLIDOS, LODOS E AFINS") e o Excel em português salva
+   com ponto e vírgula. O separador é descoberto pela primeira linha: quem exporta
+   do Google Sheets recebe vírgula. */
+function lerCsv(texto){
+  const t=String(texto).replace(/^\ufeff/,"").replace(/\r\n/g,"\n");
+  const cab=(t.split("\n")[0]||"");
+  const sep=(cab.split(";").length>=cab.split(",").length)?";":",";
+  const linhas=[]; let campo="", linha=[], aspas=false;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(aspas){
+      if(c==='"'&&t[i+1]==='"'){ campo+='"'; i++; }
+      else if(c==='"') aspas=false;
+      else campo+=c;
+    }else if(c==='"') aspas=true;
+    else if(c===sep){ linha.push(campo); campo=""; }
+    else if(c==="\n"){ linha.push(campo); linhas.push(linha); linha=[]; campo=""; }
+    else campo+=c;
+  }
+  if(campo!==""||linha.length){ linha.push(campo); linhas.push(linha); }
+  // planilhaParaPrecos espera objetos {coluna: valor}, como o leitor de xlsx entrega
+  return linhas.map(l=>{
+    const o={};
+    l.forEach((v,j)=>{ o[String.fromCharCode(65+j)]=v; });
+    return o;
+  });
+}
+function baixarModeloPlanilha(){
+  const linhas=[
+    ["DESTINADOR","CLASSE","TIPO DE RESÍDUO","VALOR UNIT. (R$)","UNID."],
+    ["NOME DO PARCEIRO","CLASSE II","MADEIRA","89,65","TON"],
+    ["NOME DO PARCEIRO","CLASSE I","SÓLIDOS CONTAMINADOS","1.200,00","TON"],
+    ["OUTRO PARCEIRO","CLASSE II","ENTULHO","154,04","M³"],
+    ["","","","",""]
+  ];
+  // ponto e vírgula: é o separador que o Excel em português assume sozinho
+  const csv=linhas.map(l=>l.map(c=>{
+    const t=String(c);
+    return /[;"\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
+  }).join(";")).join("\r\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  baixar(blob,"modelo-destinadores-corpus.csv");
+  const st=document.getElementById("statusDest");
+  if(st) st.textContent="Modelo baixado. Preencha e traga de volta em Importar planilha.";
 }
 function exportarDest(){
   const blob=new Blob([JSON.stringify(dest,null,1)],{type:"application/json"});
@@ -5924,6 +6109,307 @@ function fecharPronto(){
   novaProposta(true);
 }
 function limparResultado(){ ultimosGerados=[]; }
+
+
+/* ============ APOIO AO CLIENTE (portal do IEMA / MTR) ============
+   Metade do trabalho de um analista comercial de resíduos é ensinar o cliente a
+   se cadastrar no portal e a emitir o MTR. Isso vivia em PDF solto no WhatsApp,
+   reenviado um a um. Aqui vira texto que se copia e uma tabela que se filtra.
+
+   Os textos são escritos a partir do manual oficial do MTR e do roteiro de
+   cadastro — nenhum dado pessoal fica no código: o que identifica o Léo como
+   segundo usuário do cliente ele preenche no aparelho dele, e é substituído no
+   texto na hora de copiar. CPF no repositório de um app público não entra. */
+/* LS_APOIO e meusDadosApoio são declarados lá em cima, junto do resto do estado.
+   E carregarApoio()/pintarInstrutivos() são chamados pelo callback da ABA, não
+   pela inicialização: os textos abaixo são `const` declaradas aqui embaixo, e o
+   init roda no meio do arquivo — chamar de lá dava TDZ e derrubava o resto do
+   script inteiro, deixando o app pela metade sem dizer por quê. */
+let marcadosMTR=[];
+
+const RESIDUOS_MTR=[{"n":"MADEIRA","c":"200138","d":"Madeira não abrangida em 20 01 37","cl":"IIA","onu":"","risco":"","emb":"","tec":"RECICLAGEM / ATERRO","ok":true},{"n":"MADEIRA CONTAMINADA","c":"200137","d":"Madeira contendo substâncias perigosas","cl":"I","onu":"3077","risco":"9","emb":"III","tec":"ATERRO DE RESÍDUOS CLASSE I","ok":false,"nota":"a planilha trazia risco 1 e grupo N/a; ONU 3077 é classe de risco 9, grupo III"},{"n":"PLÁSTICO","c":"200139","d":"Plásticos","cl":"IIB","onu":"","risco":"","emb":"","tec":"RECICLAGEM","ok":false,"nota":"a planilha estava sem classe e sem tecnologia"},{"n":"PAPEL","c":"200101","d":"Papel e cartão","cl":"IIB","onu":"","risco":"","emb":"","tec":"RECICLAGEM","ok":true},{"n":"METAL","c":"200140","d":"Metais","cl":"IIB","onu":"","risco":"","emb":"","tec":"RECICLAGEM","ok":false,"nota":"a planilha estava sem classe"},{"n":"LATINHAS DE ALUMÍNIO","c":"200140","d":"Metais (alumínio)","cl":"IIB","onu":"","risco":"","emb":"","tec":"RECICLAGEM","ok":false,"nota":"mesmo código do METAL — no MTR os dois entram como 200140"},{"n":"VIDRO","c":"200102","d":"Vidro","cl":"IIB","onu":"","risco":"","emb":"","tec":"RECICLAGEM","ok":false,"nota":"a planilha marcava 160120 como padrão; 1601 é veículo em fim de vida. Para resíduo comercial/urbano o código é 200102"},{"n":"FOSSA","c":"200304","d":"Lamas de fossas sépticas","cl":"IIA","onu":"","risco":"","emb":"","tec":"TRATAMENTO DE EFLUENTES","ok":true},{"n":"NÃO RECICLÁVEIS","c":"200301","d":"Mistura de resíduos urbanos e equiparados","cl":"IIA","onu":"","risco":"","emb":"","tec":"ATERRO DE RESÍDUOS CLASSE IIA E IIB","ok":false,"nota":"a descrição da planilha (\"outros resíduos dos serviços públicos de saneamento básico\") não é a do 200301"},{"n":"GORDURA","c":"200125","d":"Óleos e gorduras alimentares","cl":"IIA","onu":"","risco":"","emb":"","tec":"TRATAMENTO DE EFLUENTES","ok":true},{"n":"RCC","c":"170904","d":"Mistura de resíduos de construção e demolição não abrangidos em 17 09 01, 17 09 02 e 17 09 03","cl":"IIB","onu":"","risco":"","emb":"","tec":"ATERRO DE RESÍDUOS CLASSE IIA E IIB","ok":true},{"n":"RCC MISTO (ladrilhos, telhas, cerâmicos)","c":"170103","d":"Ladrilhos, telhas e materiais cerâmicos","cl":"IIB","onu":"","risco":"","emb":"","tec":"ATERRO DE RESÍDUOS CLASSE IIA E IIB","ok":false,"nota":"ATENÇÃO: a planilha usava 170903 com essa descrição. 170903 é resíduo de construção CONTENDO SUBSTÂNCIAS PERIGOSAS — Classe I, não IIB. Ladrilhos e cerâmicos são 170103"},{"n":"TINTA","c":"200127","d":"Tintas, produtos adesivos, colas e resinas contendo substâncias perigosas","cl":"I","onu":"3082","risco":"9","emb":"III","tec":"ATERRO DE RESÍDUOS CLASSE I","ok":false,"nota":"a planilha trazia risco 6 e grupo N/A; ONU 3082 é risco 9, grupo III"},{"n":"SÓLIDOS CONTAMINADOS","c":"150202","d":"Absorventes, materiais filtrantes, panos de limpeza e vestuário de proteção contaminados por substâncias perigosas","cl":"I","onu":"3077","risco":"9","emb":"III","tec":"ATERRO DE RESÍDUOS CLASSE I","ok":false,"nota":"a planilha trazia risco 3 (líquido inflamável) e grupo I; 3077 é sólido, risco 9, grupo III"},{"n":"ÁGUA E ÓLEO","c":"130507","d":"Águas oleosas provenientes de separadores óleo/água","cl":"I","onu":"3082","risco":"9","emb":"III","tec":"TRATAMENTO DE EFLUENTES","ok":false,"nota":"a planilha trazia grupo II; ONU 3082 é grupo III"},{"n":"EPI USADO (contaminado)","c":"150202","d":"Absorventes, materiais filtrantes, panos de limpeza e vestuário de proteção contaminados por substâncias perigosas","cl":"I","onu":"3077","risco":"9","emb":"III","tec":"ATERRO DE RESÍDUOS CLASSE I","ok":false,"nota":"a planilha trazia risco 3; ver SÓLIDOS CONTAMINADOS — é o mesmo código e a mesma correção"},{"n":"EPI USADO (não contaminado)","c":"150203","d":"Absorventes, materiais filtrantes, panos de limpeza e vestuário de proteção não abrangidos em 15 02 02","cl":"IIA","onu":"","risco":"","emb":"","tec":"ATERRO DE RESÍDUOS CLASSE IIA E IIB","ok":false,"nota":"a planilha marcava classe II sem distinguir IIA de IIB"},{"n":"VARRIÇÃO / PODA","c":"200201","d":"Resíduos biodegradáveis (jardins e parques)","cl":"IIA","onu":"","risco":"","emb":"","tec":"COMPOSTAGEM / ATERRO CLASSE IIA E IIB","ok":false,"nota":"a planilha estava sem descrição e sem tecnologia"},{"n":"LÍQUIDOS CONTAMINADOS (óleo de manutenção)","c":"130201","d":"Óleos de motores, transmissões e lubrificação — óleos minerais não clorados","cl":"I","onu":"3082","risco":"9","emb":"III","tec":"ATERRO DE RESÍDUOS CLASSE I / RERREFINO","ok":false,"nota":"a planilha trazia risco 6; ONU 3082 é risco 9. Óleo lubrificante usado tem destinação própria (rerrefino, Res. CONAMA 362/2005)"},{"n":"QUÍMICOS INORGÂNICOS","c":"160303","d":"Resíduos inorgânicos contendo substâncias perigosas","cl":"I","onu":"3077","risco":"9","emb":"III","tec":"ATERRO DE RESÍDUOS CLASSE I","ok":false,"nota":"a planilha trazia risco 9 e grupo III — confere; corrigida só a grafia do código"},{"n":"PRODUTOS QUÍMICOS DE LABORATÓRIO","c":"160506","d":"Produtos químicos de laboratório contendo ou compostos por substâncias perigosas","cl":"I","onu":"3077","risco":"9","emb":"III","tec":"ATERRO DE RESÍDUOS CLASSE I / INCINERAÇÃO","ok":false,"nota":"a planilha estava sem ONU, risco, grupo e tecnologia"},{"n":"PNEU","c":"160103","d":"Pneus usados","cl":"IIB","onu":"","risco":"","emb":"","tec":"RECICLAGEM / COPROCESSAMENTO","ok":false,"nota":"ATENÇÃO: a planilha usava 160126. Pneus usados são 160103; 1601 26 não existe nessa forma. Pneu tem logística reversa obrigatória (Res. CONAMA 416/2009)"},{"n":"LÂMPADAS FLUORESCENTES","c":"200121","d":"Lâmpadas fluorescentes e outros resíduos contendo mercúrio","cl":"I","onu":"3077","risco":"9","emb":"III","tec":"DESCONTAMINAÇÃO / RECICLAGEM","ok":false,"nota":"a planilha tinha essa linha duplicada (200121 e 200121(*)) com dados diferentes"},{"n":"ELETRÔNICOS (com componentes perigosos)","c":"200135","d":"Equipamento elétrico e eletrônico fora de uso contendo componentes perigosos","cl":"I","onu":"3077","risco":"9","emb":"III","tec":"RECICLAGEM / DESCONTAMINAÇÃO","ok":false,"nota":"a planilha estava sem grupo de embalagem"},{"n":"ELETRÔNICOS (sem componentes perigosos)","c":"200136","d":"Equipamento elétrico e eletrônico fora de uso não abrangido em 20 01 21, 20 01 23 e 20 01 35","cl":"IIB","onu":"","risco":"","emb":"","tec":"RECICLAGEM","ok":true},{"n":"LÍQUIDOS DIVERSOS (lodo de ETE)","c":"190805","d":"Lamas do tratamento de águas residuais urbanas","cl":"IIA","onu":"","risco":"","emb":"","tec":"TRATAMENTO DE EFLUENTES","ok":false,"nota":"ATENÇÃO: a planilha usava 020705, que é resíduo da produção de bebidas alcoólicas. Lodo de ETE urbana é 190805; se for ETE industrial, o código muda conforme o processo"},{"n":"PILHAS E BATERIAS","c":"160601","d":"Baterias de chumbo","cl":"I","onu":"2794","risco":"8","emb":"","tec":"RECICLAGEM (logística reversa)","ok":true},{"n":"IMPRÓPRIOS PARA CONSUMO","c":"020304","d":"Substâncias impróprias para consumo ou processamento","cl":"IIA","onu":"","risco":"","emb":"","tec":"ATERRO DE RESÍDUOS CLASSE IIA E IIB","ok":false,"nota":"a planilha marcava Classe II e ATERRO CLASSE 2; o certo é IIA"},{"n":"RSS — INFECTANTES","c":"180102","d":"Resíduos hospitalares infectantes (Grupo A1)","cl":"A1","onu":"2814","risco":"6.2","emb":"II","tec":"AUTOCLAVE","ok":false,"nota":"a planilha trazia risco 6 e grupo N/A; ONU 2814 é risco 6.2, grupo II"},{"n":"RSS — PERFUROCORTANTES","c":"180401","d":"Perfurocortantes (Grupo E)","cl":"E","onu":"3291","risco":"6.2","emb":"II","tec":"AUTOCLAVE","ok":false,"nota":"a planilha escreveu \"GEUPO E\"; e o risco de 3291 é 6.2"},{"n":"RSS — MEDICAMENTOS SÓLIDOS VENCIDOS","c":"180205","d":"Medicamentos sólidos vencidos (Grupo B)","cl":"B","onu":"3249","risco":"6.1","emb":"II","tec":"ATERRO CLASSE I / INCINERAÇÃO","ok":false,"nota":"a planilha trazia risco 6; ONU 3249 é risco 6.1"},{"n":"RSS — MEDICAMENTOS LÍQUIDOS VENCIDOS","c":"180205","d":"Medicamentos líquidos vencidos (Grupo B)","cl":"B","onu":"3248","risco":"6.1","emb":"III","tec":"TRATAMENTO DE EFLUENTES / INCINERAÇÃO","ok":false,"nota":"a planilha trazia risco 6"},{"n":"RSS — SOBRAS DE LABORATÓRIO","c":"180106","d":"Produtos químicos contendo ou compostos por substâncias perigosas","cl":"B","onu":"3249","risco":"6.1","emb":"II","tec":"ATERRO CLASSE I / INCINERAÇÃO","ok":false,"nota":"ATENÇÃO: a planilha usava 180109, que é \"medicamentos não abrangidos em 18 01 08\" e NÃO é perigoso. Sobra de amostra de laboratório com substância perigosa é 180106"},{"n":"RSS — CARCAÇAS / PEÇAS ANATÔMICAS DE ANIMAIS","c":"180202","d":"Resíduos cuja recolha e eliminação estão sujeitas a requisitos específicos para prevenir infecções (veterinária)","cl":"A4","onu":"3291","risco":"6.2","emb":"II","tec":"ATERRO CLASSE I / INCINERAÇÃO","ok":false,"nota":"ATENÇÃO: a planilha usava 180113, que não existe na lista 18 01. Resíduo veterinário infectante é 180202"}];
+
+const TXT_CADASTRO=
+"CADASTRO NO PORTAL DO IEMA (MTR)\n"+
+"\n"+
+"1. Acesse https://mtr.iema.es.gov.br/ e clique em \"Novo Usuário\".\n"+
+"\n"+
+"2. Preencha os dados da empresa (CNPJ, razão social, endereço e responsável).\n"+
+"\n"+
+"3. Nos campos que costumam gerar dúvida:\n"+
+"   • Perfil Declarante: marque GERADOR.\n"+
+"   • Prefeitura com geração de RSU: não precisa marcar.\n"+
+"   • Licença Gerador: marque ISENTO.\n"+
+"\n"+
+"4. Conclua o cadastro e guarde o login e a senha — é com eles que os MTRs são\n"+
+"   emitidos daqui pra frente.\n"+
+"\n"+
+"5. Depois de entrar, cadastre um segundo usuário para que a Corpus possa emitir\n"+
+"   os MTRs junto com você. Use estes dados:\n"+
+"{EU}\n"+
+"\n"+
+"Qualquer dúvida no preenchimento, me chame que eu acompanho.";
+
+const TXT_MODELO=
+"CRIANDO UM MODELO DE MTR\n"+
+"\n"+
+"Modelo serve pra MTR que se repete: de um envio pro outro muda a quantidade, a\n"+
+"tecnologia de destinação e a data. Vale a pena criar um por tipo de coleta.\n"+
+"\n"+
+"1. No menu \"Manifesto\", escolha \"Cadastrar ou Editar Modelo (MTR)\".\n"+
+"\n"+
+"2. Responda se vai usar Armazenamento Temporário.\n"+
+"   ATENÇÃO: se usar, o modelo só aceita UM resíduo. Sem armazenamento\n"+
+"   temporário, dá pra listar vários no mesmo modelo.\n"+
+"\n"+
+"3. Dê um nome ao modelo — use um que se reconheça na lista depois\n"+
+"   (ex.: \"Coleta mensal - Classe II\").\n"+
+"\n"+
+"4. Defina o Transportador, o tipo de Destinação e o Destinador.\n"+
+"\n"+
+"5. Em Identificação dos Resíduos, use a lupa pra buscar na lista oficial\n"+
+"   (IN IBAMA 13/2012). Buscando por código, digite os seis dígitos.\n"+
+"\n"+
+"6. Se quiser, preencha a codificação e a nomenclatura internas — elas aparecem\n"+
+"   no MTR abaixo do nome oficial do resíduo e ajudam a conferir.\n"+
+"\n"+
+"7. Salve. O modelo fica disponível em \"Novo MTR usando Modelo\".";
+
+const TXT_EMITIR=
+"EMITINDO UM MTR\n"+
+"\n"+
+"Só o GERADOR emite o MTR. Pelo modelo é mais rápido; do zero é o mesmo caminho\n"+
+"com todos os campos em branco.\n"+
+"\n"+
+"1. Menu \"Manifesto\" → \"Novo MTR usando Modelo\" → \"Pesquisar Modelo\" e escolha\n"+
+"   o modelo. (Sem modelo: \"Novo MTR\".)\n"+
+"\n"+
+"2. Preencha o que muda: quantidade, tecnologia de destinação e data de envio.\n"+
+"\n"+
+"3. Transporte: se ainda não souber o motorista, a placa ou a data, pode deixar\n"+
+"   em branco, imprimir e preencher à mão no despacho. O destinador informa\n"+
+"   esses dados no recebimento e eles entram na cópia digital.\n"+
+"\n"+
+"4. Resíduo perigoso (Classe I e RSS dos grupos A, B, C e E) exige Número ONU,\n"+
+"   Classe de Risco, Nome de Embarque e Grupo de Embalagem. Sem isso o sistema\n"+
+"   não deixa salvar. Também é preciso anexar a ficha de emergência.\n"+
+"\n"+
+"5. Confira Gerador, Transportador e Destinador. Passando o mouse sobre o campo\n"+
+"   o próprio portal explica o que ele espera.\n"+
+"\n"+
+"6. Clique em Salvar. O MTR já sai emitido e registrado, em PDF, pronto pra\n"+
+"   imprimir — vai uma via com a carga.\n"+
+"\n"+
+"Depois da coleta, acompanhe: o destinador precisa dar baixa no MTR. MTR emitido\n"+
+"e não baixado fica pendente no seu cadastro.";
+
+function carregarApoio(){
+  try{
+    const g=localStorage.getItem(LS_APOIO);
+    if(g) meusDadosApoio=Object.assign(meusDadosApoio,JSON.parse(g));
+  }catch(e){ console.warn("apoio: não deu pra ler o que estava salvo",e); }
+}
+function guardarMeusDados(){
+  ["nome","cpf","cargo","email"].forEach(k=>{
+    const el=document.getElementById("eu"+k.charAt(0).toUpperCase()+k.slice(1));
+    if(el) meusDadosApoio[k]=el.value;
+  });
+  try{localStorage.setItem(LS_APOIO,JSON.stringify(meusDadosApoio));}catch(e){}
+  pintarInstrutivos();
+}
+function mascaraCPFApoio(el){
+  const d=so(el.value).slice(0,11);
+  el.value=d.replace(/(\d{3})(\d)/,"$1.$2").replace(/(\d{3})\.(\d{3})(\d)/,"$1.$2.$3")
+            .replace(/\.(\d{3})(\d{1,2})$/,".$1-$2");
+}
+/* O bloco "{EU}" só vira texto de verdade quando há dado preenchido. Sem isso o
+   instrutivo sairia com um buraco no meio, e o cliente cadastraria ninguém. */
+function blocoMeusDados(){
+  const d=meusDadosApoio;
+  const linhas=[d.nome,d.cpf,d.cargo,d.email].map(x=>String(x||"").trim()).filter(Boolean);
+  if(!linhas.length) return "   (preencha seus dados em Apoio ao Cliente pra entrarem aqui)";
+  return linhas.map(l=>"   "+l).join("\n");
+}
+function pintarInstrutivos(){
+  const el=document.getElementById("txtCadastro");
+  if(!el) return;
+  el.textContent=TXT_CADASTRO.replace("{EU}",blocoMeusDados());
+  document.getElementById("txtModelo").textContent=TXT_MODELO;
+  document.getElementById("txtEmitir").textContent=TXT_EMITIR;
+  ["nome","cpf","cargo","email"].forEach(k=>{
+    const c=document.getElementById("eu"+k.charAt(0).toUpperCase()+k.slice(1));
+    if(c&&document.activeElement!==c) c.value=meusDadosApoio[k]||"";
+  });
+}
+async function copiarTexto(txt){
+  try{ await navigator.clipboard.writeText(txt); return true; }
+  catch(e){
+    // clipboard bloqueado (http, permissão): cai no truque do textarea
+    try{
+      const t=document.createElement("textarea");
+      t.value=txt; t.style.position="fixed"; t.style.opacity="0";
+      document.body.appendChild(t); t.select();
+      const ok=document.execCommand("copy");
+      t.remove(); return ok;
+    }catch(e2){ return false; }
+  }
+}
+async function copiarInstrutivo(id,botao){
+  const ok=await copiarTexto(document.getElementById(id).textContent);
+  const antes=botao.textContent;
+  botao.textContent=ok?"Copiado":"Não deu — selecione e copie à mão";
+  setTimeout(()=>{botao.textContent=antes;},2200);
+}
+/* ---- Tabela de resíduos ----
+   A lista veio da planilha do Léo e passou por uma revisão contra a IN IBAMA
+   13/2012 e a RDC ANVISA 222/18. O que foi ajustado fica MARCADO, com o motivo
+   à vista: um código errado num MTR é problema do cliente com o órgão, e
+   silenciar a correção seria pior que não corrigir. */
+function renderResiduosMTR(){
+  const el=document.getElementById("listaMTR");
+  if(!el) return;
+  const q=semAc(document.getElementById("buscaMTR").value.trim());
+  const soRev=document.getElementById("soRevisados").checked;
+  const vis=RESIDUOS_MTR.filter(r=>
+    (!q||semAc(r.n+" "+r.c+" "+r.d+" "+r.tec).includes(q))&&(!soRev||!r.ok));
+  document.getElementById("badgeMTR").textContent=marcadosMTR.length;
+  el.innerHTML="";
+  if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  vis.forEach(r=>{
+    const d=document.createElement("div");
+    d.className="res-linha"+(marcadosMTR.includes(r.c+"|"+r.n)?" marcada":"");
+    d.innerHTML='<div class="rl-cab"><span class="rl-check"></span>'+
+      '<span class="rl-nome"></span><span class="rl-cod"></span></div>'+
+      '<div class="rl-meta"></div><div class="rl-nota"></div>';
+    d.querySelector(".rl-nome").textContent=r.n;
+    d.querySelector(".rl-cod").textContent=r.c;
+    const meta=["Classe "+r.cl, r.onu?"ONU "+r.onu:"", r.risco?"risco "+r.risco:"",
+                r.emb?"grupo "+r.emb:"", r.tec].filter(Boolean).join("  ·  ");
+    d.querySelector(".rl-meta").textContent=meta;
+    const nota=d.querySelector(".rl-nota");
+    if(r.ok) nota.remove();
+    else{
+      nota.textContent=(r.nota||"revisado");
+      nota.className="rl-nota"+(String(r.nota||"").startsWith("ATENÇÃO")?" grave":"");
+    }
+    d.onclick=()=>{
+      const k=r.c+"|"+r.n, i=marcadosMTR.indexOf(k);
+      if(i>=0) marcadosMTR.splice(i,1); else marcadosMTR.push(k);
+      renderResiduosMTR();
+    };
+    el.appendChild(d);
+  });
+}
+function marcarTodosMTR(marcar){
+  const q=semAc(document.getElementById("buscaMTR").value.trim());
+  const soRev=document.getElementById("soRevisados").checked;
+  const vis=RESIDUOS_MTR.filter(r=>
+    (!q||semAc(r.n+" "+r.c+" "+r.d+" "+r.tec).includes(q))&&(!soRev||!r.ok));
+  vis.forEach(r=>{
+    const k=r.c+"|"+r.n, i=marcadosMTR.indexOf(k);
+    if(marcar&&i<0) marcadosMTR.push(k);
+    if(!marcar&&i>=0) marcadosMTR.splice(i,1);
+  });
+  renderResiduosMTR();
+}
+/* Texto puro, não tabela: vai por WhatsApp, e tabela colada em WhatsApp vira
+   uma linha só embaralhada. Um bloco por resíduo se lê no celular. */
+function copiarTabelaMTR(botao){
+  const escolhidos=RESIDUOS_MTR.filter(r=>marcadosMTR.includes(r.c+"|"+r.n));
+  if(!escolhidos.length){
+    avisar("Marque pelo menos um resíduo antes de copiar.");
+    return;
+  }
+  const linhas=escolhidos.map(r=>{
+    const p=["• "+r.n,
+      "  Código: "+r.c+"  |  Classe: "+r.cl,
+      "  Descrição: "+r.d];
+    if(r.onu) p.push("  ONU: "+r.onu+"  |  Risco: "+r.risco+(r.emb?"  |  Grupo de embalagem: "+r.emb:""));
+    if(r.tec) p.push("  Tecnologia: "+r.tec);
+    return p.join("\n");
+  });
+  const txt="RESÍDUOS — DADOS PARA O MTR\n\n"+linhas.join("\n\n")+
+    "\n\nCódigos conforme IN IBAMA 13/2012 e RDC ANVISA 222/18.\n"+
+    "Confira o enquadramento antes de emitir.";
+  copiarTexto(txt).then(ok=>{
+    const antes=botao.textContent;
+    botao.textContent=ok?("Copiado — "+escolhidos.length+" resíduo(s)"):"Não deu pra copiar";
+    setTimeout(()=>{botao.textContent=antes;},2200);
+  });
+}
+/* ---- Arquivos de apoio ----
+   Ficam no IndexedDB deste aparelho. Não entram no repositório do app nem na
+   sincronia: são gravações de tela e manuais que podem ter dado de cliente
+   dentro, e o repositório é público. */
+const IDB_APOIO="apoio:";
+async function idbListarApoio(){
+  const db=await idbAbrir();
+  return new Promise((resolve,reject)=>{
+    const r=db.transaction(IDB_LOJA,"readonly").objectStore(IDB_LOJA).getAllKeys();
+    r.onsuccess=()=>resolve((r.result||[]).filter(k=>String(k).startsWith(IDB_APOIO)));
+    r.onerror=()=>reject(r.error);
+  });
+}
+async function idbApagar(chave){
+  const db=await idbAbrir();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(IDB_LOJA,"readwrite");
+    tx.objectStore(IDB_LOJA).delete(chave);
+    tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
+  });
+}
+async function guardarArquivoApoio(input){
+  const arqs=[...(input.files||[])];
+  input.value="";
+  const st=document.getElementById("statusApoio");
+  for(const a of arqs){
+    try{
+      await idbSet(IDB_APOIO+a.name,{nome:a.name,tipo:a.type,tam:a.size,blob:a,em:Date.now()});
+    }catch(e){
+      st.textContent="Não deu pra guardar "+a.name+" — "+(e.message||e);
+      return;
+    }
+  }
+  st.textContent=arqs.length+" arquivo(s) guardados neste aparelho.";
+  renderArquivosApoio();
+}
+function tamanhoLegivel(b){
+  if(b<1024) return b+" B";
+  if(b<1024*1024) return Math.round(b/1024)+" KB";
+  return (b/1048576).toFixed(1).replace(".",",")+" MB";
+}
+async function renderArquivosApoio(){
+  const el=document.getElementById("listaApoio");
+  if(!el) return;
+  let chaves=[];
+  try{ chaves=await idbListarApoio(); }catch(e){ chaves=[]; }
+  document.getElementById("badgeApoio").textContent=chaves.length;
+  el.innerHTML="";
+  if(!chaves.length){
+    el.innerHTML='<span class="sub">Nenhum arquivo ainda.</span>';
+    return;
+  }
+  for(const k of chaves){
+    const reg=await idbGet(k);
+    if(!reg) continue;
+    const d=document.createElement("div");
+    d.className="apoio-arq";
+    d.innerHTML='<span class="aa-nome"></span><span class="aa-tam"></span>'+
+      '<button class="btn-mini">abrir</button><button class="mat-tira">✕</button>';
+    d.querySelector(".aa-nome").textContent=reg.nome;
+    d.querySelector(".aa-tam").textContent=tamanhoLegivel(reg.tam||0);
+    d.querySelector(".btn-mini").onclick=()=>{
+      const u=URL.createObjectURL(reg.blob);
+      window.open(u,"_blank");
+      setTimeout(()=>URL.revokeObjectURL(u),60000);
+    };
+    d.querySelector(".mat-tira").onclick=async()=>{
+      await idbApagar(k);
+      renderArquivosApoio();
+    };
+    el.appendChild(d);
+  }
+}
 
 /* ============ PASTA DE DESTINO (File System Access API — Chrome/Edge) ============ */
 const IDB_NOME="corpus_fs",IDB_LOJA="alcas";
