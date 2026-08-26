@@ -258,6 +258,10 @@
   .dest-tab thead th{background:var(--verde-claro);color:var(--verde);font-size:.66rem;
     font-weight:700;white-space:nowrap;position:sticky;top:0;z-index:2;}
   .dest-tab thead th:first-child{left:0;z-index:3;}
+  /* Cabeçalho da coluna abre a ficha do parceiro */
+  .dest-tab thead th.col-parc{cursor:pointer;text-decoration:underline;
+    text-decoration-style:dotted;text-underline-offset:3px;}
+  .dest-tab thead th.col-parc:active{background:var(--verde);color:#fff;}
   .dest-tab tbody th{background:var(--branco);text-align:left;font-weight:600;
     font-size:.68rem;line-height:1.2;position:sticky;left:0;z-index:1;
     max-width:140px;cursor:pointer;}
@@ -355,7 +359,6 @@
   body.sem-valores-reci .mat-cliente::after{
     content:"••••";position:absolute;right:0;top:0;color:var(--suave);letter-spacing:1px;}
   body.sem-valores-dest .dest-tab td.melhor{background:var(--branco);}
-  body.sem-valores-dest .cel-edit{visibility:hidden;}
   .campo-olho.escondido input{letter-spacing:.18em;color:var(--suave);}
   /* Menu de exibição: fechado por padrão, os controles moram dentro dele */
   .dest-exib-abre{display:flex;align-items:center;gap:5px;background:none;border:none;
@@ -366,10 +369,6 @@
   #exibicaoDest .titulinho{font-size:.68rem;color:var(--suave);text-transform:uppercase;
     letter-spacing:.04em;font-weight:600;margin:7px 0 4px;}
   #exibicaoDest .titulinho:first-child{margin-top:0;}
-  /* Célula em edição: vira campo sem mudar a largura da coluna */
-  .dest-tab td input.cel-edit{width:100%;min-width:64px;padding:1px 3px;font-size:inherit;
-    text-align:right;font-family:inherit;border:1.5px solid var(--verde);border-radius:4px;
-    background:var(--branco);color:var(--texto);}
   /* Estado da sincronia */
   .estado-sync{margin-top:9px;font-weight:600;}
   .estado-sync.ok{color:var(--verde);}
@@ -437,6 +436,13 @@
   .btn-linkar{background:none;border:1px dashed var(--campo-borda);border-radius:9px;
     color:var(--verde);font-size:.72rem;font-weight:600;font-family:inherit;
     padding:6px 10px;margin-top:6px;width:100%;}
+  /* Ficha do destinador */
+  .fd-lista{max-height:44vh;overflow-y:auto;margin-top:8px;}
+  .fd-linha{border:1px solid var(--card-borda);border-radius:9px;padding:8px;margin-bottom:7px;}
+  .fd-linha .fd-res{font-size:.82rem;padding:7px 9px;}
+  .fd-nums{display:grid;grid-template-columns:1.2fr 1fr auto;gap:6px;margin-top:6px;align-items:center;}
+  .fd-nums input{padding:7px 9px;font-size:.84rem;}
+  .fd-nums .mat-tira{font-size:.9rem;padding:0 4px;}
   /* O que entrou num grupo mesclado, com os preços de cada parceiro */
   .grupo-lista{margin:8px 0 12px;max-height:38vh;overflow-y:auto;}
   .grupo-item{border:1px solid var(--campo-borda);border-radius:9px;
@@ -1050,6 +1056,30 @@
     <div class="link-lista" id="linkLista"></div>
     <div class="sub aviso-sigilo">O que vai pro campo é o <strong>preço de venda</strong>.
       Custo e nome do parceiro não saem daqui.</div>
+  </div>
+</div>
+
+<!-- Tudo que um parceiro cobra, numa tela só. A matriz virou leitura: editar
+     na célula misturava conferir e mexer na mesma superfície, e escondia atrás
+     do "*" os preços que o parceiro tem além do menor. -->
+<div class="modal-fundo oculto" id="modalDest">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3 id="fdNome">Destinador</h3>
+      <button class="modal-fechar" onclick="fecharFichaDest()">✕</button>
+    </div>
+    <div class="sub"><span id="fdConta"></span> — o que este parceiro cobra da
+      Corpus. Corrigir aqui refaz a matriz.</div>
+    <input type="text" id="fdBusca" placeholder="Buscar resíduo..." oninput="pintarFichaDest()"
+           style="margin-top:9px">
+    <div class="fd-lista" id="fdLinhas"></div>
+    <button class="btn-sec btn-mini" style="width:100%;margin-top:6px" onclick="novaLinhaDest()">+ incluir resíduo</button>
+    <div class="sub aviso-sigilo">É <strong>custo</strong>, mesmo com a tabela em
+      "venda c/ BDI" — o preço de venda é conta feita em cima deste número.</div>
+    <div class="row2" style="margin-top:12px">
+      <button class="btn-sec" onclick="fecharFichaDest()">Cancelar</button>
+      <button class="btn-principal" onclick="salvarFichaDest()">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -4256,7 +4286,16 @@ function renderDest(){
   const thead=document.createElement("thead");
   const trh=document.createElement("tr");
   trh.innerHTML="<th>Resíduo</th>"+parceiros.map(()=>"<th></th>").join("");
-  [...trh.querySelectorAll("th")].slice(1).forEach((th,i)=>{th.textContent=parceiros[i];});
+  /* Tocar no nome do parceiro abre a ficha dele. A ordenação das colunas, que
+     morava aqui, foi pro menu Exibição — o cabeçalho só cabia uma ação, e entre
+     "trazer a coluna pra frente" e "abrir tudo que este parceiro cobra" a
+     segunda é a que se procura no meio de uma cotação. */
+  [...trh.querySelectorAll("th")].slice(1).forEach((th,i)=>{
+    th.textContent=parceiros[i];
+    th.className="col-parc";
+    th.title="ver e editar os preços de "+parceiros[i];
+    th.onclick=()=>abrirFichaDest(parceiros[i]);
+  });
   thead.appendChild(trh); tab.appendChild(thead);
 
   const tb=document.createElement("tbody");
@@ -4320,9 +4359,12 @@ function renderDest(){
       td.querySelector(".n").textContent=fmtDinheiro(v);
       td.querySelector(".u").textContent="/"+c.u+(c.varios?" *":"");
       td.title=(c.varios?"mais de um preço aqui — mostrando o menor:\n"+c.varios+"\n\n":"")+
-        "toque no número pra corrigir o custo";
-      // Reajuste de parceiro sem baixar planilha nova: a célula vira campo.
-      td.onclick=()=>editarCusto(td,c.i);
+        "toque no nome do parceiro, no topo da coluna, pra editar";
+      /* A matriz é leitura. Editar direto na célula misturava conferir e mexer
+         na mesma superfície, e num toque errado durante a leitura o número
+         mudava. Quem edita é a ficha do parceiro, onde cabe ver todos os preços
+         dele de uma vez — inclusive os que a matriz esconde atrás do "*". */
+      td.onclick=()=>abrirFichaDest(parceiros[ic]);
       const estrela=td.querySelector(".fix");
       estrela.title=fixada
         ? parceiros[ic]+" é o destinador eleito deste resíduo — toque pra desfazer"
@@ -4342,50 +4384,107 @@ function renderDest(){
   const dica=document.createElement("div");
   dica.className="sub";
   dica.innerHTML="Verde = mais barato daquela linha. <strong>★</strong> elege o destinador "+
-    "daquele resíduo: a proposta já nasce com o preço dele. Toque no número pra corrigir o "+
-    "custo ali mesmo. <strong>⇄</strong> marca resíduos que o app juntou sozinho por terem "+
-    "nomes parecidos — toque nele pra ver, renomear ou separar. Pra juntar dois que ficaram "+
-    "em linhas diferentes, toque no nome de cada um e use <em>juntar</em>.";
+    "daquele resíduo: a proposta já nasce com o preço dele. Pra <strong>editar preços</strong>, "+
+    "toque no nome do parceiro no topo da coluna — abre tudo o que ele cobra. "+
+    "<strong>⇄</strong> marca resíduos que o app juntou sozinho por terem nomes parecidos — "+
+    "toque nele pra ver, renomear ou separar. Pra juntar dois que ficaram em linhas "+
+    "diferentes, toque no nome de cada um e use <em>juntar</em>.";
   el.appendChild(dica);
 }
-/* Edição da célula de custo, direto na tabela. É pra reajuste de parceiro:
-   chegou carta de aumento, corrige a linha e segue — sem refazer a importação
-   inteira e sem perder as junções e apelidos que já estavam montados.
+/* ---- Ficha do destinador ----
+   Tudo que um parceiro cobra, numa tela só, editável.
 
-   Edita SEMPRE o custo, mesmo com a tabela em "venda c/ BDI": o que o parceiro
-   cobra é o dado real, o preço de venda é conta feita em cima dele. Deixar
-   digitar o valor de venda escreveria um custo estimado por divisão — número
-   que nunca esteve em contrato nenhum. */
-function editarCusto(td,indice){
-  if(td.querySelector("input")) return;
-  const p=dest.precos[indice];
-  if(!p) return;
-  const campo=document.createElement("input");
-  campo.className="cel-edit";
-  campo.type="text"; campo.inputMode="numeric";
-  campo.value=fmtDinheiro(p.v);
-  campo.title="custo de "+p.d+" para "+p.r;
-  td.innerHTML=""; td.appendChild(campo);
-  campo.focus(); campo.select();
-  let encerrado=false;
-  const encerrar=gravar=>{
-    if(encerrado) return;
-    encerrado=true;
-    const n=numeroBR(campo.value);
-    if(gravar&&n>0&&n!==p.v){
-      dest.precos[indice].v=n;
-      gravarDest(); renderDest(); renderLinhasValores();
-      document.getElementById("statusDest").textContent=
-        p.d+" · "+p.r+": custo agora R$ "+fmtDinheiro(n)+"/"+(p.u||"–")+".";
-      return;
-    }
-    renderDest();
-  };
-  campo.onblur=()=>encerrar(true);
-  campo.onkeydown=ev=>{
-    if(ev.key==="Enter"){ ev.preventDefault(); encerrar(true); }
-    if(ev.key==="Escape"){ ev.preventDefault(); encerrar(false); }
-  };
+   Antes a edição era na própria célula da matriz. Funcionava, mas misturava
+   conferir e mexer na mesma superfície: no meio de uma cotação, um toque errado
+   mudava um custo sem que ninguém percebesse. E a matriz mostra só o MENOR preço
+   quando o parceiro tem mais de um pro mesmo grupo — os outros ficavam atrás de
+   um asterisco, invisíveis pra edição.
+
+   Aqui cabe tudo: cada resíduo daquele parceiro, o custo, a unidade, com espaço
+   pra corrigir, incluir linha nova e remover o que saiu do contrato. Sai daqui
+   e a matriz já está refeita.
+
+   O que se edita é sempre o CUSTO, mesmo com a tabela em "venda c/ BDI": o que
+   o parceiro cobra é o dado real, o preço de venda é conta feita em cima dele.
+   Deixar digitar o valor de venda escreveria um custo estimado por divisão —
+   número que nunca esteve em contrato nenhum. */
+let fichaDestNome=null, fichaDestLinhas=null;
+function abrirFichaDest(nome){
+  fichaDestNome=nome;
+  // Rascunho em memória: linha recém-criada nasce vazia e gravarDest() não
+  // guarda linha sem valor — sem o rascunho ela sumiria ao ser criada.
+  fichaDestLinhas=dest.precos
+    .map((p,i)=>({i,p}))
+    .filter(x=>x.p.d===nome)
+    .map(x=>({i:x.i, r:x.p.r, v:fmtDinheiro(x.p.v), u:x.p.u||"", cl:x.p.cl||""}));
+  if(!fichaDestLinhas.length) fichaDestLinhas.push({i:null,r:"",v:"",u:"",cl:""});
+  document.getElementById("fdNome").textContent=nome;
+  document.getElementById("modalDest").classList.remove("oculto");
+  pintarFichaDest();
+}
+function fecharFichaDest(){
+  fichaDestNome=null; fichaDestLinhas=null;
+  document.getElementById("modalDest").classList.add("oculto");
+}
+function pintarFichaDest(){
+  const el=document.getElementById("fdLinhas");
+  if(!el||!fichaDestLinhas) return;
+  const busca=semAc(document.getElementById("fdBusca").value.trim());
+  el.innerHTML="";
+  const vistas=fichaDestLinhas.filter(l=>!busca||semAc(l.r).includes(busca));
+  document.getElementById("fdConta").textContent=
+    fichaDestLinhas.filter(l=>l.r.trim()).length+" resíduo(s)";
+  if(!vistas.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  vistas.forEach(l=>{
+    const d=document.createElement("div");
+    d.className="fd-linha";
+    d.innerHTML=
+      `<input type="text" class="fd-res" placeholder="nome do resíduo na planilha dele" data-k="r">
+       <div class="fd-nums">
+         <input type="text" inputmode="numeric" placeholder="custo 0,00" data-k="v">
+         <input type="text" placeholder="unid." data-k="u">
+         <button type="button" class="mat-tira" title="Remover esta linha">✕</button>
+       </div>`;
+    el.appendChild(d);
+    const ir=d.querySelector('[data-k="r"]'), iv=d.querySelector('[data-k="v"]'),
+          iu=d.querySelector('[data-k="u"]');
+    ir.value=l.r; iv.value=l.v; iu.value=l.u;
+    ir.oninput=()=>{l.r=ir.value;};
+    iv.oninput=()=>{mascaraValor(iv);l.v=iv.value;};
+    iu.oninput=()=>{l.u=iu.value;};
+    iu.onclick=()=>abrirSelecao({
+      titulo:"Unidade", opcoes:["TON","KG","UN","M³"], escolha:iu.value.trim()||null, multi:false,
+      onPick:u=>{iu.value=u;l.u=u;}
+    });
+    d.querySelector(".mat-tira").onclick=()=>{
+      fichaDestLinhas.splice(fichaDestLinhas.indexOf(l),1);
+      if(!fichaDestLinhas.length) fichaDestLinhas.push({i:null,r:"",v:"",u:"",cl:""});
+      pintarFichaDest();
+    };
+  });
+}
+function novaLinhaDest(){
+  if(!fichaDestLinhas) return;
+  fichaDestLinhas.push({i:null,r:"",v:"",u:"",cl:""});
+  document.getElementById("fdBusca").value="";
+  pintarFichaDest();
+}
+/* Grava a ficha inteira de uma vez. Reconstrói só as linhas DESTE parceiro e
+   deixa as dos outros intactas — os índices originais viajam em `i`, mas
+   remover uma linha embaralharia todos os índices seguintes, então é mais
+   seguro trocar o bloco dele do que remendar posição por posição. */
+function salvarFichaDest(){
+  if(!fichaDestNome||!fichaDestLinhas) return;
+  const novas=fichaDestLinhas
+    .filter(l=>l.r.trim()&&numeroBR(l.v)>0)
+    .map(l=>({d:fichaDestNome, cl:l.cl||"", r:l.r.trim(), v:numeroBR(l.v), u:l.u.trim()}));
+  const outros=dest.precos.filter(p=>p.d!==fichaDestNome);
+  dest.precos=outros.concat(novas);
+  gravarDest();
+  const st=document.getElementById("statusDest");
+  if(st) st.textContent=fichaDestNome+": "+novas.length+" resíduo(s) gravados.";
+  fecharFichaDest();
+  renderDest(); renderLinhasValores();
 }
 
 /* ============ PREÇOS PRÓPRIOS (RECICLÁVEIS E EQUIPAMENTOS) ============
