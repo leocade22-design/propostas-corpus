@@ -6037,11 +6037,26 @@ function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
    Fiorino" em três linhas é normal de se ler.
 
    Quem fica com a sobra é Observações, porque é ela que carrega a explicação do
-   preço — e é a única coluna cujo texto é prosa de verdade. O alvo veio medido,
-   não chutado: a frase padrão mais comprida que sai hoje ("Dedicada para coletas
-   de menores volumes.") precisa de 4257 twips pra caber numa linha, o que põe a
-   observação inteira em duas. Os tetos das outras quatro somam exatamente o que
-   sobra pra isso caber. Mexer num deles muda esse equilíbrio — meça antes. */
+   preço — e é a única coluna cujo texto é prosa de verdade.
+
+   O que decide o tamanho de cada uma veio de medida, não de olho, e a ordem de
+   prioridade é esta:
+
+   1. O cabeçalho "Valor / Unitário (R$)" tem que sair nas duas linhas certas.
+      São 1320 twips de texto mais folga; a coluna fica em 1700.
+   2. Resíduo e Unidade estão no próprio piso — abaixo disso "Contaminados" e
+      "Unidade" quebrariam no meio da palavra.
+   3. Descrição fica com 2780 porque é o que mantém "COLETA DE RESÍDUOS" e
+      "CLASSE II - POR COLETA -" cada um na sua linha, e a célula em três.
+      Encolher mais joga a descrição pra quatro linhas e é ELA quem manda na
+      altura da linha inteira.
+   4. Observações leva o que sobrar. Fica em 3814, e por isso a frase mais
+      comprida ("Dedicada para coletas de menores volumes.") sai em duas linhas
+      em vez de uma — o que NÃO deixa a tabela mais alta, porque a Descrição ao
+      lado já ocupa três. Foi de onde tirar espaço custou menos.
+
+   Mexer em qualquer um desses números muda o equilíbrio dos outros quatro.
+   Meça antes: larguraColunas() é determinístico e dá pra conferir no console. */
 const LARG_TOTAL=11052;              // largura da tabela no modelo, em twips
 const PAD_CELULA=300;                // margem interna das células + respiro contra
                                       // kerning e margens que o canvas não replica 100%
@@ -6051,7 +6066,7 @@ const COLUNAS_TABELA=[
   {cab:"Descrição",            campo:"descricao",   teto:2480, folga:1, pisoMin:2100},
   {cab:"Resíduo",              campo:"residuo",     teto:1290, folga:0, pisoMin:1290},
   {cab:"Unidade",              campo:"unidade",     teto:900,  folga:0, pisoMin:868},
-  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:950,  folga:0, pisoMin:950,  prioCorte:1},
+  {cab:"Valor\nUnitário (R$)", campo:"valor",       teto:1400, folga:0, pisoMin:1400, prioCorte:1},
   {cab:"Observações",          campo:"observacoes", teto:5400, folga:2, prosa:true, pisoMin:3500, prioCorte:2}
 ];
 let ctxMedida=null;
@@ -6093,10 +6108,16 @@ function larguraColunas(itens){
   // coluna ("CLASSE II - POR EQUIPAMENTO -" na Descrição, "Valor Unitário"
   // no cabeçalho de Valor etc.) — sem ele, o aperto de verdade abaixo travava
   // tudo só na palavra, bem menor do que o razoável.
-  const garantia=COLUNAS_TABELA.map((c,i)=>Math.min(dados[i].linha,c.teto)+PAD_CELULA);
+  const teto=COLUNAS_TABELA.map((c,i)=>Math.min(dados[i].linha,c.teto)+PAD_CELULA);
   const pisoAbs=COLUNAS_TABELA.map((c,i)=>dados[i].palavra+PAD_CELULA);
   const piso=COLUNAS_TABELA.map((c,i)=>Math.max(dados[i].palavra,c.pisoMin||0)+PAD_CELULA);
   const iProsa=COLUNAS_TABELA.findIndex(c=>c.prosa);
+  /* `pisoMin` valia só no aperto: no caso normal a coluna recebia o teto e
+     pronto, e um pisoMin maior que ele era simplesmente ignorado. Isso deixava
+     "Unitário (R$)" empatado no milímetro com a própria célula — bastava o Word
+     medir um fio diferente do canvas pro cabeçalho voltar a quebrar em três
+     linhas. Agora piso é piso em todo caminho, que é o que o nome promete. */
+  const garantia=COLUNAS_TABELA.map((c,i)=>c.prosa?teto[i]:Math.max(teto[i],piso[i]));
 
   const totalEstrutural=garantia.reduce((s,w,i)=>s+(COLUNAS_TABELA[i].prosa?0:w),0);
   const pisoProsa=iProsa>=0?piso[iProsa]:0;
@@ -7702,7 +7723,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.27-2";
+const APP_VERSION="2026.08.27-3";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
