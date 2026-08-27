@@ -1061,6 +1061,30 @@
       <div class="status" id="statusSnap"></div>
     </div>
   </div>
+  <!-- Backup de tudo num arquivo só. Existia exportação de três coisas em três
+       lugares diferentes (custos, propostas, cofre) e nenhuma levava catálogos,
+       frota, preços, vínculos nem a base rápida de clientes. -->
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleBackup()">Backup completo
+      <span class="badge" id="badgeBackup">0</span><span class="seta" id="setaBackup">▾</span></h2>
+    <div id="backupCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        <strong>Um arquivo com tudo</strong>: propostas, clientes, custos dos
+        destinadores, preços, catálogos (veículos, resíduos, equipamentos,
+        funções), frota, vínculos, observações padrão e o contador de numeração.
+        As exportações soltas espalhadas pelo app levam só um pedaço cada uma.
+      </div>
+      <div class="row2">
+        <button class="btn-sec" onclick="exportarTudo()">Exportar tudo</button>
+        <button class="btn-sec" onclick="document.getElementById('arqTudo').click()">Restaurar</button>
+      </div>
+      <input type="file" id="arqTudo" accept="application/json" class="oculto" onchange="importarTudo(this)">
+      <div class="sub aviso-sigilo">Fora do arquivo, porque não cabem em JSON:
+        as <strong>fotos da atividade</strong> e os arquivos da aba Apoio — esses
+        vivem só no aparelho. O cofre vai junto, mas continua cifrado com a senha dele.</div>
+      <div class="status" id="statusBackup"></div>
+    </div>
+  </div>
   <!-- Um lugar só pras observações que saem na proposta. Elas nascem espalhadas
        por seis editores de catálogo, e quem só quer trocar a frase não tem por
        que saber em qual mexer. -->
@@ -3805,7 +3829,9 @@ const LS_APOIO="corpus_apoio_v1";
 let meusDadosApoio={nome:"",cpf:"",cargo:"",email:""};
 
 const LS_SYNC="corpus_sync_v1";
-let sync={url:"",anon:"",salt:"",ligado:false,visto:0}, syncChave=null,
+// `base` guarda, por seção, qual versão do servidor este aparelho já viu — é
+// o que substituiu a comparação de relógios entre aparelhos.
+let sync={url:"",anon:"",salt:"",ligado:false,visto:0,base:{}}, syncChave=null,
     syncTimer=null, syncOcupado=false, syncSujas={};
 
 /* Marcas de exclusão ("lápides").
@@ -3841,6 +3867,7 @@ let snapshots={};
    inicialização chama renderFotos() no meio do arquivo, e `let`/`const` não
    existem antes da linha que os declara. Foi a SEXTA vez que esse tropeço
    apareceu neste arquivo — na quinta ele derrubou o script inteiro em silêncio. */
+const IDB_NOME="corpus_fs", IDB_LOJA="alcas";
 const IDB_FOTO="foto:";
 const FOTO_LADO_MAX=1600, FOTO_QUALIDADE=0.82;
 let urlsFotos=[];
@@ -4088,8 +4115,21 @@ function removerDoCatalogo(nome,silencioso){
 }
 function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.getElementById("statusCatalogo").textContent="";}
 
-/* ============ PADRÕES ============ */
-(function(){
+/* ============ PARTIDA DO APP ============
+
+   Isto ERA uma IIFE que rodava aqui, no meio do arquivo. Parecia inofensivo e
+   custou sete bugs iguais: tudo que a partida toca precisa estar declarado
+   ACIMA desta linha, porque `const`/`let` não existem antes da própria
+   declaração. Cada vez que alguma coisa nova nascia lá embaixo — a tabela de
+   custos, os clientes rápidos, a sincronia, os textos de apoio, as fotos, a
+   chave guardada — o erro voltava. Duas vezes derrubou o script inteiro em
+   silêncio; uma delas deixou a sincronia parecendo ligada sem estar.
+
+   Agora ela só é DECLARADA aqui e CHAMADA no fim do arquivo, junto da outra
+   metade da partida que já morava lá. Com o script inteiro avaliado antes,
+   nenhuma declaração pode estar "ainda não existindo" — a classe de bug
+   deixa de ser possível em vez de ser evitada com cuidado. */
+function iniciarApp(){
   const h=new Date();
   document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
   sugerirNumeroNoCampo();
@@ -4112,7 +4152,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   medirAlturaVisivel();
   pintarCards();
   mostrarAba("proposta");
-})();
+}
 
 /* ============ DESTINADORES E CUSTOS ============
    O que cada parceiro cobra da Corpus pra destinar cada resíduo. É CUSTO, não
@@ -5862,10 +5902,27 @@ function restaurarRascunho(){
 }
 
 function carregarPropostas(){
+  /* `catch{ propostas=[] }` era uma bomba: um JSON truncado (gravação
+     interrompida, armazenamento cheio no meio da escrita) zerava a lista em
+     memória — e o PRÓXIMO gravarPropostas() escrevia esse vazio por cima do
+     que ainda estava bom no disco. Uma leitura com defeito virava perda
+     definitiva, sem ninguém apertar nada.
+
+     Agora leitura ruim não destrói nada: mantém o que já estava em memória,
+     grita na tela e deixa o dado no disco intacto pra poder ser recuperado. */
   try{
     const s=localStorage.getItem(LS_PROPOSTAS);
-    if(s) propostas=JSON.parse(s)||[];
-  }catch(e){propostas=[];}
+    if(s){
+      const lido=JSON.parse(s);
+      if(Array.isArray(lido)) propostas=lido;
+      else throw new Error("o conteúdo salvo não é uma lista");
+    }
+  }catch(e){
+    console.error("propostas: não deu pra ler o que estava salvo",e);
+    const st=document.getElementById("statusHistorico");
+    if(st) st.textContent="Não consegui ler as propostas salvas neste aparelho. "+
+      "NÃO gere nem apague nada ainda — exporte o que estiver na tela e me chame.";
+  }
   atualizarBadgeHistorico();
 }
 function gravarPropostas(){
@@ -6107,6 +6164,71 @@ async function excluirProposta(id){
   // As fotos moram fora do registro (IndexedDB) e não sairiam junto sozinhas.
   await apagarFotosDe(id);
   gravarPropostas(); atualizarBadgeHistorico(); renderHistorico(); renderFotos();
+}
+/* ---- Backup completo ----
+   Varre o próprio localStorage em vez de manter uma lista de chaves: chave nova
+   que nascer amanhã entra sozinha no backup. Uma lista escrita à mão é a que
+   esquece justamente a coisa nova — foi assim que catálogos, frota, preços e
+   vínculos nunca entraram em exportação nenhuma. */
+const FORA_DO_BACKUP=["corpus_sync_sujas_v1","corpus_snapshots_v1"];
+function chavesDoApp(){
+  const fora=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith("corpus_")&&!FORA_DO_BACKUP.includes(k)) fora.push(k);
+  }
+  return fora.sort();
+}
+function contarBackup(){
+  const el=document.getElementById("badgeBackup");
+  if(el) el.textContent=chavesDoApp().length;
+}
+let backupAberto=false;
+function toggleBackup(){
+  backupAberto=!backupAberto;
+  document.getElementById("backupCorpo").classList.toggle("oculto",!backupAberto);
+  document.getElementById("setaBackup").classList.toggle("aberta",backupAberto);
+  contarBackup();
+}
+function exportarTudo(){
+  const dados={};
+  chavesDoApp().forEach(k=>{ dados[k]=localStorage.getItem(k); });
+  const pacote={app:"propostas-corpus", versao:APP_VERSION,
+                em:new Date().toISOString(), chaves:Object.keys(dados).length, dados};
+  const blob=new Blob([JSON.stringify(pacote,null,1)],{type:"application/json"});
+  const nome="corpus-backup-"+new Date().toISOString().slice(0,10)+".json";
+  baixar(blob,nome);
+  document.getElementById("statusBackup").textContent=
+    pacote.chaves+" conjuntos de dados exportados em "+nome+".";
+}
+async function importarTudo(input){
+  const arq=(input.files||[])[0];
+  input.value="";
+  if(!arq) return;
+  const st=document.getElementById("statusBackup");
+  let pacote;
+  try{ pacote=JSON.parse(await arq.text()); }
+  catch(e){ st.textContent="Arquivo ilegível — não parece um backup do app."; return; }
+  if(!pacote||pacote.app!=="propostas-corpus"||!pacote.dados||typeof pacote.dados!=="object"){
+    st.textContent="Esse arquivo não é um backup completo do Propostas CORPUS.";
+    return;
+  }
+  const n=Object.keys(pacote.dados).length;
+  const quando=pacote.em?new Date(pacote.em).toLocaleString("pt-BR"):"data desconhecida";
+  if(!await perguntar("Restaurar o backup?",
+      "Backup de "+quando+", com "+n+" conjuntos de dados.\n\n"+
+      "Isto SUBSTITUI o que está neste aparelho. O app recarrega em seguida.",
+      {emoji:"⏪",sim:"Restaurar",nao:"Cancelar",perigo:true})) return;
+  try{
+    Object.entries(pacote.dados).forEach(([k,v])=>{
+      if(typeof v==="string"&&k.startsWith("corpus_")) localStorage.setItem(k,v);
+    });
+  }catch(e){
+    st.textContent="Não deu pra gravar tudo — armazenamento cheio. Nada foi perdido do arquivo; libere espaço e tente de novo.";
+    return;
+  }
+  st.textContent="Restaurado. Recarregando...";
+  setTimeout(()=>location.reload(),700);
 }
 function exportarPropostas(){
   const blob=new Blob([JSON.stringify(propostas,null,2)],{type:"application/json"});
@@ -7125,7 +7247,8 @@ async function contarFotosDe(id){
 }
 
 /* ============ PASTA DE DESTINO (File System Access API — Chrome/Edge) ============ */
-const IDB_NOME="corpus_fs",IDB_LOJA="alcas";
+// IDB_NOME/IDB_LOJA estão no bloco de estado do topo: iniciarSync() lê a chave
+// guardada durante a inicialização, antes desta altura do arquivo.
 function idbAbrir(){
   return new Promise((resolve,reject)=>{
     const req=indexedDB.open(IDB_NOME,1);
@@ -7477,9 +7600,17 @@ function secoesSync(){
     {id:"excluidos", ls:LS_EXCL, fusao:"marcas", aplicar:()=>{carregarExcluidos();}},
     // Estas duas crescem por acréscimo: fundir item a item é o que impede que
     // um cliente cadastrado no celular suma porque o PC salvou depois.
-    {id:"rapidos",    ls:LS_RAPIDOS,  fusao:"lista", chave:c=>so(c.cnpj||""), quando:c=>c.em||0,
+    {id:"rapidos",    ls:LS_RAPIDOS,  fusao:"lista", chave:c=>so(c.cnpj||""), quando:c=>carimbo(c.em)||0,
       aplicar:()=>{carregarClientesRapidos();listarClientes();}},
-    {id:"propostas",  ls:LS_PROPOSTAS,fusao:"lista", chave:p=>String(p.id||""), quando:p=>p.em||p.quando||0,
+    /* `quando` lia p.em/p.quando — campos que o registro de proposta NUNCA teve.
+       O que ele grava é `salvoEm`, em ISO. Resultado: toda proposta valia
+       carimbo ZERO, e daí saíam dois estragos silenciosos. Um: a lista voltava
+       da fusão sem ordem nenhuma. Outro, grave: foiExcluido() compara a marca
+       de exclusão com o carimbo do item, e contra zero QUALQUER marca ganha —
+       bastava um id ter sido excluído alguma vez pra ele nunca mais poder
+       existir, nem recriado. */
+    {id:"propostas",  ls:LS_PROPOSTAS,fusao:"lista", chave:p=>String(p.id||""),
+      quando:p=>carimbo(p.salvoEm)||p.em||p.quando||0,
       aplicar:()=>{carregarPropostas();renderHistorico();}}
   ];
 }
@@ -7487,6 +7618,7 @@ function carregarSync(){
   try{
     const s=localStorage.getItem(LS_SYNC);
     if(s) sync=Object.assign(sync,JSON.parse(s));
+    if(!sync.base||typeof sync.base!=="object") sync.base={};
   }catch(e){ console.warn("sincronia: não deu pra ler a configuração",e); }
 }
 function gravarSync(){
@@ -7570,6 +7702,14 @@ async function subirSecao(id,dados,em){
    fácil e inaceitável: cadastrar um cliente no celular e outro no PC faria o
    último a subir apagar o do outro. Funde item a item pela chave natural, e
    quando o mesmo item existe dos dois lados fica o de carimbo mais novo. */
+/* Carimbo em milissegundos, venha ele como número ou como texto ISO. Registro
+   antigo grava número; o de proposta grava ISO. Misturar os dois sem converter
+   é como o campo certo passou despercebido. */
+function carimbo(v){
+  if(typeof v==="number") return isFinite(v)?v:0;
+  if(typeof v==="string"&&v){ const t=Date.parse(v); return isFinite(t)?t:0; }
+  return 0;
+}
 function fundirListas(local,remoto,chave,quando,secao){
   if(!Array.isArray(local)||!Array.isArray(remoto)) return Array.isArray(local)?local:remoto;
   const mapa=new Map();
@@ -7605,9 +7745,18 @@ function marcarExcluido(secao,chave){
   excluidos[secao+":"+chave]=Date.now();
   gravarExcluidos();
 }
+/* Um item só é descartado quando a marca de exclusão é COMPROVADAMENTE mais
+   nova que ele. Sem carimbo no item não dá pra provar nada — e aí a escolha é
+   entre ressuscitar algo que foi apagado (chato, se resolve apagando de novo) e
+   apagar uma proposta que ninguém mandou apagar (irreversível). Fica o item.
+
+   Era o contrário: contra carimbo zero, "m >= 0" dava sempre verdadeiro. */
 function foiExcluido(secao,chave,quando){
   const m=excluidos[secao+":"+chave];
-  return !!m&&m>=(quando||0);
+  if(!m) return false;
+  const q=carimbo(quando);
+  if(!q) return false;            // idade desconhecida: na dúvida, não some
+  return m>=q;
 }
 /* ---- Guardar o que vai ser substituído ---- */
 function carregarSnapshots(){
@@ -7690,11 +7839,27 @@ function renderSnapshots(){
 }
 function lerLocal(ls){ try{ return localStorage.getItem(ls); }catch(e){ return null; } }
 let syncDebounce=null;
+/* As marcas de "mexi nisto e ainda não subiu" viviam só na memória. Fechar o
+   app antes da subida (o debounce é de 3 segundos — dá pra fechar no meio)
+   apagava a marca, e na abertura seguinte o aparelho se achava limpo: a versão
+   do servidor descia por cima da alteração que nunca chegou a subir. Some do
+   jeito mais cruel, sem erro nenhum na tela. Agora a marca é gravada. */
+const LS_SUJAS="corpus_sync_sujas_v1";
+function carregarSujas(){
+  try{
+    const s=localStorage.getItem(LS_SUJAS);
+    if(s) syncSujas=JSON.parse(s)||{};
+  }catch(e){ syncSujas={}; }
+}
+function gravarSujas(){
+  try{ localStorage.setItem(LS_SUJAS,JSON.stringify(syncSujas)); }catch(e){}
+}
 function marcarSuja(ls){
   if(!sync.ligado) return;
   const sec=secoesSync().find(x=>x.ls===ls);
   if(!sec) return;
   syncSujas[sec.id]=Date.now();
+  gravarSujas();
   // Espera a mão parar antes de subir: digitando um preço, cada tecla grava, e
   // uma subida por tecla seria conversa demais pra nada.
   clearTimeout(syncDebounce);
@@ -7737,50 +7902,104 @@ async function rodarSync(motivo){
           precisaGravarLocal=(fundido!==bruto);
           precisaSubir=(fundido!==vindo);
         }catch(e){ console.warn("sincronia: não deu pra fundir "+sec.id,e); }
-      }else if(!sync.visto&&sec.fusao==="recente"){
-        /* Primeira sincronia DESTE aparelho, e as duas versões existem e são
-           diferentes. É o momento mais perigoso da vida da sincronia: ligar no
-           PC depois de ligar no celular sobrescreveria calado a tabela de custos
-           que dá mais trabalho de montar do que tudo no app junto.
-
-           Como não dá pra saber qual das duas é a boa — nenhum carimbo ajuda,
-           os dois aparelhos viveram separados até agora —, quem decide é quem
-           montou as duas. Uma pergunta por seção divergente, uma vez só. */
-        const nome=(sec.titulo||sec.id);
-        const ficaRemoto=await perguntar(
-          "Qual versão vale?",
-          nome.charAt(0).toUpperCase()+nome.slice(1)+
-          " está diferente aqui e na nuvem.\n\nComo é a primeira sincronia deste "+
-          "aparelho, nenhuma das duas é \"mais nova\" — quem sabe qual presta é você.",
-          {emoji:"⚖️", sim:"A da nuvem", nao:"A deste aparelho"});
-        if(ficaRemoto){ final=vindo; precisaGravarLocal=true; }
-        else { precisaSubir=true; }
       }else{
-        // Peça única: quem tem carimbo mais novo ganha. O local só é "mais novo"
-        // se foi mexido depois da última vez que este aparelho viu o servidor.
-        const mexidoAqui=syncSujas[sec.id]||0;
-        if(mexidoAqui>(remoto.em||0)){ precisaSubir=true; }
-        else if(vindo!==bruto){ final=vindo; precisaGravarLocal=true; }
+        /* Peça única. Comparar carimbo de hora ERA o critério e estava errado:
+           os carimbos vêm de três relógios diferentes. Um celular dez minutos
+           atrasado escrevia um "em" menor que o do PC, o app concluía que a
+           edição dele era velha e jogava fora — a alteração sumia sem aviso, e
+           o culpado era o relógio, não o dado.
+
+           Agora não se compara hora com hora, se compara VERSÃO. Cada aparelho
+           guarda qual versão do servidor ele já viu (sync.base). A partir daí a
+           pergunta é objetiva e não depende de relógio nenhum:
+
+             mexi aqui?  a versão de lá é outra?   →  o que fazer
+             não         sim                          desce a de lá
+             sim         não                          sobe a minha
+             sim         sim                          os dois mexeram: pergunta
+
+           O terceiro caso é raro (exige editar a MESMA tabela em dois
+           aparelhos entre duas sincronias) e é caro de errar, então é o único
+           que interrompe. Antes ele só era detectado na primeira sincronia do
+           aparelho; agora é detectado sempre. */
+        const mexiAqui=!!syncSujas[sec.id];
+        const laMudou=String(remoto.em||"")!==String((sync.base||{})[sec.id]||"");
+        if(mexiAqui&&!laMudou){
+          precisaSubir=true;
+        }else if(!mexiAqui&&laMudou){
+          final=vindo; precisaGravarLocal=true;
+        }else if(mexiAqui&&laMudou){
+          const nome=(sec.titulo||sec.id);
+          const ficaRemoto=await perguntar(
+            "Qual versão vale?",
+            nome.charAt(0).toUpperCase()+nome.slice(1)+
+            " foi alterada aqui e em outro aparelho desde a última sincronia.\n\n"+
+            "Não dá pra juntar as duas sem risco, então quem decide é você. "+
+            "A que sair perdendo fica guardada em Ajustes → Voltar uma versão.",
+            {emoji:"⚖️", sim:"A da nuvem", nao:"A deste aparelho"});
+          if(ficaRemoto){ final=vindo; precisaGravarLocal=true; }
+          else { precisaSubir=true; }
+        }else if(vindo!==bruto){
+          // Ninguém marcou nada e mesmo assim diferem: aconteceu antes deste
+          // aparelho passar a anotar versão. Vale a de lá, que é a compartilhada.
+          final=vindo; precisaGravarLocal=true;
+        }
       }
       if(precisaGravarLocal&&final!==null){
-        // Só peça única precisa de rede de proteção: lista e marcas fundem por
-        // união e não apagam nada de ninguém, então não há o que desfazer.
-        if(sec.fusao==="recente"&&bruto&&bruto!==final) guardarSnapshot(sec.id,sec.titulo,bruto);
-        try{ localStorage.setItem(sec.ls,final); }catch(e){}
+        /* Rede de proteção antes de escrever por cima.
+
+           Peça única sempre guarda: ela é substituída inteira.
+
+           Lista deveria ser só união e por isso não guardava nada — foi
+           exatamente essa confiança que deixou uma perda de propostas passar
+           sem ponto de retorno. União com marca de exclusão PODE encolher, e
+           qualquer defeito na regra de fusão encolhe também. Então: se a lista
+           que vai ficar tem menos itens do que a que estava aqui, guarda antes.
+           Custa uma cópia; a alternativa custou propostas. */
+        let vaiEncolher=false;
+        if(sec.fusao==="lista"&&bruto){
+          try{
+            const a=JSON.parse(bruto), b=JSON.parse(final);
+            vaiEncolher=Array.isArray(a)&&Array.isArray(b)&&b.length<a.length;
+          }catch(e){ vaiEncolher=true; }
+        }
+        if(bruto&&bruto!==final&&(sec.fusao==="recente"||vaiEncolher))
+          guardarSnapshot(sec.id,sec.titulo,bruto);
+        /* Gravação que falha (armazenamento cheio) não pode passar batido: se
+           passasse, o app marcaria a versão de lá como "já tenho" e nunca mais
+           tentaria baixar de novo — ficaria dessincronizado achando que está em
+           dia. Falhou: a seção continua suja, a versão não avança e a tela diz. */
+        let gravou=true;
+        try{ localStorage.setItem(sec.ls,final); }
+        catch(e){
+          gravou=false;
+          console.error("sincronia: não deu pra gravar "+sec.id,e);
+          pintarSync("erro","armazenamento cheio ao receber "+(sec.titulo||sec.id));
+        }
+        if(!gravou) continue;   // sem gravar, não marca como recebida
         try{ sec.aplicar(); }catch(e){ console.warn("sincronia: "+sec.id+" chegou mas a tela não recarregou",e); }
       }
       if(precisaSubir&&final){
-        await subirSecao(sec.id,await cifrarSync(final),agora);
+        /* A versão precisa SEMPRE crescer, mesmo se o relógio deste aparelho
+           estiver atrasado — senão o próximo a ler acha que a versão nova é
+           velha. Um a mais que a do servidor resolve sem depender de relógio. */
+        const versao=Math.max(agora,(remoto&&remoto.em||0)+1);
+        await subirSecao(sec.id,await cifrarSync(final),versao);
+        sync.base[sec.id]=versao;         // esta passa a ser a versão que eu conheço
+      }else if(remoto){
+        sync.base[sec.id]=remoto.em||0;   // aceitei a de lá: é ela que eu conheço
       }
-      if(!precisaSubir) delete syncSujas[sec.id];
-      else if(precisaSubir) delete syncSujas[sec.id];
+      // A marca de sujo só sai quando a rodada da seção terminou de verdade —
+      // subirSecao lança em caso de erro e o loop nem chega aqui.
+      delete syncSujas[sec.id];
     }
-    sync.visto=agora; gravarSync();
+    sync.visto=agora; gravarSujas(); gravarSync();
     pintarSync("ok");
   }catch(e){
     if(String(e.message)==="SENHA_DIFERENTE"){
       pintarSync("senha");
-      sync.ligado=false; syncChave=null; gravarSync();
+      // Apaga a guardada também: senão ela voltaria errada em toda abertura.
+      sync.ligado=false; syncChave=null; esquecerChaveSync(); gravarSync();
     }else{
       console.warn("sincronia:",e);
       pintarSync("erro",e.message);
@@ -7881,6 +8100,7 @@ async function ligarSync(){
   sync.salt=b64(new Uint8Array(await crypto.subtle.digest("SHA-256",cru)));
   syncChave=await derivarSync(senha,deB64(sync.salt));
   if(!syncChave){ avisar("Não deu pra preparar a chave de criptografia neste navegador."); return; }
+  await guardarChaveSync(syncChave);
   sync.ligado=true; gravarSync();
   document.getElementById("syncSenha").value="";
   // Primeira rodada marca tudo o que existe aqui como candidato a subir: um
@@ -7891,15 +8111,48 @@ async function ligarSync(){
   pintarTelaSync();
 }
 function desligarSync(){
-  sync.ligado=false; syncChave=null; syncSujas={};
-  gravarSync(); clearInterval(syncTimer);
+  sync.ligado=false; syncChave=null; syncSujas={}; sync.base={};
+  esquecerChaveSync();
+  gravarSujas(); gravarSync(); clearInterval(syncTimer);
   pintarTelaSync(); pintarSync("desligado");
 }
-/* Religar depois de fechar o app: a configuração volta, mas a senha não — ela
-   nunca foi gravada. O app avisa em vez de fingir que está sincronizando. */
-function iniciarSync(){
+/* Religar depois de fechar o app.
+
+   Antes a chave morria junto com a aba: a senha nunca foi gravada, e sem senha
+   não há chave. Na teoria era "mais seguro"; na prática era a sincronia não
+   funcionando. Celular mata o app o tempo todo, e cada volta pedia a senha de
+   novo em Ajustes — se ninguém digitasse, nada subia e nada descia, com o
+   badge dizendo "on". Era esse o "não está funcionando muito bem".
+
+   Agora a CHAVE (não a senha) fica no IndexedDB deste aparelho. A diferença
+   importa: ela foi derivada como não-extraível, então nem o próprio app
+   consegue ler os bytes dela de volta — só usar pra cifrar e decifrar. A senha
+   continua sem ser gravada em canto nenhum, e "Desligar neste aparelho" apaga
+   a chave junto. Quem abrir o aparelho destravado já teria o app aberto de
+   qualquer jeito; o que isso protege é o dado em trânsito e no servidor, que é
+   onde o risco de verdade estava. */
+const IDB_CHAVE_SYNC="sync:chave";
+async function guardarChaveSync(k){
+  try{ await idbSet(IDB_CHAVE_SYNC,k); }
+  catch(e){ console.warn("sincronia: não deu pra guardar a chave neste aparelho",e); }
+}
+async function esquecerChaveSync(){
+  try{ await idbApagar(IDB_CHAVE_SYNC); }catch(e){}
+}
+async function iniciarSync(){
   carregarSync();
+  carregarSujas();
   if(!sync.ligado) return;
+  let k=null;
+  try{ k=await idbGet(IDB_CHAVE_SYNC); }catch(e){}
+  if(k&&k.type==="secret"){
+    syncChave=k;
+    pintarSync("ok");
+    agendarSync();
+    rodarSync("abriu o app");
+    return;
+  }
+  // Chave não voltou (aparelho novo, dados do site limpos): aí sim pede a senha.
   pintarSync("senha");
   const el=document.getElementById("estadoSync");
   if(el) el.textContent="Digite a senha da sincronia aqui em Ajustes pra retomar.";
@@ -8229,7 +8482,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.27-4";
+const APP_VERSION="2026.08.27-5";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -8250,13 +8503,16 @@ if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
 
-// Só agora, no fim do arquivo, é que a pasta de destino e o histórico terminaram
-// de declarar suas const/let — chamar isso mais cedo (antes da própria declaração
-// rodar) derruba o script inteiro com "Cannot access before initialization".
+/* A partida inteira acontece AQUI, no fim do arquivo, e só aqui. Neste ponto
+   todo `const`/`let` do script já existe, então nenhuma ordem de declaração
+   pode quebrar nada. A ordem abaixo é a única que importa: o histórico carrega
+   antes de iniciarApp() porque a sincronia e as fotos precisam dele, e o
+   rascunho restaura por último porque escreve por cima da tela já montada. */
 document.getElementById("btnCalcItem").innerHTML=ICONE_CALC;
 iniciarPasta();
 carregarPropostas();
 aplicarTema(localStorage.getItem(LS_TEMA)||"claro");
+iniciarApp();
 
 // Grava enquanto digita e, principalmente, na hora em que o app sai da frente —
 // que é o momento em que o navegador pode descartar a página.
