@@ -229,12 +229,22 @@
     background:var(--campo);border:1.5px solid var(--campo-borda);border-radius:12px;
     padding:11px 13px;}
   .passo-card.tem{border-color:var(--verde);background:var(--verde-claro);}
+  /* Vazio é um convite, não um campo desligado: borda verde tracejada e um "+"
+     redondo à direita. Tracejado e não sólido de propósito — o card preenchido
+     é que fica sólido, e a diferença entre "falta responder" e "respondido"
+     tem que dar pra ver de relance, sem ler. */
+  .passo-card.vazio{border-color:var(--verde-borda);border-style:dashed;
+    background:color-mix(in srgb, var(--verde-claro) 45%, var(--campo));}
   .passo-card .rot{font-size:.72rem;color:var(--suave);text-transform:uppercase;
     letter-spacing:.03em;flex:0 0 auto;}
   .passo-card.tem .rot{color:var(--verde);}
+  .passo-card.vazio .rot{color:var(--verde);}
   .passo-card .val{font-size:.84rem;font-weight:600;flex:1;line-height:1.25;}
   .passo-card .val.vazio{font-weight:400;color:var(--suave);}
   .passo-card .abrir{font-size:.74rem;color:var(--verde);font-weight:600;flex:0 0 auto;}
+  .passo-card .abrir.mais{display:inline-flex;align-items:center;justify-content:center;
+    width:23px;height:23px;border-radius:50%;background:var(--verde);color:var(--branco);
+    font-size:1.02rem;line-height:1;font-weight:700;}
   /* Cliente da base rápida: tracejado pra diferenciar de quem está no cofre */
   .chip-rapido{border-style:dashed;}
   .dest-barra{display:flex;justify-content:space-between;align-items:center;gap:8px;
@@ -1643,14 +1653,18 @@ function renderPasso(idAlvo,titulo,opcoes,escolha,onPick,opts){
   // Lista grande: uma linha só, mesma cara pra única e pra múltipla.
   el.innerHTML="";
   const card=document.createElement("div");
-  card.className="passo-card"+(marcados.length?" tem":"");
+  card.className="passo-card"+(marcados.length?" tem":" vazio");
   card.innerHTML='<span class="rot"></span><span class="val"></span><span class="abrir"></span>';
   card.querySelector(".rot").textContent=titulo;
   const val=card.querySelector(".val");
   if(!marcados.length){
     val.className="val vazio";
-    val.textContent=multi?"nenhum selecionado":"escolher";
-    card.querySelector(".abrir").textContent="escolher";
+    val.textContent="toque para escolher";
+    // "+" no lugar da palavra "escolher": ela já está do lado esquerdo, e o
+    // sinal é o que faz o card parecer um botão em vez de um campo vazio.
+    const ab=card.querySelector(".abrir");
+    ab.className="abrir mais"; ab.textContent="+";
+    card.title="Toque para abrir a lista de "+String(titulo).toLowerCase();
   }else{
     // Mostra os primeiros e resume o resto: a lista inteira estouraria a linha
     val.textContent=marcados.slice(0,2).join(", ")+(marcados.length>2?" +"+(marcados.length-2):"");
@@ -2323,6 +2337,37 @@ function montarChipsColeta(){
 
 /* ============ EXTRAÇÃO TOLERANTE ============ */
 function semAc(s){return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();}
+/* ---- O telefone do texto colado ----
+
+   Três tentativas, nesta ordem, e a ordem é o conserto.
+
+   1. Linha rotulada: "Telefones: 27 90000-0000". É o que o cliente respondeu, e
+      é o número que ele quer que a gente ligue.
+   2. Número solto — mas só depois de apagar do texto o CNPJ, o CPF e o CEP.
+      Sem isso um CNPJ colado sem máscara — "11222333000181" — casava com o
+      padrão de telefone e virava "11 22233-3000": o Aceite saía com pedaço do
+      documento no campo Fone.
+   3. Nada. Aí o campo fica vazio DE PROPÓSITO, porque a consulta à Receita logo
+      em seguida preenche com o telefone do Cartão CNPJ — e ela só preenche
+      quando está vazio. Chutar aqui é o que impedia a segunda fonte de entrar. */
+// Na linha rotulada vale qualquer forma, inclusive fixo sem DDD ("3333-4444"):
+// ali o cliente já disse que aquilo é telefone.
+const RE_FONE=/(?:\(?\d{2}\)?[\s.-]?)?9?\d{4}[-\s.]?\d{4}/;
+// Solto no meio da conversa, exige DDD: um "Pedido 1234-5678" tem a mesma cara
+// de um fixo sem DDD, e chutar errado é pior do que deixar a Receita preencher.
+const RE_FONE_SOLTO=/(?:\(\d{2}\)|\b\d{2})[\s.-]?9?\d{4}[-\s.]?\d{4}\b/;
+function telefoneDoTexto(t){
+  for(const l of String(t||"").split(/\r?\n/)){
+    const m=l.match(/^\s*(?:telefones?|fones?|celular(?:es)?|whats\s*app|tel)\s*:\s*(.+)$/i);
+    if(m){ const f=m[1].match(RE_FONE); if(f) return f[0]; }
+  }
+  const limpo=String(t||"")
+    .replace(/\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2}/g," ")   // CNPJ
+    .replace(/\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}/g," ")               // CPF
+    .replace(/\b\d{5}-?\d{3}\b/g," ");                                    // CEP
+  const m=limpo.match(RE_FONE_SOLTO);
+  return m?m[0]:"";
+}
 function extrairDoTexto(){
   const t=document.getElementById("colaTexto").value;
   if(!t.trim())return;
@@ -2333,8 +2378,8 @@ function extrairDoTexto(){
   if(mC){const el=document.getElementById("cnpj");el.value=mC[0];mascaraCNPJ(el);conferirCNPJ();achados.push("CNPJ");}
   const mE=t.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
   if(mE){set("email",mE[0]);achados.push("e-mail");}
-  const mT=t.match(/(?:\(?\d{2}\)?[\s-]?)?9?\d{4}[-\s]?\d{4}/);
-  if(mT){const el=document.getElementById("telefone");el.value=mT[0];mascaraTelefone(el);achados.push("telefone");}
+  const fone=telefoneDoTexto(t);
+  if(fone){const el=document.getElementById("telefone");el.value=fone;mascaraTelefone(el);achados.push("telefone");}
 
   // "endereco" fica de fora do preenchimento direto: o cabeçalho tem que sair
   // igual ao Cartão CNPJ. O que o cliente escreveu é guardado à parte pra ser
@@ -2543,25 +2588,41 @@ function fluxo(){
     else esconderPassos(4);
 
   } else if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
+    /* Os três passos aparecem juntos assim que a categoria é escolhida, em vez
+       de um destravar o outro. Antes, Resíduos só existia depois de Classe E
+       Unidade respondidas: quem abria a categoria via dois chips e mais nada, e
+       não dava pra saber o que o app ia perguntar.
+
+       Classe deixou de ser porteira e virou filtro. Sem nenhuma marcada, a
+       lista de Resíduos traz os dois catálogos — e marcar um resíduo responde a
+       classe sozinho, porque o nome dele já carrega "- Classe I"/"- Classe II".
+       Proposta grande costuma levar resíduo das duas, e é por isso que Classe é
+       multissseleção. */
     sel.residuos=sel.residuos||[];
-    // Marca as duas — proposta grande costuma levar resíduo das duas classes, e
-    // sem isso o Léo teria que fechar tudo, trocar a classe e recomeçar o passo
-    // de resíduos duas vezes pra montar a mesma linha de serviço.
     sel.classes=sel.classes||[];
     renderPasso("passo2","Classe",["CLASSE II","CLASSE I"],sel.classes,
-      v=>{alternar(sel.classes,v);sel.residuos=[];fluxo();},{multi:true});
-    if(sel.classes.length) renderPasso("passo3","Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,
+      v=>{
+        alternar(sel.classes,v);
+        // Mexer no filtro não pode apagar resíduo que continua valendo — só sai
+        // o que deixou de pertencer a alguma classe marcada.
+        if(sel.classes.length)
+          sel.residuos=sel.residuos.filter(n=>sel.classes.includes(classeDoResiduo(n)));
+        fluxo();
+      },{multi:true});
+    renderPasso("passo3","Unidade",["POR KG","POR UNIDADE","POR M³","POR TON"],sel.uni,
       v=>{sel.uni=v;fluxo();});
-    else esconderPassos(3);
-    if(sel.classes.length&&sel.uni){
-      const listaCombinada=sel.classes.flatMap(cl=>listaResiduos(cl));
-      // Com as duas classes marcadas não dá pra saber qual catálogo abrir pra
-      // editar — some o atalho "editar lista" nesse caso; com uma só, continua.
-      const tipo=sel.classes.length===1?(sel.classes[0]==="CLASSE II"?"residuos2":"residuos1"):null;
-      renderPasso("passo4","Resíduos",listaCombinada.map(r=>r.n),sel.residuos,
-        v=>{alternar(sel.residuos,v);fluxo();},
-        {multi:true,gerenciar:tipo?()=>abrirCatalogo(tipo):undefined});
-    } else esconderPassos(4);
+    const classesLista=sel.classes.length?sel.classes:["CLASSE II","CLASSE I"];
+    const listaCombinada=classesLista.flatMap(cl=>listaResiduos(cl));
+    // Com as duas classes em jogo não dá pra saber qual catálogo abrir pra
+    // editar — some o atalho "editar lista" nesse caso; com uma só, continua.
+    const tipo=sel.classes.length===1?(sel.classes[0]==="CLASSE II"?"residuos2":"residuos1"):null;
+    renderPasso("passo4","Resíduos",listaCombinada.map(r=>r.n),sel.residuos,
+      v=>{
+        alternar(sel.residuos,v);
+        const cl=classeDoResiduo(v);
+        if(cl&&sel.residuos.includes(v)&&!sel.classes.includes(cl)) sel.classes.push(cl);
+        fluxo();
+      },{multi:true,gerenciar:tipo?()=>abrirCatalogo(tipo):undefined});
 
   } else if(c==="RECICLÁVEIS MISTOS"){
     sel.residuos=sel.residuos||[];
@@ -2598,6 +2659,13 @@ function fluxo(){
 // equipamento ("- 5m³", "- 40m³"...) da disponibilização também — sem isso a
 // classificação/o tamanho é que decide sozinho o quanto a coluna precisa
 // crescer, e ela quase nunca precisa do texto inteiro numa linha só.
+/* De qual catálogo é este resíduo. O nome é único entre os dois porque todo item
+   carrega "- Classe I"/"- Classe II" no próprio nome. */
+function classeDoResiduo(nome){
+  if(listaResiduos("CLASSE II").some(x=>x.n===nome)) return "CLASSE II";
+  if(listaResiduos("CLASSE I").some(x=>x.n===nome)) return "CLASSE I";
+  return "";
+}
 function quebrarClasseResiduo(s){
   return String(s??"").replace(/\s-\s(Classe\s(?:I|II))$/,"\n- $1");
 }
@@ -2702,10 +2770,14 @@ let obsAutoPorChave={};
 /* ---- Ligação entre a linha da proposta e a tabela de custos ----
    Os dois vocabulários não batem: no catálogo do app o resíduo é "Não
    Recicláveis - Classe II", na planilha do destinador é "NÃO RECICLÁVEL /
-   ORGÂNICO". Em vez de exigir que as duas listas sejam iguais (o que
-   obrigaria a mexer na planilha toda vez que um parceiro renomeia algo), o
-   app pontua a semelhança e mostra os candidatos em ordem — quem decide é
-   sempre o Léo, clicando. Nada é preenchido sozinho. */
+   ORGÂNICO". Houve aqui um casamento por semelhança de nome que oferecia
+   candidatos em ordem de pontuação; saiu, porque acertava pouco e errava caro
+   (ver montarSugestoesCusto). A ponte hoje é o link manual, um por resíduo,
+   guardado em vincCustom.
+
+   O que sobrou do comparador serve a outra coisa: agrupar linhas iguais dentro
+   da própria matriz de destinadores, onde os dois lados falam o MESMO
+   vocabulário e o risco de confundir resíduo não existe. */
 /* A palavra "classe" sai fora: ela aparece em quase todo nome dos dois lados e
    não distingue nada — pior, inflava a semelhança entre coisas diferentes
    ("ENTULHO - CLASSE A (LIMPO)" x "ENTULHO - CLASSE C (REJEITO)" pareciam o
@@ -2722,24 +2794,6 @@ function tokenCasa(a,b){
   if(a===b) return true;
   const [c,d]=a.length<b.length?[a,b]:[b,a];
   return c.length>=4&&d.startsWith(c);
-}
-function classeCasa(classeApp,classePlan){
-  const a=semAc(classeApp||""), p=semAc(classePlan||"");
-  if(!p) return true;                       // planilha sem classe: não descarta
-  if(p.includes("e i")&&p.includes("ii")) return true;  // "CLASSE II e I" serve pros dois
-  return a.includes("classe ii")?p.includes("ii"):(p.includes("i")&&!p.includes("ii"));
-}
-function pontuarPreco(residuoApp,classeApp,p){
-  if(!classeCasa(classeApp,p.cl)) return 0;
-  const ta=tokensResiduo(residuoApp), tp=tokensResiduo(p.r);
-  if(!ta.length||!tp.length) return 0;
-  let casados=0;
-  ta.forEach(a=>{ if(tp.some(b=>tokenCasa(a,b))) casados++; });
-  if(!casados) return 0;
-  // Proporção do nome do app coberta, com um empurrãozinho quando a linha da
-  // planilha também é curta (match "ORGÂNICO" vale mais que "NÃO RECICLÁVEL /
-  // ORGÂNICO / OUTRA COISA", que é mais genérica).
-  return (casados/ta.length)*0.75 + (casados/tp.length)*0.25;
 }
 // TON e KG na mesma tabela: a planilha cobra por tonelada, a proposta costuma
 // sair por quilo. Converter aqui evita o erro de mil vezes — que passaria
@@ -2762,39 +2816,6 @@ function custoNaUnidade(p,unidadeLinha){
   const massa=u=>u==="TON"||u==="KG";
   if(massa(de)&&massa(para)&&fd&&fp) return p.v*fp/fd;
   return null;
-}
-/* Vínculo → preço de venda na unidade da linha.
-
-   O vínculo é gravado com o nome que o resíduo tem NA PLANILHA do parceiro
-   ("NÃO RECICLÁVEL / ORGÂNICO"), porque é ali que se toca pra fixar. A linha da
-   proposta usa o nome do catálogo do app ("Não Recicláveis - Classe II"). Os
-   dois não batem — é a mesma divergência de vocabulário de sempre —, então a
-   ponte é o casamento que já monta as sugestões: entre os candidatos daquela
-   linha, procura-se um que esteja fixado. Assim vínculo e sugestão enxergam
-   exatamente o mesmo conjunto, e não tem como um achar o que o outro não acha.
-
-   Devolve null sem vínculo, ou quando as unidades não convertem (ton→unidade). */
-function precoVendaVinculado(linha,unidadeLinha){
-  const candidatos=custosSugeridos(linha,unidadeLinha);
-  for(const {p,c} of candidatos){
-    const v=vinculoDe(p.r);
-    if(v&&v.d===p.d&&c!==null){
-      return {destinador:p.d, residuo:p.r, custo:c, venda:comBDI(c),
-              unidade:normUnid(unidadeLinha)||normUnid(p.u)};
-    }
-  }
-  return null;
-}
-function custosSugeridos(linha,unidadeLinha){
-  if(!dest.precos.length||tipoLinha(linha.chave)!=="res") return [];
-  // A classe da linha está na descrição ("... - CLASSE II"), que é montada com
-  // a classe do próprio resíduo desde que Destinação virou multisseleção.
-  const classeApp=/CLASSE II/.test(linha.descricao||"")?"CLASSE II":"CLASSE I";
-  return dest.precos
-    .map(p=>({p, s:pontuarPreco(linha.nome,classeApp,p), c:custoNaUnidade(p,unidadeLinha)}))
-    .filter(x=>x.s>=0.4&&x.c!==null)
-    .sort((a,b)=>b.s-a.s||a.c-b.c)
-    .slice(0,6);
 }
 /* Reciclável com mais de uma variação de preço: mostra as opções pra escolher.
    Mesmo componente das sugestões de custo do destinador, e pela mesma razão —
@@ -2905,49 +2926,17 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
   }
   if(montarOpcoesReci(alvo,linha,campoValor,campoUnidade)){ oferecerLink(alvo,linha); return; }
   alvo.innerHTML="";
-  const unidade=leUnidade();
-  // De onde veio o número: sem isso o valor aparece pronto no campo e ninguém
-  // lembra qual parceiro nem qual BDI produziu aquilo.
-  const pv=precoVendaVinculado(linha,unidade);
-  if(pv){
-    const nota=document.createElement("div");
-    nota.className="titulo vinculado";
-    nota.textContent="★ "+pv.destinador+" — custo "+fmtDinheiro(pv.custo)+"/"+pv.unidade+
-      " + BDI "+dest.bdi+"% = R$ "+fmtDinheiro(pv.venda)+"/"+pv.unidade;
-    alvo.appendChild(nota);
-  }
-  const achados=custosSugeridos(linha,unidade);
-  if(!achados.length){ oferecerLink(alvo,linha); return; }
-  const t=document.createElement("div");
-  t.className="titulo";
-  t.textContent=pv?"Trocar de destinador:":"Custo do destinador → preço com BDI de "+dest.bdi+"%:";
-  alvo.appendChild(t);
-  const box=document.createElement("div");
-  box.className="opcoes";
-  achados.forEach(({p,c})=>{
-    const venda=comBDI(c);
-    const b=document.createElement("button");
-    b.type="button";
-    const un=normUnid(unidade)||normUnid(p.u);
-    b.innerHTML='<b></b><span class="c"></span>';
-    b.querySelector("b").textContent=p.d+" — R$ "+fmtDinheiro(venda)+"/"+un;
-    b.querySelector(".c").textContent="custo "+fmtDinheiro(c)+"/"+un+
-      (normUnid(p.u)!==un?"  (de "+fmtDinheiro(p.v)+"/"+normUnid(p.u)+")":"");
-    b.title=p.r+(p.cl?" · "+p.cl:"");
-    const jaFixado=pv&&pv.destinador===p.d;
-    if(jaFixado) b.className="fixado";
-    // Escolher aqui também FIXA: o próximo orçamento com esse resíduo já vem
-    // com o mesmo parceiro, sem precisar procurar de novo.
-    b.onclick=()=>{
-      campoValor.value=fmtDinheiro(venda);
-      campoValor.dispatchEvent(new Event("input"));
-      vinculos[p.r]={d:p.d,r:p.r,v:p.v,u:p.u||""};
-      gravarVinculos();
-      montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade);
-    };
-    box.appendChild(b);
-  });
-  alvo.appendChild(box);
+  /* Aqui ficava o casamento automático: o app comparava o nome do resíduo com o
+     da planilha do parceiro, pontuava a semelhança e oferecia até seis
+     destinadores por linha. A ideia era boa e o resultado não era: "Sólidos
+     Contaminados - Classe I" puxava MADEIRA a R$ 0,19/KG porque as duas linhas
+     tinham palavras em comum, e uma parede de seis opções — a maioria errada —
+     ao lado do campo de preço é convite pra clicar na de cima.
+
+     Preço de destinação é o número que menos pode sair de palpite. Agora o
+     caminho é um só e é explícito: o botão abaixo abre a tabela inteira de
+     custos, com busca, e o que for escolhido fica linkado àquele resíduo pras
+     próximas propostas. Uma escolha, uma vez, e ela se lembra. */
   oferecerLink(alvo,linha);
 }
 /* O convite pro link manual. Só onde faz sentido — resíduo e reciclável são os
@@ -2959,7 +2948,9 @@ function oferecerLink(alvo,linha){
   if(!linhasDeCusto().length) return;
   const b=document.createElement("button");
   b.type="button"; b.className="btn-linkar";
-  b.textContent="🔗 não achou? linke a uma linha de custo";
+  // Era "não achou? linke..." quando havia sugestão automática pra não achar.
+  // Agora é o caminho e não a saída de emergência, e o texto tem que dizer isso.
+  b.textContent="🔗 escolher a linha de custo";
   b.title="Aponte à mão qual linha de Destinadores ou Recicláveis alimenta esta linha da proposta";
   b.onclick=()=>abrirLink(linha.chave,linha.nome);
   alvo.appendChild(b);
@@ -3005,13 +2996,11 @@ function renderLinhasValores(){
     // chutar qual — aí o app oferece as opções logo abaixo e quem escolhe é o
     // Léo, mesma regra dos destinadores.
     let salvo=precoSalvo(l.chave)||{};
-    // Resíduo com destinador fixado entra com o PREÇO DE VENDA (custo + BDI).
-    // O custo nunca chega aqui: o campo recebe só o número que vai pro cliente.
-    if(tipoLinha(l.chave)==="res"){
-      const pv=precoVendaVinculado(l,unidadePorChave[l.chave]!==undefined
-        ? unidadePorChave[l.chave] : l.unidade);
-      if(pv) salvo={v:fmtDinheiro(pv.venda), u:pv.unidade||""};
-    }
+    /* Resíduo NÃO nasce mais com preço automático. O que preenchia aqui vinha do
+       mesmo casamento por nome que foi tirado das sugestões, e preencher calado
+       é pior que sugerir: o número já aparece no campo e ninguém confere de qual
+       parceiro veio. Quem dá preço a um resíduo é o link explícito, logo abaixo
+       (lkPreco), que vence tudo e se lembra da escolha. */
     if(tipoLinha(l.chave)==="reci"){
       const lista=precosReci(l.nome);
       salvo=(lista.length===1)
@@ -7713,7 +7702,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.27-1";
+const APP_VERSION="2026.08.27-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
