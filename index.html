@@ -390,6 +390,10 @@
   .prop-linha .marca{font-size:.7rem;color:var(--verde);font-weight:600;}
   /* Ficha da proposta */
   .prop-itens{margin:6px 0 4px;}
+  /* Aviso na confirmação de gerar: o que vai sair errado no documento */
+  .confAviso{background:#fff4e5;color:#8a4b00;border:1px solid #f0c188;
+    border-radius:8px;padding:8px 10px;margin-bottom:8px;font-weight:600;}
+  html[data-tema="escuro"] .confAviso{background:#3a2a12;color:#f3c98b;border-color:#6b4a1c;}
   .prop-itens .it{display:flex;justify-content:space-between;align-items:baseline;
     gap:12px;border-bottom:1px dashed var(--campo-borda);padding:6px 0;}
   .prop-itens .it:last-child{border-bottom:none;}
@@ -1228,6 +1232,7 @@
     <div class="emoji">📄</div>
     <div class="zoeira" id="confTitulo"></div>
     <div class="motivo" id="confResumo"></div>
+    <div class="confAviso oculto" id="confAvisos"></div>
     <div class="row2">
       <button class="btn-sec" onclick="fecharConfirma()">Cancelar</button>
       <button class="btn-principal" id="confOk">Gerar</button>
@@ -1479,9 +1484,17 @@ let timerRascunho=null;
    divergir no primeiro ajuste. */
 const LS_NUMERO="corpus_ultimo_numero_v1";
 function chaveMes(d){ return String(d.getFullYear())+String(d.getMonth()+1).padStart(2,"0"); }
+/* O número tem a forma 10MMSS-AAAA, com dois dígitos de sequência. Passando de
+   99 a sequência empurrava um dígito a mais ("1008100-2026") e o padrão
+   quebrava: registrarNumeroUsado() deixava de reconhecer o próprio número que
+   acabara de sair, a contagem parava e a proposta seguinte repetia o mesmo
+   número — silenciosamente. Trava em 99, que é o que o formato comporta. */
+const SEQ_MAX=99;
 function montarNumero(d,seq){
-  return "10"+String(d.getMonth()+1).padStart(2,"0")+String(seq).padStart(2,"0")+"-"+d.getFullYear();
+  const s=Math.min(Math.max(Number(seq)||1,1),SEQ_MAX);
+  return "10"+String(d.getMonth()+1).padStart(2,"0")+String(s).padStart(2,"0")+"-"+d.getFullYear();
 }
+function sequenciaEstourou(){ return ultimoNumero()>=SEQ_MAX; }
 // Lê o que está guardado, ignorando registro de outro mês — aí a conta recomeça.
 function ultimoNumero(){
   try{
@@ -3940,7 +3953,12 @@ function gravarDest(){
 // aqui ele é guardado em % inteiro, que é como se fala dele no dia a dia.
 function comBDI(custo){ return custo*(1+(Number(dest.bdi)||0)/100); }
 function fmtDinheiro(v){
-  return (Math.round(v*100)/100).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  // NaN e Infinity chegam aqui quando alguma conta a montante deu errado, e
+  // apareciam na tela como "NaN" — pior que um zero, porque não parece número
+  // nenhum e não dá pista do que aconteceu.
+  const n=Number(v);
+  if(!isFinite(n)) return "0,00";
+  return (Math.round(n*100)/100).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
 }
 // Destinadores virou aba própria — não recolhe mais, quem controla a exibição
 // é a barra de abas. Mantida porque os atalhos antigos ainda chamam por ela.
@@ -4065,11 +4083,31 @@ async function lerXlsx(arquivo){
    Só quando o valor foi digitado como texto é que aparece no formato brasileiro
    ("1.234,50"). Tratar os dois como se fossem um só multiplicava o custo por
    100 calado: R$ 1.234,50/ton virava R$ 123.450,00/ton sem nenhum aviso. */
+/* O número que vem da planilha, em qualquer das formas que ele aparece.
+
+   O ponto é a armadilha: em "89.65" ele separa decimal, em "1.234" separa
+   milhar. A regra antiga tratava todo ponto como decimal, e um custo de
+   R$ 1.234,00/ton entrava como R$ 1,23 — mil vezes menor, sem avisar, dentro de
+   uma importação de dezenas de linhas onde ninguém confere uma a uma.
+
+   A decisão vai por partes:
+   • número de verdade (o xlsx entrega assim): usa direto, sem heurística —
+     um number de JS nunca carrega separador de milhar.
+   • tem vírgula: é pt-BR. Ponto é milhar, vírgula é decimal.
+   • só pontos: o último grupo com exatamente três dígitos é milhar
+     ("1.234", "1.005"), qualquer outro tamanho é decimal ("89.65", "1.5").
+     A exceção é "0.xxx", que é meio e não mil. */
 function numeroPlanilha(s){
-  const t=String(s??"").trim();
+  if(typeof s==="number") return isFinite(s)?s:NaN;
+  const t=String(s??"").trim().replace(/^R\$\s*/i,"").replace(/\s/g,"");
   if(!t) return NaN;
-  if(/^-?\d+(\.\d+)?$/.test(t)) return Number(t);          // número cru do xlsx
-  return Number(t.replace(/\./g,"").replace(",","."));      // texto em pt-BR
+  if(t.includes(",")) return Number(t.replace(/\./g,"").replace(",","."));
+  if(!/^-?\d+(?:\.\d+)*$/.test(t)) return NaN;
+  const partes=t.replace("-","").split(".");
+  if(partes.length===1) return Number(t);
+  const ultima=partes[partes.length-1];
+  const ehMilhar=(ultima.length===3)&&!(partes.length===2&&partes[0]==="0");
+  return Number(ehMilhar?t.replace(/\./g,""):t);
 }
 /* Encaixa a planilha do Léo no formato do app. As colunas são procuradas pelo
    TÍTULO, não pela posição — assim mexer a ordem das colunas na planilha não
@@ -4934,7 +4972,13 @@ function precoSalvo(chave){
    Quem vai pra proposta é sempre o preço ao CLIENTE. O preço de venda é
    referência interna: se vazasse pro documento, o cliente veria a margem
    inteira da operação. */
-function numeroBR(v){ return Number(String(v??"").replace(/\./g,"").replace(",","."))||0; }
+/* Valor digitado pelo usuário, sempre em pt-BR (o campo é mascarado). Tolera o
+   "R$" e o espaço que vêm junto quando o número é colado de outro lugar —
+   antes qualquer um dos dois zerava o valor sem dizer nada. */
+function numeroBR(v){
+  const t=String(v??"").replace(/R\$/ig,"").replace(/\s/g,"");
+  return Number(t.replace(/\./g,"").replace(",","."))||0;
+}
 function repassePadrao(){ const r=Number(precos.repasse); return isFinite(r)&&r>0?r:35; }
 function precoAoCliente(venda,repasseProprio){
   const pct=(repasseProprio!==undefined&&repasseProprio!==null&&String(repasseProprio).trim()!=="")
@@ -6575,6 +6619,25 @@ function checar(precisaItens){
 /* Confirma antes de gerar: mostra número, cliente e quantas linhas vão sair.
    É a última chance de ver que o PO está errado antes do arquivo existir. */
 let acaoPendente=null;
+/* O que a confirmação precisa mostrar além do resumo: o que vai sair errado.
+
+   Linha sem valor não impedia nada — saía no documento com a célula de preço em
+   branco, e o cliente recebia uma proposta com um serviço sem preço. Não é erro
+   de programa, é erro que chega no cliente, e o único momento de pegar isso é
+   agora. Avisa e deixa seguir: às vezes a linha é "a combinar" de propósito, e
+   travar a geração seria pior. */
+function pendenciasDaProposta(){
+  const p=[];
+  const semValor=itens.filter(i=>!numeroBR(i.valor));
+  if(semValor.length) p.push(semValor.length===1
+    ? "1 linha sem valor: "+(semValor[0].residuo&&semValor[0].residuo!=="-"
+        ? semValor[0].residuo : String(semValor[0].descricao||"").split("\n").pop())
+    : semValor.length+" linhas sem valor preenchido");
+  const semUnidade=itens.filter(i=>numeroBR(i.valor)&&!String(i.unidade||"").trim());
+  if(semUnidade.length) p.push(semUnidade.length+" com valor mas sem unidade");
+  if(sequenciaEstourou()) p.push("a numeração do mês chegou em 99 — confira o nº antes de gerar");
+  return p;
+}
 function pedirConfirmacao(tipo){
   const c=checar(tipo!=="aceite");
   if(!c) return;
@@ -6582,6 +6645,12 @@ function pedirConfirmacao(tipo){
   const titulo=tipo==="proposta"?"Gerar a Proposta?":tipo==="aceite"?"Gerar o Aceite?":"Gerar Proposta e Aceite?";
   const linhas=[`Nº ${c.mapa.proposta_numero}`, c.rs];
   if(tipo!=="aceite") linhas.push(`${qtd} ${qtd===1?"linha de serviço":"linhas de serviço"}`);
+  const av=document.getElementById("confAvisos");
+  const pend=(tipo!=="aceite")?pendenciasDaProposta():[];
+  if(av){
+    av.classList.toggle("oculto",!pend.length);
+    av.textContent=pend.length?("Confira antes: "+pend.join(" · ")):"";
+  }
   document.getElementById("confTitulo").textContent=titulo;
   document.getElementById("confResumo").textContent=linhas.join("\n");
   acaoPendente=tipo;
@@ -7402,7 +7471,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.24-2";
+const APP_VERSION="2026.08.24-3";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
