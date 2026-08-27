@@ -79,6 +79,8 @@
   .rotulo-acao{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
   .rotulo-acao label{flex:1;}
   .contato-extra{margin-top:6px;}
+  .ponto-extra{position:relative;margin-top:7px;}
+  .ponto-extra input{padding-right:30px;width:100%;}
   .contato-fone{position:relative;}
   .contato-fone input{padding-right:30px;}
   .tira-contato{position:absolute;right:2px;top:1px;bottom:1px;width:26px;padding:0;
@@ -833,7 +835,13 @@
     </div>
 
     <div class="etapa">
-      <div class="etapa-titulo">Endereço de coleta</div>
+      <!-- "+ ponto" só aparece depois que o primeiro endereço existe: a proposta
+           que atende dois galpões do mesmo cliente lista os dois, e é isso que
+           faz o rótulo virar "Locais de Coleta" no plural. -->
+      <div class="rotulo-acao">
+        <div class="etapa-titulo">Endereço de coleta</div>
+        <button class="link-acao" onclick="incluirPontoColeta()" title="Incluir outro ponto de coleta">+ ponto</button>
+      </div>
       <div class="chips" id="chipsColeta"></div>
       <div id="blocoColeta" class="oculto">
         <input type="text" id="enderecoColetaUnico" onblur="quebrarEnderecoColeta()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
@@ -850,6 +858,7 @@
           </div>
         </div>
       </div>
+      <div id="pontosColetaExtras"></div>
     </div>
   </div>
 
@@ -1479,6 +1488,10 @@ let itens=[], sel={}, objetoSel=OBJETO_PADRAO, subObjetoSel=SUBOBJETO_PADRAO, me
    sendo o responsável — é ele, sozinho, que vai pra Proposta. No Aceite saem
    todos, separados por barra. */
 let contatosExtras=[];
+/* Pontos de coleta ALÉM do primeiro, cada um uma linha de endereço solta. O
+   primeiro continua nos campos com quebra e busca por CEP; estes só existem
+   quando o cliente tem mais de um lugar pra recolher. */
+let pontosColeta=[];
 // Guarda o texto já interpretado, pra sair do campo sem motivo não reprocessar
 // um endereço que a Receita já entregou certinho e separado.
 let ultimoEnderecoLido={"":"","Coleta":""};
@@ -2176,6 +2189,45 @@ function contatosParaDocumento(){
     nomes:validos.map(c=>c.nome).filter(Boolean).join(" / "),
     fones:validos.map(c=>c.fone).filter(Boolean).join(" / ")
   };
+}
+
+/* ============ PONTOS DE COLETA ALÉM DO PRIMEIRO ============
+   Mesmo desenho dos contatos extras: o primeiro endereço tem campos próprios
+   (com quebra e busca por CEP), os demais são uma linha de texto cada.
+
+   O plural do documento nasce daqui e não de uma escolha: com um ponto sai
+   "Local de Coleta:", com dois ou mais, "Locais de Coleta:" e os endereços
+   separados por ponto e vírgula. Antes o rótulo era fixo no plural e a proposta
+   de um galpão só dizia "Locais" pra um endereço. */
+function incluirPontoColeta(){
+  pontosColeta.push("");
+  renderPontosColeta();
+  agendarRascunho();
+}
+function renderPontosColeta(){
+  const alvo=document.getElementById("pontosColetaExtras");
+  if(!alvo) return;
+  alvo.innerHTML="";
+  pontosColeta.forEach((p,i)=>{
+    const div=document.createElement("div");
+    div.className="ponto-extra";
+    div.innerHTML='<input type="text" placeholder="Outro ponto: Rua, nº, Bairro, Cidade - UF, CEP">'+
+                  '<button class="tira-contato" title="Remover ponto de coleta">×</button>';
+    alvo.appendChild(div);
+    const inp=div.querySelector("input");
+    inp.value=p||"";
+    inp.oninput=()=>{ pontosColeta[i]=inp.value; agendarRascunho(); };
+    div.querySelector(".tira-contato").onclick=()=>{
+      pontosColeta.splice(i,1); renderPontosColeta(); agendarRascunho();
+    };
+  });
+}
+/* Os endereços de coleta que vão pro documento, em ordem: o principal primeiro,
+   depois os extras. Vazio nenhum entra — ponto em branco viraria um ";" solto
+   no meio da frase. */
+function pontosDeColeta(principal){
+  return [principal].concat(pontosColeta.map(p=>String(p||"").trim().toUpperCase()))
+    .map(p=>String(p||"").trim()).filter(Boolean);
 }
 
 /* ============ TROCAR DE ABA ARRASTANDO O DEDO ============
@@ -5608,7 +5660,7 @@ function salvarRascunho(){
     if(vazio){localStorage.removeItem(LS_RASCUNHO);return;}
     localStorage.setItem(LS_RASCUNHO,JSON.stringify({
       form, itens, objetoSel, subObjetoSel, mesmoEnd, propostaAtualId,
-      enderecoInformado, contatosExtras, quando:Date.now()
+      enderecoInformado, contatosExtras, pontosColeta, quando:Date.now()
     }));
   }catch(e){}
 }
@@ -5635,7 +5687,9 @@ function restaurarRascunho(){
   propostaAtualId=d.propostaAtualId||null;
   enderecoInformado=d.enderecoInformado||"";
   contatosExtras=Array.isArray(d.contatosExtras)?d.contatosExtras:[];
+  pontosColeta=Array.isArray(d.pontosColeta)?d.pontosColeta:[];
   renderContatosExtras();
+  renderPontosColeta();
   ultimoEnderecoLido={"":document.getElementById("enderecoUnico").value,
                       "Coleta":document.getElementById("enderecoColetaUnico").value};
   document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
@@ -5684,6 +5738,7 @@ function salvarPropostaAtual(){
     salvoEm: new Date().toISOString(),
     form, mesmoEnd, objetoSel, subObjetoSel,
     contatosExtras: JSON.parse(JSON.stringify(contatosExtras)),
+    pontosColeta: pontosColeta.slice(),
     itens: JSON.parse(JSON.stringify(itens))
   };
   const i=propostas.findIndex(p=>p.id===registro.id);
@@ -5842,7 +5897,9 @@ async function abrirProposta(id,comoCopia){
   objetoSel=p.objetoSel||null; subObjetoSel=p.subObjetoSel||null;
   mesmoEnd=p.mesmoEnd!==false;
   contatosExtras=Array.isArray(p.contatosExtras)?JSON.parse(JSON.stringify(p.contatosExtras)):[];
+  pontosColeta=Array.isArray(p.pontosColeta)?p.pontosColeta.slice():[];
   renderContatosExtras();
+  renderPontosColeta();
   sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; 
   limparResultado();
 
@@ -5930,6 +5987,7 @@ async function novaProposta(silencioso){
   mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
   enderecoInformado="";
   contatosExtras=[];renderContatosExtras();
+  pontosColeta=[];renderPontosColeta();
   document.getElementById("avisoDivergencia").classList.add("oculto");
   propostaAtualId=null;
   ultimoEnderecoLido={"":"","Coleta":""};
@@ -5983,26 +6041,29 @@ function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
    REALMENTE vai sair. A medida não é chute: o canvas mede a frase na fonte e no
    corpo certos e devolve pixels, que viram twips (1 px CSS = 15 twips).
 
-   Resíduo, Unidade e Valor são rótulos curtos e estruturados — "Sucata
-   Metálica", "KG", "R$ 293.400,00" — e essas GARANTEM a própria linha
-   inteira até um teto; não abrem mão de espaço por nenhum outro motivo.
-   Observações é normalmente o texto mais importante da linha (é ela que
-   carrega a explicação do preço) e por isso também é GARANTIDA, com um teto
-   generoso — é a coluna que deve ficar mais larga na prática. Quem cede
-   quando o total não cabe na largura fixa da página é Descrição: um rótulo
-   como "CLASSE II - POR EQUIPAMENTO -" quebrando em duas linhas é normal de
-   se ler; a explicação em Observações espremida numa coluna estreita, não. */
+   Descrição, Resíduo, Unidade e Valor são rótulos curtos e estruturados —
+   "CLASSE II - POR COLETA -", "Sucata Metálica", "KG", "1.160,00". Eles ficam
+   RENTE AO TEXTO: cada um tem um teto apertado, calibrado pelo que de fato sai
+   nessas colunas, e quebrar "COLETA DE RESÍDUOS / CLASSE II - POR COLETA - /
+   Fiorino" em três linhas é normal de se ler.
+
+   Quem fica com a sobra é Observações, porque é ela que carrega a explicação do
+   preço — e é a única coluna cujo texto é prosa de verdade. O alvo veio medido,
+   não chutado: a frase padrão mais comprida que sai hoje ("Dedicada para coletas
+   de menores volumes.") precisa de 4257 twips pra caber numa linha, o que põe a
+   observação inteira em duas. Os tetos das outras quatro somam exatamente o que
+   sobra pra isso caber. Mexer num deles muda esse equilíbrio — meça antes. */
 const LARG_TOTAL=11052;              // largura da tabela no modelo, em twips
 const PAD_CELULA=300;                // margem interna das células + respiro contra
                                       // kerning e margens que o canvas não replica 100%
 // O "\n" em Valor Unitário é a quebra fixa que existe no modelo — o cabeçalho
 // sai sempre em duas linhas certas.
 const COLUNAS_TABELA=[
-  {cab:"Descrição",            campo:"descricao",   teto:4200, folga:1, prosa:true, pisoMin:2600},
-  {cab:"Resíduo",              campo:"residuo",     teto:1900, folga:0},
-  {cab:"Unidade",              campo:"unidade",     teto:1150, folga:0},
-  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:2000, folga:0, pisoMin:1430, prioCorte:1},
-  {cab:"Observações",          campo:"observacoes", teto:4600, folga:3, pisoMin:3550, prioCorte:2}
+  {cab:"Descrição",            campo:"descricao",   teto:2480, folga:1, pisoMin:2100},
+  {cab:"Resíduo",              campo:"residuo",     teto:1290, folga:0, pisoMin:1290},
+  {cab:"Unidade",              campo:"unidade",     teto:900,  folga:0, pisoMin:868},
+  {cab:"Valor Unitário\n(R$)", campo:"valor",       teto:950,  folga:0, pisoMin:950,  prioCorte:1},
+  {cab:"Observações",          campo:"observacoes", teto:5400, folga:2, prosa:true, pisoMin:3500, prioCorte:2}
 ];
 let ctxMedida=null;
 function medir(txt,fonte){
@@ -6200,19 +6261,28 @@ function mapear(){
   const endCLocal=mesmoEnd?linhaEnd(G("logradouro"),G("bairro"),"","","")
                           :linhaEnd(G("logradouroColeta"),G("bairroColeta"),"","","");
   const cuC=mesmoEnd?cu:((g("cidadeColeta")&&g("ufColeta"))?`${G("cidadeColeta")}/${g("ufColeta").toUpperCase()}`:"");
+  /* A linha de coleta da Proposta, montada inteira aqui. O CEP entra junto de
+     cada endereço porque com dois pontos um CEP solto no fim da frase não diria
+     de qual dos dois é. Um ponto → "Local de Coleta"; dois ou mais → "Locais". */
+  const cepC=mesmoEnd?g("cep"):g("cepColeta");
+  const locais=pontosDeColeta(endC?(endC+(cepC?", CEP "+cepC:"")):"");
   const d=g("dataProposta")?new Date(g("dataProposta")+"T00:00:00"):new Date();
   // Cliente que não informa Inscrição Estadual é isento — em branco o Aceite
-  // sairia com o campo vazio, que o cliente devolve perguntando.
+  // sairia com o campo vazio, que o cliente devolve perguntando. Na Proposta o
+  // sufixo some de vez: "; IE: ISENTO" ao lado do CNPJ é ruído numa linha que
+  // já diz o que precisa.
   const ie=g("ie")||"ISENTO";
   return {rs:g("razaoSocial").toUpperCase(),mapa:{
     razao_social:g("razaoSocial").toUpperCase(),
     // Proposta leva só o responsável; o Aceite troca isso por todos (mapaAceite)
     contato_nome:contatosParaDocumento().primeiro.nome,
     telefone:contatosParaDocumento().primeiro.fone,
-    cnpj:g("cnpj"),inscricao_estadual_sufixo:`; IE: ${ie}`,inscricao_estadual:ie,
+    cnpj:g("cnpj"),inscricao_estadual_sufixo:g("ie")?`; IE: ${g("ie")}`:"",inscricao_estadual:ie,
     endereco_completo:end,endereco_logradouro:G("logradouro"),bairro:G("bairro"),cidade_uf:cu,cep:g("cep"),
     email:g("email"),email_nfe:g("email"),endereco_coleta:endC,endereco_coleta_local:endCLocal,cidade_uf_coleta:cuC,
-    cep_coleta:mesmoEnd?g("cep"):g("cepColeta"),proposta_numero:g("proposalNumber"),objeto:objetoTexto(),
+    rotulo_coleta:locais.length>1?"Locais de Coleta":"Local de Coleta",
+    locais_coleta:locais.join("; "),
+    cep_coleta:cepC,proposta_numero:g("proposalNumber"),objeto:objetoTexto(),
     dia:String(d.getDate()).padStart(2,"0"),mes:MESES[d.getMonth()],ano:String(d.getFullYear()),
     data:d.toLocaleDateString("pt-BR")}};
 }
