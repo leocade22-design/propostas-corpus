@@ -287,6 +287,10 @@
   /* Linha editável dos catálogos de preço (recicláveis, equipamentos) */
   /* Recicláveis: linha fechada que expande */
   .mat-linha{border:1px solid var(--card-borda);border-radius:10px;margin-bottom:7px;overflow:hidden;}
+  .snap-linha{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    border:1px solid var(--card-borda);border-radius:10px;padding:9px 11px;margin-bottom:7px;}
+  .snap-nome{font-weight:600;font-size:14px;}
+  .snap-linha .btn-mini{flex:0 0 auto;}
   .mat-linha.tem-preco{border-color:var(--verde-borda);}
   .mat-cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
     padding:11px 12px;cursor:pointer;}
@@ -639,6 +643,7 @@
         <span class="sub" id="exemploBDI"></span>
         <button type="button" class="olho" id="olhoBDI" onclick="alternarOlhoBDI()"></button>
       </div>
+      <div class="confAviso oculto" id="avisoBDI"></div>
       <div class="sub aviso-sigilo">Custo interno — <strong>nunca entra na proposta do cliente</strong>.</div>
 
       <input type="text" id="buscaDest" placeholder="Buscar destinador ou resíduo..." oninput="renderDest()" style="margin-top:10px">
@@ -664,6 +669,7 @@
       <span class="sub" id="exemploRepasse"></span>
       <button type="button" class="olho" id="olhoRepasse" onclick="alternarOlhoRepasse()"></button>
     </div>
+    <div class="confAviso oculto" id="avisoRepasse"></div>
     <div class="sub" style="margin-bottom:10px">
       A Corpus <strong>vende</strong> o material pra usina e <strong>compra</strong> do
       cliente por uma fração disso. O que vai pra proposta é sempre o
@@ -993,6 +999,22 @@
       <div class="sub aviso-sigilo">Fica de fora: o rascunho em andamento, o tema,
         o tamanho da tabela e o cofre com senha — esse já tem a criptografia dele.</div>
       <div class="sub" id="syncAjuda" style="margin-top:10px"></div>
+    </div>
+  </div>
+  <!-- Desfazer uma chegada da nuvem. Existe porque a fusão das tabelas grandes é
+       "vale a mais recente": se o aparelho errado subir por último, a versão boa
+       precisa ter pra onde voltar. -->
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleSnapshots()">Voltar uma versão
+      <span class="badge" id="badgeSnap">0</span><span class="seta" id="setaSnap">▾</span></h2>
+    <div id="snapCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        Quando a sincronia substitui uma tabela inteira — custos, catálogos,
+        preços — a versão que estava aqui fica guardada <strong>neste
+        aparelho</strong>. Se chegou coisa errada, é um toque pra voltar.
+      </div>
+      <div id="listaSnapshots"></div>
+      <div class="status" id="statusSnap"></div>
     </div>
   </div>
   <!-- Um lugar só pras observações que saem na proposta. Elas nascem espalhadas
@@ -3314,7 +3336,14 @@ function unidadesSugeridas(chave,descricao){
    seria pior que não converter. Viagem, hora e diária, idem. */
 const MASSA_EM_KG={ "kg":1, "quilo":1, "quilos":1, "quilograma":1,
                     "ton":1000, "t":1000, "tonelada":1000, "toneladas":1000 };
-function fatorMassa(u){ return MASSA_EM_KG[String(u||"").trim().toLowerCase()]||0; }
+/* "ton", "Ton.", "TONELADAS", "t." e "kg." são a mesma unidade escrita por três
+   pessoas diferentes. Antes de procurar no mapa, joga fora tudo que não é letra
+   — ponto de abreviação, espaço, barra. Sem isso um ponto sobrando devolvia
+   fator 0 e a conversão desligava sem dizer nada. */
+function fatorMassa(u){
+  const chave=String(u||"").toLowerCase().replace(/[^a-zà-ú]/g,"");
+  return MASSA_EM_KG[chave]||0;
+}
 // Devolve o valor convertido já formatado, ou null quando não há o que fazer:
 // unidade fora da massa, mesma unidade, ou campo vazio.
 function converterMassa(valorTexto,de,para){
@@ -3660,6 +3689,22 @@ let sync={url:"",anon:"",salt:"",ligado:false,visto:0}, syncChave=null,
 const LS_EXCL="corpus_excluidos_v1";
 let excluidos={};
 
+/* Rede de proteção da sincronia.
+
+   As peças únicas — tabela de custos, catálogo, preços — sincronizam por "vale a
+   mais recente". Isso é correto pra uma pessoa que edita num aparelho de cada
+   vez, e é o único caminho possível com o conteúdo cifrado: ninguém do lado do
+   servidor pode comparar campo a campo. Mas tem um buraco honesto: se o celular
+   estava com uma versão velha e você mexe nele antes que a sincronia puxe, o
+   celular sobe a versão velha por cima da nova.
+
+   Enquanto a fusão por sub-chave não existe, o app guarda o que ia ser
+   substituído. Duas versões por seção, só neste aparelho, fora da sincronia —
+   guardar backup na nuvem seria dar ao mesmo mecanismo a chance de estragar o
+   backup também. Um botão em Ajustes desfaz. */
+const LS_SNAP="corpus_snapshots_v1";
+let snapshots={};
+
 /* Base rápida de clientes, alimentada por toda proposta gerada. Aqui em cima
    pelo mesmo motivo do resto: a inicialização carrega antes do bloco onde as
    funções moram, e `let` não existe antes da linha que o declara. Foi a
@@ -3912,6 +3957,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarVincCustom();
   carregarObsPadrao();
   carregarExcluidos();
+  carregarSnapshots();
   carregarCards();
   carregarClientesRapidos();
   carregarFichas();
@@ -3986,6 +4032,10 @@ function pintarOlhoBDI(){
   // direita pro meio da linha, que é exatamente o "fixado no mesmo ponto" que
   // não pode acontecer.
   document.getElementById("exemploBDI").style.visibility=escondido?"hidden":"";
+  // O aviso de percentual fora da faixa conta o que o olho está escondendo
+  // ("sai abaixo do custo do parceiro"), então some junto.
+  const avBDI=document.getElementById("avisoBDI");
+  if(avBDI) avBDI.style.visibility=escondido?"hidden":"";
   /* Esconder só o BDI não escondia nada: a tabela ao lado continua com todo
      custo à mostra, e é ela que se vê primeiro. O olho apaga os números da
      matriz junto — a estrutura fica (resíduo, parceiro, unidade), os valores
@@ -4016,10 +4066,38 @@ function alternarDensidade(v){
   try{localStorage.setItem(LS_DENS,densoDest?"compacto":"normal");}catch(e){}
   renderDest();
 }
+/* Nem BDI nem repasse têm trava: o app aceita o número que vier, porque existe
+   caso real de repasse alto e de margem apertada. O que não pode é o dedo escorregar
+   e ninguém perceber — BDI negativo vende abaixo do custo, repasse acima de 100%
+   paga ao cliente mais do que a usina paga pra Corpus. Nos dois casos o app avisa
+   e deixa passar; a decisão continua sendo de quem está preenchendo. */
+function avisarPercentual(idAviso,valor,limites){
+  const el=document.getElementById(idAviso);
+  if(!el) return;
+  const n=Number(valor);
+  let msg="";
+  if(!isFinite(n)) msg="";
+  else if(n<limites.min) msg=limites.msgMin;
+  else if(n>limites.max) msg=limites.msgMax;
+  el.textContent=msg;
+  el.classList.toggle("oculto",!msg);
+}
+function conferirBDI(){
+  avisarPercentual("avisoBDI",dest.bdi,{
+    min:0, max:400,
+    msgMin:"BDI negativo: o preço sugerido sai abaixo do custo do parceiro.",
+    msgMax:"BDI acima de 400% — confira se não sobrou um dígito."});
+}
+function conferirRepasse(){
+  avisarPercentual("avisoRepasse",precos.repasse,{
+    min:0, max:100,
+    msgMin:"Repasse negativo: o cliente apareceria pagando pra entregar o material.",
+    msgMax:"Repasse acima de 100%: a Corpus repassaria mais do que recebe da usina."});
+}
 function mudouBDI(el){
-  el.value=el.value.replace(/[^\d,.]/g,"");
+  el.value=el.value.replace(/[^\d,.-]/g,"");
   dest.bdi=Number(el.value.replace(",","."))||0;
-  gravarDest(); renderExemploBDI(); renderDest();
+  gravarDest(); renderExemploBDI(); conferirBDI(); renderDest();
   // As linhas já na tela mostram o preço sugerido — refaz pra acompanhar o BDI novo
   if(typeof renderLinhasValores==="function") renderLinhasValores();
 }
@@ -4433,6 +4511,7 @@ function renderDest(){
   const bdiEl=document.getElementById("bdiDest");
   if(bdiEl&&document.activeElement!==bdiEl) bdiEl.value=dest.bdi;
   renderExemploBDI();
+  conferirBDI();
   pintarOlhoBDI();
   if(!dest.precos.length){
     document.getElementById("abreExibDest").classList.add("oculto");
@@ -5138,9 +5217,10 @@ let reciAberto=null;
    entra quando tem valor. */
 let reciLinhas=[];
 function mudouRepasse(el){
-  el.value=el.value.replace(/[^\d,.]/g,"");
+  el.value=el.value.replace(/[^\d,.-]/g,"");
   precos.repasse=numeroBR(el.value)||0;
-  gravarPrecos(); renderExemploRepasse(); renderPrecosReci(); renderLinhasValores();
+  gravarPrecos(); renderExemploRepasse(); conferirRepasse();
+  renderPrecosReci(); renderLinhasValores();
 }
 function renderExemploRepasse(){
   const el=document.getElementById("exemploRepasse");
@@ -5165,6 +5245,8 @@ function pintarOlhoRepasse(){
   olho.innerHTML=escondido?ICONE_OLHO_CORTE:ICONE_OLHO;
   olho.title=escondido?"mostrar os valores":"esconder os valores";
   document.getElementById("exemploRepasse").style.visibility=escondido?"hidden":"";
+  const avRep=document.getElementById("avisoRepasse");
+  if(avRep) avRep.style.visibility=escondido?"hidden":"";
   // Mesma regra do BDI: some o percentual E os preços da lista de materiais.
   document.body.classList.toggle("sem-valores-reci",escondido);
 }
@@ -5244,6 +5326,7 @@ function renderPrecosReci(){
   const rep=document.getElementById("repasseReci");
   if(rep&&document.activeElement!==rep) rep.value=repassePadrao();
   renderExemploRepasse();
+  conferirRepasse();
   pintarOlhoRepasse();
   atualizarBadgesPrecos();
   const busca=semAc(document.getElementById("buscaReci").value.trim());
@@ -6940,6 +7023,85 @@ function foiExcluido(secao,chave,quando){
   const m=excluidos[secao+":"+chave];
   return !!m&&m>=(quando||0);
 }
+/* ---- Guardar o que vai ser substituído ---- */
+function carregarSnapshots(){
+  try{
+    const s=localStorage.getItem(LS_SNAP);
+    if(s) snapshots=JSON.parse(s)||{};
+  }catch(e){ snapshots={}; }
+}
+function gravarSnapshots(){
+  try{ localStorage.setItem(LS_SNAP,JSON.stringify(snapshots)); }
+  catch(e){
+    // Cota estourada: joga fora a cópia mais velha de cada seção e tenta de novo.
+    // Perder a segunda cópia é aceitável; perder a mais recente não é.
+    Object.keys(snapshots).forEach(k=>{ snapshots[k]=(snapshots[k]||[]).slice(0,1); });
+    try{ localStorage.setItem(LS_SNAP,JSON.stringify(snapshots)); }catch(e2){}
+  }
+}
+function guardarSnapshot(secId,titulo,conteudo){
+  if(conteudo===null||conteudo===undefined||conteudo==="") return;
+  const lista=snapshots[secId]||[];
+  if(lista.length&&lista[0].json===conteudo) return;   // já é essa, não duplica
+  lista.unshift({em:Date.now(),titulo:titulo||secId,json:conteudo});
+  snapshots[secId]=lista.slice(0,2);
+  gravarSnapshots();
+  if(typeof renderSnapshots==="function") renderSnapshots();
+}
+function restaurarSnapshot(secId,i){
+  const item=(snapshots[secId]||[])[i];
+  const sec=secoesSync().find(s=>s.id===secId);
+  if(!item||!sec) return;
+  perguntar("Voltar a versão anterior?",
+    "Isto devolve "+(sec.titulo||secId)+" pro estado de "+quandoTexto(item.em)+
+    ".\n\nA versão de agora fica guardada no lugar dela, então dá pra voltar atrás outra vez.",
+    {emoji:"↩️", sim:"Voltar", nao:"Cancelar"}).then(ok=>{
+      if(!ok) return;
+      const atual=lerLocal(sec.ls);
+      try{ localStorage.setItem(sec.ls,item.json); }catch(e){ return; }
+      // A que estava valendo vira o novo ponto de retorno, e não some da lista.
+      snapshots[secId]=[{em:Date.now(),titulo:sec.titulo,json:atual}]
+        .concat((snapshots[secId]||[]).filter((_,k)=>k!==i)).slice(0,2);
+      gravarSnapshots();
+      try{ sec.aplicar(); }catch(e){}
+      // Restaurar é uma edição como outra qualquer: tem que subir, senão a
+      // sincronia seguinte traz de volta o que acabou de ser desfeito.
+      marcarSuja(sec.ls);
+      renderSnapshots();
+      const st=document.getElementById("statusSnap");
+      if(st){ st.textContent="Versão anterior restaurada."; setTimeout(()=>{st.textContent="";},4000); }
+    });
+}
+function quandoTexto(ms){
+  const d=new Date(ms), hoje=new Date();
+  const mesmoDia=d.toDateString()===hoje.toDateString();
+  return (mesmoDia?"hoje":d.toLocaleDateString("pt-BR"))+" às "+
+    d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+}
+function renderSnapshots(){
+  const el=document.getElementById("listaSnapshots");
+  const secs=secoesSync();
+  const linhas=[];
+  Object.keys(snapshots).forEach(id=>{
+    const sec=secs.find(s=>s.id===id);
+    if(!sec) return;
+    (snapshots[id]||[]).forEach((sn,i)=>linhas.push({id,i,sn,titulo:sec.titulo||id}));
+  });
+  linhas.sort((a,b)=>b.sn.em-a.sn.em);
+  const badge=document.getElementById("badgeSnap");
+  if(badge) badge.textContent=linhas.length;
+  if(!el) return;
+  if(!linhas.length){
+    el.innerHTML='<div class="sub">Nada guardado ainda. Assim que a sincronia '+
+      'substituir alguma tabela, a versão anterior aparece aqui.</div>';
+    return;
+  }
+  el.innerHTML=linhas.map(l=>
+    '<div class="snap-linha"><div><div class="snap-nome">'+escXml(l.titulo)+'</div>'+
+    '<div class="sub">antes de '+escXml(quandoTexto(l.sn.em))+'</div></div>'+
+    '<button type="button" class="btn-sec btn-mini" onclick="restaurarSnapshot(\''+
+    l.id+'\','+l.i+')">restaurar</button></div>').join("");
+}
 function lerLocal(ls){ try{ return localStorage.getItem(ls); }catch(e){ return null; } }
 let syncDebounce=null;
 function marcarSuja(ls){
@@ -7015,6 +7177,9 @@ async function rodarSync(motivo){
         else if(vindo!==bruto){ final=vindo; precisaGravarLocal=true; }
       }
       if(precisaGravarLocal&&final!==null){
+        // Só peça única precisa de rede de proteção: lista e marcas fundem por
+        // união e não apagam nada de ninguém, então não há o que desfazer.
+        if(sec.fusao==="recente"&&bruto&&bruto!==final) guardarSnapshot(sec.id,sec.titulo,bruto);
         try{ localStorage.setItem(sec.ls,final); }catch(e){}
         try{ sec.aplicar(); }catch(e){ console.warn("sincronia: "+sec.id+" chegou mas a tela não recarregou",e); }
       }
@@ -7065,6 +7230,13 @@ function pintarSync(estado,detalhe){
 
 /* ---- Controles da tela ---- */
 let syncAberto=false;
+let snapAberto=false;
+function toggleSnapshots(){
+  snapAberto=!snapAberto;
+  document.getElementById("snapCorpo").classList.toggle("oculto",!snapAberto);
+  document.getElementById("setaSnap").classList.toggle("aberta",snapAberto);
+  if(snapAberto) renderSnapshots();
+}
 function toggleSync(){
   syncAberto=!syncAberto;
   document.getElementById("syncCorpo").classList.toggle("oculto",!syncAberto);
@@ -7471,7 +7643,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.24-3";
+const APP_VERSION="2026.08.27-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
