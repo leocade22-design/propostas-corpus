@@ -191,6 +191,10 @@
      do editor da linha chama ela. Fica numa camada acima dos modais comuns e
      abaixo do trio de pergunta/aviso, que pode ser chamado de dentro dela. */
   #modalSelecao{z-index:110;}
+  /* Aberto por cima do "Documento gerado", que continua atrás. Mesma razão do
+     modalSelecao: dois .modal-fundo no mesmo nível e quem ganha é a ordem do
+     DOM, o que já escondeu um popup atrás do outro uma vez. */
+  #modalEmail{z-index:112;}
   /* Estes três são chamados de DENTRO de outro modal — o aviso pelo editor de
      catálogo, a pergunta e o campo de texto por qualquer tela. Sem subir a
      camada eles abriam atrás e o clique não chegava neles. */
@@ -299,6 +303,15 @@
   /* Linha editável dos catálogos de preço (recicláveis, equipamentos) */
   /* Recicláveis: linha fechada que expande */
   .mat-linha{border:1px solid var(--card-borda);border-radius:10px;margin-bottom:7px;overflow:hidden;}
+  .fotos-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+    gap:8px;margin-top:8px;}
+  .foto-item{position:relative;border:1px solid var(--card-borda);border-radius:10px;
+    overflow:hidden;background:var(--campo);}
+  .foto-item img{display:block;width:100%;height:96px;object-fit:cover;cursor:pointer;}
+  .foto-item .mat-tira{position:absolute;top:3px;right:3px;width:22px;height:22px;padding:0;
+    border:none;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:.8rem;line-height:1;}
+  .foto-item .foto-tam{display:block;font-size:.66rem;color:var(--suave);
+    text-align:center;padding:3px 2px;}
   .snap-linha{display:flex;align-items:center;justify-content:space-between;gap:10px;
     border:1px solid var(--card-borda);border-radius:10px;padding:9px 11px;margin-bottom:7px;}
   .snap-nome{font-weight:600;font-size:14px;}
@@ -908,6 +921,18 @@
     <div class="titulo-secao"><span>Na proposta <span class="badge" id="contagemNaProposta">0</span></span></div>
     <div class="vazio" id="listaVazia">Nenhum item adicionado ainda.</div>
     <div id="listaItensProposta"></div>
+
+    <!-- Fotos que o cliente manda da atividade. Ficam presas à proposta, no
+         aparelho: não entram no .docx nem na sincronia. -->
+    <div class="titulo-secao"><span>Fotos da atividade <span class="badge" id="contagemFotos">0</span></span></div>
+    <div class="sub">O que o cliente mandou do local — caçamba, área, resíduo. Fica
+      guardado <strong>com esta proposta</strong>, neste aparelho. Não vai pro
+      documento do cliente nem para a sincronia.</div>
+    <div class="fotos-grade" id="gradeFotos"></div>
+    <input type="file" id="arqFotos" accept="image/*" multiple class="oculto" onchange="guardarFotos(this)">
+    <button class="btn-sec btn-full" style="margin-top:8px"
+            onclick="document.getElementById('arqFotos').click()">📷 Anexar fotos</button>
+    <div class="status" id="statusFotos"></div>
   </div>
 </section>
 
@@ -1204,19 +1229,23 @@
 <div class="modal-fundo oculto" id="modalLink">
   <div class="modal-caixa">
     <div class="modal-topo">
-      <h3>Linkar a uma linha de custo</h3>
+      <h3>Linkar a linhas de custo</h3>
       <button class="modal-fechar" onclick="fecharLink()">✕</button>
     </div>
     <div class="sub" id="linkAlvoNome"></div>
     <label>Nome que sai na proposta</label>
     <input type="text" id="linkRotulo">
     <div class="sub">Deixe vazio pra manter o nome do catálogo. O nome da tabela
-      de custos nunca aparece pro cliente.</div>
+      de custos nunca aparece pro cliente.<br>
+      Pode marcar <strong>mais de um destinador</strong> pro mesmo resíduo — tocar de
+      novo desmarca. Qual deles vale sai na hora de montar a proposta.</div>
     <input type="text" id="linkBusca" placeholder="Buscar em Destinadores e Recicláveis..."
            oninput="pintarLink()" style="margin-top:10px">
+    <div class="sub" id="linkContagem"></div>
     <div class="link-lista" id="linkLista"></div>
     <div class="sub aviso-sigilo">O que vai pro campo é o <strong>preço de venda</strong>.
       Custo e nome do parceiro não saem daqui.</div>
+    <button class="btn-principal" style="width:100%;margin-top:10px" onclick="fecharLink()">Pronto</button>
   </div>
 </div>
 
@@ -1287,7 +1316,34 @@
     <div class="emoji">✅</div>
     <div class="zoeira" id="prontoTitulo">Documento gerado</div>
     <div class="motivo" id="prontoDetalhe"></div>
+    <button class="btn-sec btn-full" style="margin-bottom:8px" onclick="abrirEmail()">✉️ Enviar por e-mail</button>
     <button class="btn-principal" onclick="fecharPronto()">OK</button>
+  </div>
+</div>
+
+<!-- Envio por e-mail. O texto é montado com a saudação da hora e o nome do
+     contato; os arquivos recém-gerados vão junto onde o navegador deixa. -->
+<div class="modal-fundo oculto" id="modalEmail">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <h3>Enviar por e-mail</h3>
+      <button class="modal-fechar" onclick="fecharEmail()">✕</button>
+    </div>
+    <div class="chips" id="emailModelos" style="margin-bottom:8px"></div>
+    <label>Para</label>
+    <input type="text" id="emailPara" inputmode="email" placeholder="cliente@empresa.com.br">
+    <label>Assunto</label>
+    <input type="text" id="emailAssunto">
+    <label>Mensagem</label>
+    <textarea id="emailCorpo" rows="11" oninput="ajustarAltura(this)"></textarea>
+    <div class="sub" id="emailAnexos"></div>
+    <div class="row2" style="margin-top:10px">
+      <button class="btn-sec" onclick="copiarEmail(this)">Copiar texto</button>
+      <button class="btn-sec" onclick="abrirNoCliente()">Abrir no e-mail</button>
+    </div>
+    <button class="btn-principal btn-full" style="margin-top:8px" id="btnCompartilhar"
+            onclick="compartilharEmail(this)">📎 Compartilhar com os anexos</button>
+    <div class="status" id="statusEmail"></div>
   </div>
 </div>
 
@@ -2762,6 +2818,8 @@ function montarLinhasBase(){
 // ficava de fora e era gravada num objeto temporário — por isso o campo "voltava"
 // sozinho e não dava pra digitar nada nele.
 let valorPorChave={}, obsPorChave={}, unidadePorChave={};
+// Qual vínculo de custo vale nesta proposta, quando o resíduo tem mais de um.
+let linkEscolhido={};
 // Guarda a última observação que o app montou sozinho. É por ela que se sabe se
 // o texto na tela ainda é automático — e portanto pode ser refeito quando a
 // unidade muda — ou se foi escrito à mão e não se mexe mais nele.
@@ -2870,7 +2928,7 @@ function pintarLink(){
   if(!linkEditando) return;
   const el=document.getElementById("linkLista");
   const busca=semAc(document.getElementById("linkBusca").value.trim());
-  const atual=vincCustomDe(linkEditando.chave);
+  const atuais=vincsCustomDe(linkEditando.chave);
   const todas=linhasDeCusto();
   el.innerHTML="";
   if(!todas.length){
@@ -2878,21 +2936,26 @@ function pintarLink(){
       'Importe a planilha em Destinadores ou preencha preços em Recicláveis.</span>';
     return;
   }
+  const cont=document.getElementById("linkContagem");
+  if(cont) cont.textContent=atuais.length
+    ? (atuais.length===1?"1 destinador linkado a esta linha":atuais.length+" destinadores linkados a esta linha")
+    : "Nenhum linkado ainda.";
   const vistas=todas.filter(x=>!busca||semAc(x.rotulo+" "+(x.cl||"")).includes(busca));
   if(!vistas.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
   vistas.slice(0,80).forEach(x=>{
     const b=document.createElement("button");
     b.type="button";
-    const ligada=atual&&atual.fonte===x.fonte&&
-      (x.fonte==="dest"?(atual.d===x.d&&atual.r===x.r):(atual.n===x.n&&atual.r===x.r));
+    const ligada=atuais.some(v=>mesmoVinc(v,x));
     if(ligada) b.className="ativo";
     b.innerHTML='<span class="de"></span><b></b><span class="c"></span>';
     b.querySelector(".de").textContent=x.fonte==="dest"?"destinador":"reciclável";
     b.querySelector("b").textContent=x.rotulo;
     b.querySelector(".c").textContent=x.detalhe;
+    // Não fecha ao tocar: agora dá pra linkar vários parceiros de uma vez, e
+    // fechar a cada um obrigaria a reabrir e rebuscar pro seguinte.
     b.onclick=()=>{
       ligarVincCustom(linkEditando.chave,x,document.getElementById("linkRotulo").value);
-      fecharLink();
+      pintarLink();
     };
     el.appendChild(b);
   });
@@ -2906,22 +2969,50 @@ function pintarLink(){
 function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
   // Link manual manda em tudo: foi uma escolha explícita, e escolha explícita
   // não pode ser sobrescrita por palpite de casamento de nomes.
-  const lk=custoVinculado(linha.chave);
-  if(lk){
+  const vincs=custosVinculados(linha.chave);
+  if(vincs.length){
     alvo.innerHTML="";
-    const nota=document.createElement("div");
-    nota.className="titulo vinculado linkado";
-    const onde=lk.fonte==="dest"?(lk.d+" · "+lk.r):(lk.n+(lk.r&&lk.r!==lk.n?" · "+lk.r:""));
-    nota.innerHTML='<span></span><button type="button" class="solta">desfazer</button>';
-    nota.querySelector("span").textContent="🔗 Linkado a: "+onde+" — R$ "+
-      fmtDinheiro(lk.preco)+(lk.u?"/"+lk.u:"")+(lk.sumiu?"  (linha saiu da tabela)":"");
-    nota.querySelector(".solta").onclick=()=>desligarVincCustom(linha.chave);
-    alvo.appendChild(nota);
-    const trocar=document.createElement("button");
-    trocar.type="button"; trocar.className="btn-linkar";
-    trocar.textContent="🔗 trocar a linha de custo";
-    trocar.onclick=()=>abrirLink(linha.chave,linha.nome);
-    alvo.appendChild(trocar);
+    const escolhido=iEscolhido(linha.chave);
+    const nomeDe=v=>v.fonte==="dest"?(v.d+" · "+v.r):(v.n+(v.r&&v.r!==v.n?" · "+v.r:""));
+    if(vincs.length===1){
+      const v=vincs[0];
+      const nota=document.createElement("div");
+      nota.className="titulo vinculado linkado";
+      nota.innerHTML='<span></span><button type="button" class="solta">desfazer</button>';
+      nota.querySelector("span").textContent="🔗 Linkado a: "+nomeDe(v)+" — R$ "+
+        fmtDinheiro(v.preco)+(v.u?"/"+v.u:"")+(v.sumiu?"  (linha saiu da tabela)":"");
+      nota.querySelector(".solta").onclick=()=>desligarVincCustom(linha.chave);
+      alvo.appendChild(nota);
+    }else{
+      /* Dois ou mais parceiros pro mesmo resíduo: a escolha é da PROPOSTA, não
+         do cadastro. Os vínculos ficam todos guardados e aqui se decide, no
+         orçamento, pra quem vai. Sem preço escondido: cada botão diz o parceiro
+         e o preço de venda que ele põe no campo. */
+      const t=document.createElement("div");
+      t.className="titulo";
+      t.textContent="🔗 "+vincs.length+" destinadores linkados — escolha o desta proposta:";
+      alvo.appendChild(t);
+      const box=document.createElement("div");
+      box.className="opcoes";
+      vincs.forEach((v,i)=>{
+        const b=document.createElement("button");
+        b.type="button";
+        if(i===escolhido) b.className="fixado";
+        b.innerHTML='<b></b><span class="c"></span>';
+        b.querySelector("b").textContent=nomeDe(v)+" — R$ "+fmtDinheiro(v.preco)+(v.u?"/"+v.u:"");
+        b.querySelector(".c").textContent=(i===escolhido?"em uso nesta proposta":"tocar para usar este")+
+          (v.rot?"  ·  sai como \u201C"+v.rot+"\u201D":"")+(v.sumiu?"  ·  linha saiu da tabela":"");
+        b.onclick=()=>escolherVinc(linha.chave,i);
+        box.appendChild(b);
+      });
+      alvo.appendChild(box);
+    }
+    const gerir=document.createElement("button");
+    gerir.type="button"; gerir.className="btn-linkar";
+    gerir.textContent=vincs.length===1?"🔗 trocar ou incluir outro destinador"
+                                      :"🔗 incluir ou remover destinadores";
+    gerir.onclick=()=>abrirLink(linha.chave,linha.nome);
+    alvo.appendChild(gerir);
     return;
   }
   if(montarOpcoesReci(alvo,linha,campoValor,campoUnidade)){ oferecerLink(alvo,linha); return; }
@@ -3063,7 +3154,7 @@ function adicionarItens(){
       obsBase:l.obsBase||"",
       sel:JSON.parse(JSON.stringify(sel))});
   });
-  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
+  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; linkEscolhido={};
   esconderPassos(2);fluxo();render();
 }
 function removerItem(i){itens.splice(i,1);render();}
@@ -3746,6 +3837,17 @@ let excluidos={};
 const LS_SNAP="corpus_snapshots_v1";
 let snapshots={};
 
+/* Fotos da atividade. Aqui em cima pelo mesmo motivo de todo o resto: a
+   inicialização chama renderFotos() no meio do arquivo, e `let`/`const` não
+   existem antes da linha que os declara. Foi a SEXTA vez que esse tropeço
+   apareceu neste arquivo — na quinta ele derrubou o script inteiro em silêncio. */
+const IDB_FOTO="foto:";
+const FOTO_LADO_MAX=1600, FOTO_QUALIDADE=0.82;
+let urlsFotos=[];
+/* E as propostas salvas junto — renderFotos() precisa saber de qual proposta são
+   as fotos, e ela roda na inicialização. */
+let propostas=[], propostaAtualId=null;
+
 /* Base rápida de clientes, alimentada por toda proposta gerada. Aqui em cima
    pelo mesmo motivo do resto: a inicialização carrega antes do bloco onde as
    funções moram, e `let` não existe antes da linha que o declara. Foi a
@@ -4004,6 +4106,7 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
   carregarFichas();
   iniciarSync();
   fluxo();montarObjeto();montarChipsColeta();render();
+  renderFotos();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
   medirAlturaVisivel();
@@ -4991,12 +5094,43 @@ function carregarVincCustom(){
     const s=localStorage.getItem(LS_VINCC);
     if(s) vincCustom=JSON.parse(s)||{};
   }catch(e){ console.warn("vínculos customizados: não deu pra ler o que estava salvo",e); }
+  // Cadastro do formato antigo (um vínculo por linha, gravado como objeto solto)
+  // vira lista de um. Assim quem já tinha links não perde nada na atualização.
+  Object.keys(vincCustom).forEach(k=>{
+    const v=vincCustom[k];
+    if(v&&!Array.isArray(v)) vincCustom[k]=[v];
+    else if(!v) delete vincCustom[k];
+  });
 }
 function gravarVincCustom(){
   try{localStorage.setItem(LS_VINCC,JSON.stringify(vincCustom));}catch(e){}
   marcarSuja(LS_VINCC);
 }
-function vincCustomDe(chave){ return vincCustom[chave]||null; }
+/* Um resíduo pode ter MAIS DE UM destinador linkado. A tabela de custos tem o
+   mesmo resíduo em três parceiros com preços diferentes, e quem decide pra onde
+   mandar é o Léo na hora de montar a proposta — às vezes pelo preço, às vezes
+   por quem tem vaga na semana. Guardar só um vínculo obrigava a refazer o link
+   toda vez que a escolha mudava.
+
+   Guardado como LISTA. O formato antigo era um objeto só; carregarVincCustom()
+   converte na leitura, então cadastro velho continua valendo. */
+function vincsCustomDe(chave){
+  const v=vincCustom[chave];
+  if(!v) return [];
+  return Array.isArray(v)?v:[v];
+}
+// Qual dos vínculos vale NESTA proposta. Estado de sessão, como valorPorChave:
+// a escolha é do orçamento em andamento, não do cadastro.
+function iEscolhido(chave){
+  const n=vincsCustomDe(chave).length;
+  if(!n) return -1;
+  const i=linkEscolhido[chave];
+  return (Number.isInteger(i)&&i>=0&&i<n)?i:0;
+}
+function vincCustomDe(chave){
+  const i=iEscolhido(chave);
+  return i<0?null:vincsCustomDe(chave)[i];
+}
 /* Todas as linhas de custo do app numa lista só, pra escolher a dedo.
 
    Destinadores e Recicláveis são catálogos de naturezas diferentes — um é o que
@@ -5029,10 +5163,8 @@ function linhasDeCusto(){
    Reajustou o custo do parceiro na aba Destinadores? A proposta seguinte já
    nasce com o valor novo — que é o motivo de existir a edição inline de lá.
    O número guardado no vínculo é só memória de quanto era no dia. */
-function custoVinculado(chave){
-  const v=vincCustomDe(chave);
-  if(!v) return null;
-  const atual=linhasDeCusto().find(x=>v.fonte==="dest"
+function resolverVinc(v,tabela){
+  const atual=(tabela||linhasDeCusto()).find(x=>v.fonte==="dest"
     ? (x.fonte==="dest"&&x.d===v.d&&x.r===v.r)
     : (x.fonte==="reci"&&x.n===v.n&&x.r===v.r));
   // Linha sumiu da tabela (planilha nova sem aquele resíduo): mantém o que foi
@@ -5040,16 +5172,56 @@ function custoVinculado(chave){
   if(!atual) return {...v, preco:(v.fonte==="dest"?comBDI(v.v):v.v), sumiu:true};
   return {...v, ...atual, sumiu:false};
 }
+// Todos os vínculos da linha, com o preço refeito da tabela viva.
+function custosVinculados(chave){
+  const lista=vincsCustomDe(chave);
+  if(!lista.length) return [];
+  const tabela=linhasDeCusto();
+  return lista.map(v=>resolverVinc(v,tabela));
+}
+function custoVinculado(chave){
+  const i=iEscolhido(chave);
+  return i<0?null:custosVinculados(chave)[i];
+}
+function mesmoVinc(a,b){
+  return a.fonte===b.fonte && (a.fonte==="dest"
+    ? (a.d===b.d&&a.r===b.r) : (a.n===b.n&&a.r===b.r));
+}
+/* Ligar é ALTERNAR: tocar numa linha já linkada desfaz aquele vínculo, tocar
+   numa nova acrescenta. É o mesmo gesto do resto do app (chip, estrela) e é o
+   que deixa montar a lista de parceiros de um resíduo sem abrir e fechar a
+   janela a cada um. */
 function ligarVincCustom(chave,linha,rotulo){
-  vincCustom[chave]={
+  const lista=vincsCustomDe(chave).slice();
+  const novo={
     fonte:linha.fonte, d:linha.d, n:linha.n, r:linha.r,
     rot:(rotulo||"").trim(), v:linha.v, u:linha.u,
     em:new Date().toISOString().slice(0,10)
   };
+  const j=lista.findIndex(v=>mesmoVinc(v,novo));
+  if(j>=0){
+    lista.splice(j,1);
+    // Se o que saiu era o escolhido, a escolha volta pro primeiro da lista
+    if(iEscolhido(chave)===j) delete linkEscolhido[chave];
+  }else{
+    lista.push(novo);
+    linkEscolhido[chave]=lista.length-1;   // o recém-linkado passa a valer
+  }
+  if(lista.length) vincCustom[chave]=lista; else delete vincCustom[chave];
   gravarVincCustom(); renderLinhasValores();
+}
+function escolherVinc(chave,i){
+  linkEscolhido[chave]=i;
+  // O valor da linha é recalculado a partir do vínculo escolhido, então o que
+  // estava digitado à mão sai do caminho — senão a troca de parceiro não muda
+  // número nenhum e parece que não fez nada.
+  delete valorPorChave[chave];
+  delete unidadePorChave[chave];
+  renderLinhasValores();
 }
 function desligarVincCustom(chave){
   delete vincCustom[chave];
+  delete linkEscolhido[chave];
   gravarVincCustom(); renderLinhasValores();
 }
 function carregarPrecos(){
@@ -5633,7 +5805,8 @@ const CAMPOS_FORM=["razaoSocial","cnpj","ie","solicitante","telefone","email","e
   "logradouro","bairro","uf","cep","cidade",
   "enderecoColetaUnico","logradouroColeta","bairroColeta","ufColeta","cepColeta","cidadeColeta",
   "proposalNumber","dataProposta"];
-let propostas=[], propostaAtualId=null;
+// propostas/propostaAtualId estão declarados lá em cima, junto do resto do
+// estado: a inicialização os alcança antes desta altura do arquivo.
 
 /* ============ RASCUNHO EM ANDAMENTO ============
    Minimizar o app, o navegador descartar a aba pra liberar memória ou o celular
@@ -5720,7 +5893,7 @@ function salvarPropostaAtual(){
   const g=id=>document.getElementById(id).value;
   const form={}; CAMPOS_FORM.forEach(id=>form[id]=g(id));
   const registro={
-    id: propostaAtualId||String(Date.now()),
+    id: idDaPropostaAtual(),
     numero: form.proposalNumber,
     cliente: form.razaoSocial.toUpperCase(),
     data: form.dataProposta,
@@ -5889,7 +6062,7 @@ async function abrirProposta(id,comoCopia){
   pontosColeta=Array.isArray(p.pontosColeta)?p.pontosColeta.slice():[];
   renderContatosExtras();
   renderPontosColeta();
-  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; 
+  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; linkEscolhido={}; 
   limparResultado();
 
   if(comoCopia){
@@ -5901,6 +6074,8 @@ async function abrirProposta(id,comoCopia){
   } else {
     propostaAtualId=p.id;
   }
+  // Duplicata começa sem foto: as do original continuam com o original.
+  renderFotos();
 
   document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
   conferirRazaoSocial();
@@ -5929,7 +6104,9 @@ async function excluirProposta(id){
   propostas=propostas.filter(x=>x.id!==id);
   if(propostaAtualId===id) propostaAtualId=null;
   marcarExcluido("propostas",String(id));   // pra não voltar na próxima sincronia
-  gravarPropostas(); atualizarBadgeHistorico(); renderHistorico();
+  // As fotos moram fora do registro (IndexedDB) e não sairiam junto sozinhas.
+  await apagarFotosDe(id);
+  gravarPropostas(); atualizarBadgeHistorico(); renderHistorico(); renderFotos();
 }
 function exportarPropostas(){
   const blob=new Blob([JSON.stringify(propostas,null,2)],{type:"application/json"});
@@ -5973,12 +6150,17 @@ async function novaProposta(silencioso){
   }
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;
-  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={};
+  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; linkEscolhido={};
   enderecoInformado="";
   contatosExtras=[];renderContatosExtras();
   pontosColeta=[];renderPontosColeta();
   document.getElementById("avisoDivergencia").classList.add("oculto");
+  /* Foto anexada num rascunho que nunca virou proposta não tem dono: o id foi
+     criado pra ela e some agora. Apagar aqui é o que impede o IndexedDB de
+     acumular megabytes de propostas que nem chegaram a existir. */
+  if(propostaAtualId&&!propostas.some(x=>x.id===propostaAtualId)) apagarFotosDe(propostaAtualId);
   propostaAtualId=null;
+  renderFotos();
   ultimoEnderecoLido={"":"","Coleta":""};
   limparResultado();
   limparRascunho();
@@ -6317,6 +6499,117 @@ function fecharPronto(){
 }
 function limparResultado(){ ultimosGerados=[]; }
 
+/* ---- A tela de envio ---- */
+let emailModeloId=null;
+function tipoGerado(){
+  const n=ultimosGerados.length;
+  if(n>1) return "ambos";
+  if(n===1&&/^Aceite/i.test(ultimosGerados[0].nome)) return "aceite";
+  return "proposta";
+}
+function ctxEmail(){
+  return {nome:nomeParaSaudacao(),
+          numero:(document.getElementById("proposalNumber")||{}).value||"",
+          cliente:(document.getElementById("razaoSocial")||{}).value||""};
+}
+function abrirEmail(){
+  const tipo=tipoGerado();
+  // Abre já no modelo que corresponde ao que acabou de sair
+  emailModeloId=(MODELOS_EMAIL.find(m=>m.id===tipo)||MODELOS_EMAIL[0]).id;
+  document.getElementById("emailPara").value=(document.getElementById("email")||{}).value||"";
+  pintarEmail(true);
+  document.getElementById("modalEmail").classList.remove("oculto");
+}
+function fecharEmail(){
+  document.getElementById("modalEmail").classList.add("oculto");
+  document.getElementById("statusEmail").textContent="";
+}
+function escolherModeloEmail(id){
+  emailModeloId=id;
+  pintarEmail(true);   // troca o texto: quem escolheu outro modelo quer o outro texto
+}
+function pintarEmail(reescrever){
+  const ctx=ctxEmail();
+  const chips=document.getElementById("emailModelos");
+  chips.innerHTML="";
+  /* Ordem fixa, na sequência da conversa: os três de envio primeiro, depois os
+     de continuação. Reordenar por "combina com o que foi gerado" parecia
+     esperto e ficava confuso — gerando uma Proposta, "Aceite recebido" subia
+     na frente de "Aceite". Quem escolhe já vem pronto marcado; o resto fica
+     onde sempre esteve, que é o que deixa achar sem ler. */
+  MODELOS_EMAIL.forEach(m=>{
+    const b=document.createElement("button");
+    b.className="chip"+(m.id===emailModeloId?" ativo":"");
+    b.textContent=m.rot;
+    b.onclick=()=>escolherModeloEmail(m.id);
+    chips.appendChild(b);
+  });
+  const m=MODELOS_EMAIL.find(x=>x.id===emailModeloId)||MODELOS_EMAIL[0];
+  if(reescrever){
+    document.getElementById("emailAssunto").value=m.assunto(ctx);
+    const ta=document.getElementById("emailCorpo");
+    ta.value=textoEmail(m,ctx);
+    ajustarAltura(ta);
+  }
+  const anx=document.getElementById("emailAnexos");
+  anx.textContent=ultimosGerados.length
+    ? "Anexos: "+ultimosGerados.map(a=>a.nome).join("  ·  ")
+    : "Nenhum arquivo gerado nesta sessão para anexar.";
+  const bt=document.getElementById("btnCompartilhar");
+  const podeAnexar=arquivosParaEnviar().length>0 && !!(navigator.canShare&&navigator.share);
+  bt.disabled=!podeAnexar;
+  bt.title=podeAnexar?"Abre a tela de compartilhamento do sistema com os arquivos"
+                     :"Este navegador não compartilha arquivos — use “Abrir no e-mail” e anexe da pasta";
+}
+function arquivosParaEnviar(){
+  return ultimosGerados.filter(a=>a.blob).map(a=>new File([a.blob],a.nome,
+    {type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}));
+}
+function copiarEmail(botao){
+  copiarTexto(document.getElementById("emailCorpo").value).then(ok=>{
+    const antes=botao.textContent;
+    botao.textContent=ok?"Copiado":"Não deu pra copiar";
+    setTimeout(()=>{botao.textContent=antes;},1800);
+  });
+}
+/* mailto não leva anexo — nunca levou. Abre o Outlook com tudo escrito e diz
+   onde estão os arquivos, que é o que dá pra fazer com honestidade. */
+function abrirNoCliente(){
+  const para=encodeURIComponent(document.getElementById("emailPara").value.trim());
+  const ass=encodeURIComponent(document.getElementById("emailAssunto").value);
+  const corpo=encodeURIComponent(document.getElementById("emailCorpo").value);
+  const st=document.getElementById("statusEmail");
+  const onde=ultimosGerados.length
+    ? (ultimosGerados[0].pasta?("na pasta "+ultimosGerados[0].pasta):"nos Downloads")
+    : "";
+  st.textContent="Abrindo o e-mail. Anexo o mailto não carrega — os arquivos estão "+
+    (onde||"onde você salvou")+", é só arrastar pra mensagem.";
+  window.location.href="mailto:"+para+"?subject="+ass+"&body="+corpo;
+}
+/* Compartilhar COM anexo: aqui o arquivo vai de verdade. Em compensação o
+   sistema não aceita destinatário nem assunto, então o texto vai pra área de
+   transferência antes — é colar e mandar. */
+async function compartilharEmail(botao){
+  const arquivos=arquivosParaEnviar();
+  const st=document.getElementById("statusEmail");
+  if(!arquivos.length){ st.textContent="Não há arquivo desta sessão para anexar."; return; }
+  if(!(navigator.canShare&&navigator.canShare({files:arquivos}))){
+    st.textContent="Este navegador não compartilha arquivos. Use “Abrir no e-mail” e anexe da pasta.";
+    return;
+  }
+  await copiarTexto(document.getElementById("emailCorpo").value);
+  try{
+    await navigator.share({files:arquivos,
+      title:document.getElementById("emailAssunto").value,
+      text:document.getElementById("emailCorpo").value});
+    st.textContent="Enviado pro app que você escolheu. O texto também está copiado, se precisar colar.";
+  }catch(e){
+    // Cancelar no menu do sistema cai aqui e não é erro
+    if(e&&e.name==="AbortError"){ st.textContent=""; return; }
+    st.textContent="Não deu pra compartilhar ("+(e&&e.message?e.message:e)+"). O texto ficou copiado.";
+  }
+}
+
 
 /* ============ APOIO AO CLIENTE (portal do IEMA / MTR) ============
    Metade do trabalho de um analista comercial de resíduos é ensinar o cliente a
@@ -6616,6 +6909,219 @@ async function renderArquivosApoio(){
     };
     el.appendChild(d);
   }
+}
+
+/* ============ ENVIO POR E-MAIL ============
+
+   O que o navegador deixa e o que não deixa, porque isso decide o desenho todo:
+
+   • `mailto:` NÃO carrega anexo. Não é limitação do app nem do navegador — o
+     esquema não tem campo pra isso, e nenhum truque contorna. Serve pra abrir o
+     Outlook já com destinatário, assunto e corpo escritos; os arquivos entram
+     arrastando da pasta.
+   • `navigator.share` COM arquivos carrega o anexo de verdade, e é o caminho
+     bom no celular. Em compensação não aceita destinatário nem assunto: quem
+     escolhe pra quem vai é a tela de compartilhamento do sistema.
+
+   Então o app oferece os dois e diz o que cada um faz, em vez de prometer um
+   botão mágico que manda tudo pronto. O texto está sempre a um toque da área de
+   transferência, que é o que resolve quando os dois caminhos falham. */
+function saudacaoAgora(d){
+  const h=(d||new Date()).getHours();
+  if(h<12) return "Bom dia";
+  if(h<18) return "Boa tarde";
+  return "Boa noite";
+}
+/* Só o primeiro nome. "Bom dia, Marcelo" é como se escreve; "Bom dia, Marcelo
+   Rodrigues da Silva Souza" é como não se escreve. Sem contato preenchido, cai
+   na razão social — melhor a empresa do que um "Bom dia, ." */
+function primeiroNome(txt){
+  const t=String(txt||"").trim();
+  if(!t) return "";
+  const p=t.split(/\s+/)[0];
+  // Nome todo em maiúsculas (veio da razão social) fica em Capitulado
+  return /^[A-ZÀ-Ý]+$/.test(p)?p.charAt(0)+p.slice(1).toLowerCase():p;
+}
+function nomeParaSaudacao(){
+  const c=(document.getElementById("solicitante")||{}).value||"";
+  if(c.trim()) return primeiroNome(c);
+  const rs=(document.getElementById("razaoSocial")||{}).value||"";
+  return rs.trim()?rs.trim():"";
+}
+/* Os textos. Os três primeiros são os que o Léo escreve hoje; os outros três
+   são as continuações da mesma conversa — cobrar retorno, reenviar depois de
+   ajustar valor, e agradecer quando o aceite volta assinado. Todos editáveis
+   antes de enviar: modelo é ponto de partida, não camisa de força. */
+const MODELOS_EMAIL=[
+  {id:"proposta", rot:"Proposta", quando:["proposta"],
+   assunto:a=>"Proposta Comercial "+a.numero+" — Corpus Saneamento e Obras",
+   corpo:()=>
+"Segue proposta comercial para avaliação, caso esteja de acordo, peço que nos sinalize para darmos andamento ao cadasto e no agendamento dos serviços.\n\n"+
+"Qualquer dúvida, estamos à disposição."},
+
+  {id:"aceite", rot:"Aceite", quando:["aceite"],
+   assunto:a=>"Aceite de Proposta "+a.numero+" — Corpus Saneamento e Obras",
+   corpo:()=>
+"Gentileza conferir as informações do arquivo “Aceite de Proposta” e devolvê-lo devidamente assinado, para darmos andamento ao cadastro e à execução do serviço.\n\n"+
+"Fico à disposição para quaisquer dúvidas."},
+
+  {id:"ambos", rot:"Proposta + Aceite", quando:["ambos"],
+   assunto:a=>"Proposta Comercial e Aceite "+a.numero+" — Corpus Saneamento e Obras",
+   corpo:()=>
+"Encaminho, em anexo, a proposta comercial juntamente com o termo de aceite para sua avaliação.\n\n"+
+"Caso esteja de acordo com os valores, gentileza conferir as informações do arquivo “Aceite de Proposta” e devolvê-lo devidamente assinado, para darmos andamento ao cadastro e à execução do serviço.\n\n"+
+"Fico à disposição para quaisquer dúvidas."},
+
+  {id:"retorno", rot:"Cobrar retorno", quando:["proposta","aceite","ambos"],
+   assunto:a=>"Retomando — Proposta Comercial "+a.numero+" — Corpus Saneamento e Obras",
+   corpo:()=>
+"Retomo o contato a respeito da proposta comercial encaminhada anteriormente.\n\n"+
+"Permanece válida nas mesmas condições. Havendo interesse, peço que nos sinalize para darmos andamento ao cadastro e ao agendamento dos serviços.\n\n"+
+"Caso precise de algum ajuste para viabilizar, é só me dizer."},
+
+  {id:"revisada", rot:"Proposta revisada", quando:["proposta","ambos"],
+   assunto:a=>"Proposta Comercial revisada "+a.numero+" — Corpus Saneamento e Obras",
+   corpo:()=>
+"Conforme conversamos, encaminho a proposta comercial revisada, já com os ajustes solicitados.\n\n"+
+"Peço que desconsidere a versão anterior. Estando de acordo, nos sinalize para darmos andamento ao cadastro e ao agendamento dos serviços.\n\n"+
+"Fico à disposição para quaisquer dúvidas."},
+
+  {id:"assinado", rot:"Aceite recebido", quando:["proposta","aceite","ambos"],
+   assunto:a=>"Aceite recebido — "+a.numero+" — Corpus Saneamento e Obras",
+   corpo:()=>
+"Confirmo o recebimento do aceite devidamente assinado. Muito obrigado pela confiança.\n\n"+
+"Seguimos com o cadastro e retorno em seguida com o agendamento dos serviços.\n\n"+
+"Fico à disposição para quaisquer dúvidas."}
+];
+function textoEmail(modelo,ctx){
+  const nome=ctx.nome?(", "+ctx.nome):"";
+  return saudacaoAgora()+nome+".\nEspero que se encontre bem.\n\n"+modelo.corpo(ctx);
+}
+
+/* ---- Fotos da atividade ----
+   O cliente manda foto do local pelo WhatsApp e ela se perde na conversa. Aqui
+   ela fica presa à proposta, e é assim que meses depois dá pra saber o que
+   estava sendo orçado.
+
+   Três decisões que valem explicação:
+
+   • Fica no IndexedDB deste aparelho, com a mesma loja dos arquivos de apoio.
+     Não vai pro .docx (o cliente não precisa receber de volta a foto que ele
+     mesmo mandou) e NÃO entra na sincronia: são megabytes por proposta, e o
+     canal de sincronia carrega texto cifrado de poucos KB.
+
+   • A imagem é reduzida antes de guardar. Foto de celular sai com 4000px e
+     4 MB; a 1600px em JPEG ela vira 200~400 KB e continua legível pra tudo que
+     essa foto serve. Trezentas propostas com quatro fotos cada é a diferença
+     entre 300 MB e 30 MB — e é o que decide se o navegador vai deixar guardar.
+
+   • A chave carrega o id da proposta, então apagar a proposta apaga as fotos
+     junto e nenhuma foto fica órfã ocupando espaço sem dono. */
+/* O id nasce aqui quando a primeira foto é anexada, e não só na hora de salvar:
+   a foto precisa de dono desde o momento em que entra. salvarPropostaAtual()
+   usa o mesmo id, então as duas coisas se encontram. */
+function idDaPropostaAtual(){
+  if(!propostaAtualId) propostaAtualId=String(Date.now());
+  return propostaAtualId;
+}
+function reduzirImagem(arquivo){
+  return new Promise((resolve)=>{
+    const url=URL.createObjectURL(arquivo);
+    const img=new Image();
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      const maior=Math.max(img.width,img.height);
+      const f=maior>FOTO_LADO_MAX?FOTO_LADO_MAX/maior:1;
+      const c=document.createElement("canvas");
+      c.width=Math.round(img.width*f); c.height=Math.round(img.height*f);
+      c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+      // Se a redução falhar por qualquer motivo, guarda o original: perder a
+      // foto pra economizar espaço seria o pior dos dois mundos.
+      c.toBlob(b=>resolve(b||arquivo),"image/jpeg",FOTO_QUALIDADE);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); resolve(arquivo); };
+    img.src=url;
+  });
+}
+async function idbListarPrefixo(prefixo){
+  const db=await idbAbrir();
+  return new Promise((resolve,reject)=>{
+    const r=db.transaction(IDB_LOJA,"readonly").objectStore(IDB_LOJA).getAllKeys();
+    r.onsuccess=()=>resolve((r.result||[]).filter(k=>String(k).startsWith(prefixo)).sort());
+    r.onerror=()=>reject(r.error);
+  });
+}
+function prefixoFotos(id){ return IDB_FOTO+id+":"; }
+async function guardarFotos(input){
+  const arqs=[...(input.files||[])].filter(a=>/^image\//.test(a.type));
+  input.value="";
+  if(!arqs.length) return;
+  const st=document.getElementById("statusFotos");
+  const id=idDaPropostaAtual();
+  st.textContent="Guardando "+arqs.length+" foto(s)...";
+  let n=0;
+  for(const a of arqs){
+    try{
+      const blob=await reduzirImagem(a);
+      await idbSet(prefixoFotos(id)+Date.now()+"-"+n+"-"+a.name,
+        {nome:a.name,tipo:blob.type||a.type,tam:blob.size,blob,em:Date.now()});
+      n++;
+    }catch(e){
+      st.textContent="Não deu pra guardar "+a.name+" — "+(e.message||e);
+      await renderFotos();
+      return;
+    }
+  }
+  st.textContent=n+" foto(s) anexadas a esta proposta.";
+  setTimeout(()=>{ if(st.textContent.includes("anexadas")) st.textContent=""; },4000);
+  await renderFotos();
+}
+async function renderFotos(){
+  const el=document.getElementById("gradeFotos");
+  if(!el) return;
+  // Cada render cria object URLs novas; soltar as antigas evita segurar o blob
+  // inteiro na memória a cada repintura da tela.
+  urlsFotos.forEach(u=>URL.revokeObjectURL(u)); urlsFotos=[];
+  el.innerHTML="";
+  const id=propostaAtualId;
+  let chaves=[];
+  if(id){ try{ chaves=await idbListarPrefixo(prefixoFotos(id)); }catch(e){ chaves=[]; } }
+  const badge=document.getElementById("contagemFotos");
+  if(badge) badge.textContent=chaves.length;
+  if(!chaves.length){
+    el.innerHTML='<span class="sub">Nenhuma foto anexada.</span>';
+    return;
+  }
+  for(const k of chaves){
+    const reg=await idbGet(k);
+    if(!reg||!reg.blob) continue;
+    const u=URL.createObjectURL(reg.blob); urlsFotos.push(u);
+    const d=document.createElement("div");
+    d.className="foto-item";
+    d.innerHTML='<img alt=""><button class="mat-tira" title="Remover foto">✕</button>'+
+                '<span class="foto-tam"></span>';
+    d.querySelector("img").src=u;
+    d.querySelector("img").alt=reg.nome||"foto da atividade";
+    d.querySelector(".foto-tam").textContent=tamanhoLegivel(reg.tam||0);
+    d.querySelector("img").onclick=()=>window.open(u,"_blank");
+    d.querySelector(".mat-tira").onclick=async()=>{
+      if(!await perguntar("Remover esta foto?","Ela sai desta proposta e não dá pra desfazer.",
+        {emoji:"🗑️",sim:"Remover",nao:"Cancelar",perigo:true})) return;
+      await idbApagar(k); await renderFotos();
+    };
+    el.appendChild(d);
+  }
+}
+async function apagarFotosDe(id){
+  if(!id) return;
+  try{
+    const chaves=await idbListarPrefixo(prefixoFotos(id));
+    for(const k of chaves) await idbApagar(k);
+  }catch(e){ console.warn("fotos: não deu pra apagar as de "+id,e); }
+}
+async function contarFotosDe(id){
+  if(!id) return 0;
+  try{ return (await idbListarPrefixo(prefixoFotos(id))).length; }catch(e){ return 0; }
 }
 
 /* ============ PASTA DE DESTINO (File System Access API — Chrome/Edge) ============ */
@@ -7723,7 +8229,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.27-3";
+const APP_VERSION="2026.08.27-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
