@@ -775,31 +775,37 @@
 
 <section class="aba-conteudo" id="aba-equipamentos" hidden>
   <div class="card">
-    <h2>Equipamentos para locação <span class="badge" id="badgeEquip">0</span></h2>
-    <div class="sub" style="margin-bottom:10px">
-      Valor de disponibilização e a ficha de cada equipamento. O preço preenchido
-      aqui aparece já no campo de valor quando você marcar o equipamento na
-      proposta, e continua editável.
+    <h2 class="clicavel" onclick="toggleCard('equip')">Equipamentos para locação
+      <span class="badge" id="badgeEquip">0</span><span class="seta" id="seta-equip">▾</span></h2>
+    <div id="corpo-equip">
+      <div class="sub" style="margin-bottom:10px">
+        Valor de disponibilização e a ficha de cada equipamento. O preço preenchido
+        aqui aparece já no campo de valor quando você marcar o equipamento na
+        proposta, e continua editável.
+      </div>
+      <input type="text" id="buscaEquip" placeholder="Buscar equipamento..." oninput="renderPrecosEquip()">
+      <div id="listaEquip" style="margin-top:8px"></div>
+      <div class="status" id="statusEquip"></div>
     </div>
-    <input type="text" id="buscaEquip" placeholder="Buscar equipamento..." oninput="renderPrecosEquip()">
-    <div id="listaEquip" style="margin-top:8px"></div>
-    <div class="status" id="statusEquip"></div>
   </div>
 
   <!-- Frota separada dos locáveis: a natureza do dado é outra (capacidade e
        diária por modelo x preço de locação e medida da peça), e misturar tudo
        numa lista só recriaria a poluição que tiramos da aba Destinadores. -->
   <div class="card">
-    <h2>Frota <span class="badge" id="badgeFrota">0</span></h2>
-    <div class="sub" style="margin-bottom:10px">
-      Ficha de cada veículo, pra consulta rápida na hora de dimensionar. O mesmo
-      veículo pode ter mais de uma capacidade, cada uma com sua diária.
-      <strong>Nada daqui entra na proposta sozinho</strong> — o valor por km ainda
-      é coeficiente médio, e virar cálculo automático antes do modelo de custo
-      fechar produziria número errado com cara de número certo.
+    <h2 class="clicavel" onclick="toggleCard('frota')">Frota
+      <span class="badge" id="badgeFrota">0</span><span class="seta" id="seta-frota">▾</span></h2>
+    <div id="corpo-frota">
+      <div class="sub" style="margin-bottom:10px">
+        Ficha de cada veículo, pra consulta rápida na hora de dimensionar. O mesmo
+        veículo pode ter mais de uma capacidade, cada uma com sua diária.
+        <strong>Nada daqui entra na proposta sozinho</strong> — o valor por km ainda
+        é coeficiente médio, e virar cálculo automático antes do modelo de custo
+        fechar produziria número errado com cara de número certo.
+      </div>
+      <input type="text" id="buscaFrota" placeholder="Buscar veículo..." oninput="renderFrota()">
+      <div id="listaFrota" style="margin-top:8px"></div>
     </div>
-    <input type="text" id="buscaFrota" placeholder="Buscar veículo..." oninput="renderFrota()">
-    <div id="listaFrota" style="margin-top:8px"></div>
   </div>
 </section>
 
@@ -2146,6 +2152,7 @@ let abaAtual="proposta";
    entrega duas telas empilhadas. */
 const LS_CARDS="corpus_cards_v1";
 const CARDS_PADRAO={dest:true, reci:false, salvas:true, clientes:false,
+  equip:true, frota:false,
   mtrCadastro:true, mtrModelo:false, mtrEmitir:false, mtrResiduos:false, mtrArquivos:false};
 let cardsAbertos={};
 function carregarCards(){
@@ -8482,7 +8489,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.27-5";
+const APP_VERSION="2026.08.28-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
