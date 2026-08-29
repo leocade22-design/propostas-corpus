@@ -1,7 +1,7 @@
 # A lista de clientes de verdade não entra no repositório.
 # Ela tem razão social, CNPJ, nome e telefone de contato de clientes reais —
-# num repositório público isso fica visível pra qualquer um. O app começa com o
-# cofre vazio e você traz a lista pelo botão "Importar lista".
+# num repositório público isso fica visível pra qualquer um. O app começa com a
+# carteira vazia e ela se enche sozinha a cada proposta gerada.
 clientes-corpus.json
 clientes*.json
 !dados/clientes-exemplo.json

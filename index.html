@@ -6929,11 +6929,13 @@ function qrComoPng(texto,ladoPx){
   return new Promise(resolve=>
     desenharQR(texto,ladoPx).toBlob(b=>resolve(b),"image/png"));
 }
-async function trocarQr(zip){
+async function trocarQr(zip,mapa){
   const nome="word/media/qrcode.png";
   if(!zip.files[nome]) return;   // modelo mudou e o slot não existe mais: não quebra, só não troca
   try{
-    const qr=await qrComoPng(linkDaCentral(),350);
+    // 420 px num slot de 2,5 cm dá mais de 400 dpi: sobra nitidez pro código
+    // continuar legível depois de impresso e fotografado de volta.
+    const qr=await qrComoPng(linkDaCentral(mapa),420);
     if(qr) zip.file(nome,qr);
   }catch(e){ console.warn("QR: não deu pra gerar, mantendo a imagem do modelo",e); }
 }
@@ -6941,12 +6943,31 @@ async function trocarQr(zip){
    documento, e é a página que se ajusta — assim um colega gera a proposta dele
    sem que ninguém precise publicar uma segunda central. Campo vazio não vai:
    a página tem os valores da Corpus como padrão. */
-function linkDaCentral(){
+function linkDaCentral(mapa){
   const p=new URLSearchParams();
   if(meusDados.nome)     p.set("nome",meusDados.nome);
+  if(meusDados.cargo)    p.set("cargo",meusDados.cargo);
   if(meusDados.telefone) p.set("tel",so(meusDados.telefone));
   if(meusDados.email)    p.set("email",meusDados.email);
   if(meusDados.recado)   p.set("msg",meusDados.recado);
+  /* O QR de cada proposta carrega a proposta.
+
+     O cliente lê o código com o documento na mão. Chegando no WhatsApp com a
+     tela em branco, ele tem que se apresentar e ir procurar o número do PO que
+     acabou de receber — atrito bobo justo no momento em que ele decidiu falar.
+     Com a razão social e o número no link, a central escreve a mensagem e o
+     comercial recebe já sabendo qual proposta abrir.
+
+     Cortado em 60 caracteres de propósito: razão social é longa, e cada
+     caractere aqui vira módulo no desenho do QR. Passar disso adensa o código
+     a ponto de câmera de celular ruim não pegar mais — e o nome inteiro não
+     vale perder a leitura. */
+  if(mapa){
+    const cli=String(mapa.razao_social||"").trim().slice(0,60);
+    const po=String(mapa.proposta_numero||"").trim().slice(0,30);
+    if(cli) p.set("cli",cli);
+    if(po)  p.set("po",po);
+  }
   const q=p.toString();
   return q?URL_CENTRAL+"?"+q:URL_CENTRAL;
 }
@@ -7016,7 +7037,7 @@ async function preencherDocx(tpl,mapa,loop,opts){
   // que quebra a leitura sem dar nenhum aviso. O QR precisa ser a última
   // palavra, não o que entra primeiro pra ser mexido de novo depois.
   await recomprimirImagensDoModelo(zip);
-  await trocarQr(zip);   // os dois documentos têm QR agora, não só o Aceite
+  await trocarQr(zip,mapa);   // os dois documentos têm QR agora, não só o Aceite
   /* compression: "DEFLATE" não estava aqui, e a falta dela custava caro sem
      aparecer em lugar nenhum: por padrão o JSZip GRAVA TUDO CRU. Cada
      documento saía com os 43 KB de document.xml, os 32 KB de styles.xml e o
@@ -9025,7 +9046,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.29-4";
+const APP_VERSION="2026.08.29-5";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
