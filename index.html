@@ -3903,7 +3903,7 @@ const LS_SYNC="corpus_sync_v1";
 // `base` guarda, por seção, qual versão do servidor este aparelho já viu — é
 // o que substituiu a comparação de relógios entre aparelhos.
 let sync={url:"",anon:"",salt:"",ligado:false,visto:0,base:{}}, syncChave=null,
-    syncTimer=null, syncOcupado=false, syncSujas={};
+    syncTimer=null, syncOcupado=false, syncSujas={}, syncErrosSenha=0;
 
 /* Marcas de exclusão ("lápides").
 
@@ -7988,13 +7988,57 @@ async function buscarRemoto(){
   if(!r.ok) throw await erroSync(r);
   return r.json();
 }
-async function subirSecao(id,dados,em){
-  const r=await fetch(urlSync("estado?on_conflict=id"),{
-    method:"POST",
-    headers:cabSync({Prefer:"resolution=merge-duplicates,return=minimal"}),
-    body:JSON.stringify([{id,dados,em}])
-  });
+async function buscarSecaoRemota(id){
+  const r=await fetch(urlSync("estado?select=id,dados,em&id=eq."+encodeURIComponent(id)),
+    {headers:cabSync()});
   if(!r.ok) throw await erroSync(r);
+  const linhas=await r.json();
+  return (Array.isArray(linhas)&&linhas[0])||null;
+}
+/* Escrita CONDICIONAL — e essa palavra é o conserto inteiro.
+
+   Antes daqui era um POST cego com merge-duplicates: gravava por cima do que
+   estivesse lá, sem olhar. Com dois aparelhos abertos ao mesmo tempo isso é
+   uma corrida perdida na largada:
+
+     celular lê versão 100 ─┐
+     PC lê versão 100 ──────┤ os dois concluem "só eu mexi"
+     celular grava 101      │ (nenhum vê o outro, ainda são 100 na leitura)
+     PC grava 102 ──────────┘ e apaga o 101 do celular, calado
+
+   Nada avisava, nem no aparelho que perdeu nem no que apagou. Agora a subida
+   só vale se o servidor ainda estiver na versão que este aparelho leu: um
+   UPDATE filtrado por `em=eq.<versão lida>`. Se ninguém mexeu, uma linha muda
+   e acabou. Se alguém escreveu no meio do caminho, o filtro não acha nada,
+   ZERO linhas mudam — e a função devolve false em vez de fingir que deu certo.
+   Quem chamou relê o que chegou e funde de verdade.
+
+   Quando a seção nunca existiu no servidor, o equivalente é um INSERT puro
+   (sem merge-duplicates): se outro aparelho criou a linha nesse intervalo, o
+   banco recusa por chave duplicada (409) e caímos no mesmo caminho de releitura.
+
+   Devolve: true = gravou / false = alguém chegou antes, refaça a fusão. */
+async function subirSecao(id,dados,em,esperado){
+  if(esperado===null||esperado===undefined){
+    const r=await fetch(urlSync("estado"),{
+      method:"POST",
+      headers:cabSync({Prefer:"return=minimal"}),
+      body:JSON.stringify([{id,dados,em}])
+    });
+    if(r.status===409) return false;      // outro aparelho criou a linha primeiro
+    if(!r.ok) throw await erroSync(r);
+    return true;
+  }
+  const r=await fetch(
+    urlSync("estado?id=eq."+encodeURIComponent(id)+"&em=eq."+encodeURIComponent(esperado)),{
+      method:"PATCH",
+      headers:cabSync({Prefer:"return=representation"}),
+      body:JSON.stringify({dados,em})
+    });
+  if(!r.ok) throw await erroSync(r);
+  let linhas=[];
+  try{ linhas=await r.json(); }catch(e){}
+  return Array.isArray(linhas)&&linhas.length>0;
 }
 
 /* ---- Fusão ----
@@ -8185,128 +8229,44 @@ async function rodarSync(motivo){
     const porId={}; linhas.forEach(l=>porId[l.id]=l);
     const agora=Date.now();
     for(const sec of secoesSync()){
-      const bruto=lerLocal(sec.ls);
-      const remoto=porId[sec.id];
-      let vindo=null;
-      if(remoto&&remoto.dados){
-        try{ vindo=await decifrarSync(remoto.dados); }
-        catch(e){ throw new Error("SENHA_DIFERENTE"); }
+      let remoto=porId[sec.id]||null;
+      let feito=false;
+      /* Até três voltas por seção. Cada "conflito" quer dizer que outro
+         aparelho gravou entre a nossa leitura e a nossa escrita: relê o que
+         ele deixou e funde de novo — na segunda volta a fusão já enxerga o
+         dado dele. Se três voltas não bastarem, a seção continua suja e vai
+         na próxima rodada. O que não acontece mais é gravar por cima às cegas. */
+      for(let t=0;t<3&&!feito;t++){
+        const r=await sincronizarSecao(sec,remoto,agora);
+        if(r==="conflito"){ remoto=await buscarSecaoRemota(sec.id); continue; }
+        feito=true;
       }
-      let final=bruto, precisaGravarLocal=false, precisaSubir=false;
-      if(vindo===null){
-        // Nunca subiu: manda o que temos, se temos algo
-        if(bruto) precisaSubir=true;
-      }else if(bruto===null){
-        final=vindo; precisaGravarLocal=true;
-      }else if(vindo===bruto){
-        // idênticos: nada a fazer
-      }else if(sec.fusao==="lista"||sec.fusao==="marcas"){
-        try{
-          const fundido=JSON.stringify(sec.fusao==="marcas"
-            ? fundirMarcas(JSON.parse(bruto),JSON.parse(vindo))
-            : fundirListas(JSON.parse(bruto),JSON.parse(vindo),sec.chave,sec.quando,sec.id));
-          final=fundido;
-          precisaGravarLocal=(fundido!==bruto);
-          precisaSubir=(fundido!==vindo);
-        }catch(e){ console.warn("sincronia: não deu pra fundir "+sec.id,e); }
-      }else{
-        /* Peça única. Comparar carimbo de hora ERA o critério e estava errado:
-           os carimbos vêm de três relógios diferentes. Um celular dez minutos
-           atrasado escrevia um "em" menor que o do PC, o app concluía que a
-           edição dele era velha e jogava fora — a alteração sumia sem aviso, e
-           o culpado era o relógio, não o dado.
-
-           Agora não se compara hora com hora, se compara VERSÃO. Cada aparelho
-           guarda qual versão do servidor ele já viu (sync.base). A partir daí a
-           pergunta é objetiva e não depende de relógio nenhum:
-
-             mexi aqui?  a versão de lá é outra?   →  o que fazer
-             não         sim                          desce a de lá
-             sim         não                          sobe a minha
-             sim         sim                          os dois mexeram: pergunta
-
-           O terceiro caso é raro (exige editar a MESMA tabela em dois
-           aparelhos entre duas sincronias) e é caro de errar, então é o único
-           que interrompe. Antes ele só era detectado na primeira sincronia do
-           aparelho; agora é detectado sempre. */
-        const mexiAqui=!!syncSujas[sec.id];
-        const laMudou=String(remoto.em||"")!==String((sync.base||{})[sec.id]||"");
-        if(mexiAqui&&!laMudou){
-          precisaSubir=true;
-        }else if(!mexiAqui&&laMudou){
-          final=vindo; precisaGravarLocal=true;
-        }else if(mexiAqui&&laMudou){
-          const nome=(sec.titulo||sec.id);
-          const ficaRemoto=await perguntar(
-            "Qual versão vale?",
-            nome.charAt(0).toUpperCase()+nome.slice(1)+
-            " foi alterada aqui e em outro aparelho desde a última sincronia.\n\n"+
-            "Não dá pra juntar as duas sem risco, então quem decide é você. "+
-            "A que sair perdendo fica guardada em Ajustes → Voltar uma versão.",
-            {emoji:"⚖️", sim:"A da nuvem", nao:"A deste aparelho"});
-          if(ficaRemoto){ final=vindo; precisaGravarLocal=true; }
-          else { precisaSubir=true; }
-        }else if(vindo!==bruto){
-          // Ninguém marcou nada e mesmo assim diferem: aconteceu antes deste
-          // aparelho passar a anotar versão. Vale a de lá, que é a compartilhada.
-          final=vindo; precisaGravarLocal=true;
-        }
+      if(!feito){
+        console.warn("sincronia: "+sec.id+" — outro aparelho gravando ao mesmo tempo");
+        pintarSync("erro","outro aparelho está gravando agora; tento de novo em instantes");
       }
-      if(precisaGravarLocal&&final!==null){
-        /* Rede de proteção antes de escrever por cima.
-
-           Peça única sempre guarda: ela é substituída inteira.
-
-           Lista deveria ser só união e por isso não guardava nada — foi
-           exatamente essa confiança que deixou uma perda de propostas passar
-           sem ponto de retorno. União com marca de exclusão PODE encolher, e
-           qualquer defeito na regra de fusão encolhe também. Então: se a lista
-           que vai ficar tem menos itens do que a que estava aqui, guarda antes.
-           Custa uma cópia; a alternativa custou propostas. */
-        let vaiEncolher=false;
-        if(sec.fusao==="lista"&&bruto){
-          try{
-            const a=JSON.parse(bruto), b=JSON.parse(final);
-            vaiEncolher=Array.isArray(a)&&Array.isArray(b)&&b.length<a.length;
-          }catch(e){ vaiEncolher=true; }
-        }
-        if(bruto&&bruto!==final&&(sec.fusao==="recente"||vaiEncolher))
-          guardarSnapshot(sec.id,sec.titulo,bruto);
-        /* Gravação que falha (armazenamento cheio) não pode passar batido: se
-           passasse, o app marcaria a versão de lá como "já tenho" e nunca mais
-           tentaria baixar de novo — ficaria dessincronizado achando que está em
-           dia. Falhou: a seção continua suja, a versão não avança e a tela diz. */
-        let gravou=true;
-        try{ localStorage.setItem(sec.ls,final); }
-        catch(e){
-          gravou=false;
-          console.error("sincronia: não deu pra gravar "+sec.id,e);
-          pintarSync("erro","armazenamento cheio ao receber "+(sec.titulo||sec.id));
-        }
-        if(!gravou) continue;   // sem gravar, não marca como recebida
-        try{ sec.aplicar(); }catch(e){ console.warn("sincronia: "+sec.id+" chegou mas a tela não recarregou",e); }
-      }
-      if(precisaSubir&&final){
-        /* A versão precisa SEMPRE crescer, mesmo se o relógio deste aparelho
-           estiver atrasado — senão o próximo a ler acha que a versão nova é
-           velha. Um a mais que a do servidor resolve sem depender de relógio. */
-        const versao=Math.max(agora,(remoto&&remoto.em||0)+1);
-        await subirSecao(sec.id,await cifrarSync(final),versao);
-        sync.base[sec.id]=versao;         // esta passa a ser a versão que eu conheço
-      }else if(remoto){
-        sync.base[sec.id]=remoto.em||0;   // aceitei a de lá: é ela que eu conheço
-      }
-      // A marca de sujo só sai quando a rodada da seção terminou de verdade —
-      // subirSecao lança em caso de erro e o loop nem chega aqui.
-      delete syncSujas[sec.id];
     }
     sync.visto=agora; gravarSujas(); gravarSync();
+    syncErrosSenha=0;
     pintarSync("ok");
   }catch(e){
     if(String(e.message)==="SENHA_DIFERENTE"){
-      pintarSync("senha");
-      // Apaga a guardada também: senão ela voltaria errada em toda abertura.
-      sync.ligado=false; syncChave=null; esquecerChaveSync(); gravarSync();
+      /* Não desliga no primeiro tropeço. Um pacote lido pela metade, uma
+         resposta truncada, uma linha gravada por outro aparelho no exato
+         instante da leitura — qualquer um desses estoura no decrypt igual a
+         senha errada, e desligar na hora obrigava a redigitar a senha por
+         causa de um soluço de rede. Agora a primeira falha só tenta de novo,
+         com dado fresco. Se a segunda também falhar, aí sim é senha mesmo. */
+      syncErrosSenha++;
+      if(syncErrosSenha<2){
+        pintarSync("erro","não consegui ler o que veio; tentando de novo");
+        clearTimeout(syncDebounce);
+        syncDebounce=setTimeout(()=>rodarSync("nova tentativa de leitura"),1500);
+      }else{
+        pintarSync("senha");
+        // Apaga a guardada também: senão ela voltaria errada em toda abertura.
+        sync.ligado=false; syncChave=null; esquecerChaveSync(); gravarSync();
+      }
     }else{
       console.warn("sincronia:",e);
       pintarSync("erro",e.message);
@@ -8314,6 +8274,128 @@ async function rodarSync(motivo){
   }finally{
     syncOcupado=false;
   }
+}
+/* Uma seção, uma volta. Devolve:
+     "ok"       — terminou (subiu, baixou ou não tinha nada a fazer)
+     "conflito" — outro aparelho gravou no meio; releia e chame de novo
+     "parou"    — não deu pra gravar aqui (armazenamento cheio), fica suja */
+async function sincronizarSecao(sec,remoto,agora){
+  const bruto=lerLocal(sec.ls);
+  let vindo=null;
+  if(remoto&&remoto.dados){
+    try{ vindo=await decifrarSync(remoto.dados); }
+    catch(e){ throw new Error("SENHA_DIFERENTE"); }
+  }
+  let final=bruto, precisaGravarLocal=false, precisaSubir=false;
+  if(vindo===null){
+    // Nunca subiu: manda o que temos, se temos algo
+    if(bruto) precisaSubir=true;
+  }else if(bruto===null){
+    final=vindo; precisaGravarLocal=true;
+  }else if(vindo===bruto){
+    // idênticos: nada a fazer
+  }else if(sec.fusao==="lista"||sec.fusao==="marcas"){
+    try{
+      const fundido=JSON.stringify(sec.fusao==="marcas"
+        ? fundirMarcas(JSON.parse(bruto),JSON.parse(vindo))
+        : fundirListas(JSON.parse(bruto),JSON.parse(vindo),sec.chave,sec.quando,sec.id));
+      final=fundido;
+      precisaGravarLocal=(fundido!==bruto);
+      precisaSubir=(fundido!==vindo);
+    }catch(e){ console.warn("sincronia: não deu pra fundir "+sec.id,e); }
+  }else{
+    /* Peça única. Comparar carimbo de hora ERA o critério e estava errado:
+       os carimbos vêm de três relógios diferentes. Um celular dez minutos
+       atrasado escrevia um "em" menor que o do PC, o app concluía que a
+       edição dele era velha e jogava fora — a alteração sumia sem aviso, e
+       o culpado era o relógio, não o dado.
+
+       Agora não se compara hora com hora, se compara VERSÃO. Cada aparelho
+       guarda qual versão do servidor ele já viu (sync.base). A partir daí a
+       pergunta é objetiva e não depende de relógio nenhum:
+
+         mexi aqui?  a versão de lá é outra?   →  o que fazer
+         não         sim                          desce a de lá
+         sim         não                          sobe a minha
+         sim         sim                          os dois mexeram: pergunta
+
+       O terceiro caso é raro (exige editar a MESMA tabela em dois
+       aparelhos entre duas sincronias) e é caro de errar, então é o único
+       que interrompe. Antes ele só era detectado na primeira sincronia do
+       aparelho; agora é detectado sempre. */
+    const mexiAqui=!!syncSujas[sec.id];
+    const laMudou=String(remoto.em||"")!==String((sync.base||{})[sec.id]||"");
+    if(mexiAqui&&!laMudou){
+      precisaSubir=true;
+    }else if(!mexiAqui&&laMudou){
+      final=vindo; precisaGravarLocal=true;
+    }else if(mexiAqui&&laMudou){
+      const nome=(sec.titulo||sec.id);
+      const ficaRemoto=await perguntar(
+        "Qual versão vale?",
+        nome.charAt(0).toUpperCase()+nome.slice(1)+
+        " foi alterada aqui e em outro aparelho desde a última sincronia.\n\n"+
+        "Não dá pra juntar as duas sem risco, então quem decide é você. "+
+        "A que sair perdendo fica guardada em Ajustes → Voltar uma versão.",
+        {emoji:"⚖️", sim:"A da nuvem", nao:"A deste aparelho"});
+      if(ficaRemoto){ final=vindo; precisaGravarLocal=true; }
+      else { precisaSubir=true; }
+    }else if(vindo!==bruto){
+      // Ninguém marcou nada e mesmo assim diferem: aconteceu antes deste
+      // aparelho passar a anotar versão. Vale a de lá, que é a compartilhada.
+      final=vindo; precisaGravarLocal=true;
+    }
+  }
+  if(precisaGravarLocal&&final!==null){
+    /* Rede de proteção antes de escrever por cima.
+
+       Peça única sempre guarda: ela é substituída inteira.
+
+       Lista deveria ser só união e por isso não guardava nada — foi
+       exatamente essa confiança que deixou uma perda de propostas passar
+       sem ponto de retorno. União com marca de exclusão PODE encolher, e
+       qualquer defeito na regra de fusão encolhe também. Então: se a lista
+       que vai ficar tem menos itens do que a que estava aqui, guarda antes.
+       Custa uma cópia; a alternativa custou propostas. */
+    let vaiEncolher=false;
+    if(sec.fusao==="lista"&&bruto){
+      try{
+        const a=JSON.parse(bruto), b=JSON.parse(final);
+        vaiEncolher=Array.isArray(a)&&Array.isArray(b)&&b.length<a.length;
+      }catch(e){ vaiEncolher=true; }
+    }
+    if(bruto&&bruto!==final&&(sec.fusao==="recente"||vaiEncolher))
+      guardarSnapshot(sec.id,sec.titulo,bruto);
+    /* Gravação que falha (armazenamento cheio) não pode passar batido: se
+       passasse, o app marcaria a versão de lá como "já tenho" e nunca mais
+       tentaria baixar de novo — ficaria dessincronizado achando que está em
+       dia. Falhou: a seção continua suja, a versão não avança e a tela diz. */
+    let gravou=true;
+    try{ localStorage.setItem(sec.ls,final); }
+    catch(e){
+      gravou=false;
+      console.error("sincronia: não deu pra gravar "+sec.id,e);
+      pintarSync("erro","armazenamento cheio ao receber "+(sec.titulo||sec.id));
+    }
+    if(!gravou) return "parou";   // sem gravar, não marca como recebida
+    try{ sec.aplicar(); }catch(e){ console.warn("sincronia: "+sec.id+" chegou mas a tela não recarregou",e); }
+  }
+  if(precisaSubir&&final){
+    /* A versão precisa SEMPRE crescer, mesmo se o relógio deste aparelho
+       estiver atrasado — senão o próximo a ler acha que a versão nova é
+       velha. Um a mais que a do servidor resolve sem depender de relógio. */
+    const versao=Math.max(agora,(remoto&&remoto.em||0)+1);
+    const subiu=await subirSecao(sec.id,await cifrarSync(final),versao,
+      remoto?remoto.em:null);
+    if(!subiu) return "conflito";    // alguém escreveu antes: refaz a fusão
+    sync.base[sec.id]=versao;        // esta passa a ser a versão que eu conheço
+  }else if(remoto){
+    sync.base[sec.id]=remoto.em||0;  // aceitei a de lá: é ela que eu conheço
+  }
+  // A marca de sujo só sai quando a rodada da seção terminou de verdade —
+  // subirSecao lança em caso de erro e a linha abaixo nem é alcançada.
+  delete syncSujas[sec.id];
+  return "ok";
 }
 /* Quando perguntar. Com a tela à frente, de tempos em tempos; ao voltar do
    segundo plano, na hora — que é o momento em que o Léo troca de aparelho.
@@ -8789,7 +8871,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.29-1";
+const APP_VERSION="2026.08.29-2";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
