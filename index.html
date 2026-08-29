@@ -14,8 +14,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Propostas CORPUS">
-<!-- Os dois vêm do próprio site: o app precisa gerar documento sem internet. -->
+<!-- Os três vêm do próprio site: o app precisa gerar documento sem internet.
+     qrcode-generator é puro JavaScript, sem dependência nem chamada de rede —
+     mesmo espírito do jszip: vendorizado, cacheado pelo service worker, nunca
+     buscado de fora. -->
 <script src="vendor/jszip.min.js"></script>
+<script src="vendor/qrcode-generator.js"></script>
 <script src="modelos.js"></script>
 <style>
   /* Claro por padrão. O escuro mantém o verde da Corpus como cor de marca, só
@@ -312,6 +316,15 @@
     border:none;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:.8rem;line-height:1;}
   .foto-item .foto-tam{display:block;font-size:.66rem;color:var(--suave);
     text-align:center;padding:3px 2px;}
+  .caixa-fotos{margin-top:8px;border:1.5px dashed transparent;border-radius:10px;
+    padding:2px;cursor:pointer;transition:border-color .12s,background-color .12s;}
+  .caixa-fotos:focus{outline:none;}
+  .caixa-fotos:focus-visible{border-color:var(--verde-borda);}
+  .caixa-fotos .caixa-fotos-dica{font-size:.72rem;color:var(--suave);
+    text-align:center;margin-top:5px;}
+  /* Feedback de que soltar ali funciona — sem isso ninguém sabe se o arquivo
+     vai ser aceito até tentar e ver o que acontece. */
+  .caixa-fotos.arrastando{border-color:var(--verde);background:var(--verde-claro);}
   .snap-linha{display:flex;align-items:center;justify-content:space-between;gap:10px;
     border:1px solid var(--card-borda);border-radius:10px;padding:9px 11px;margin-bottom:7px;}
   .snap-nome{font-weight:600;font-size:14px;}
@@ -325,6 +338,18 @@
   .mat-linha.tem-preco .mat-resumo{color:var(--verde);font-weight:600;}
   .mat-corpo{padding:4px 12px 12px;}
   .mat-preco{border-top:1px dashed var(--campo-borda);padding-top:9px;margin-top:6px;}
+  /* Central de valores: comparar quem paga mais pelo mesmo material, do jeito
+     que a matriz de Destinadores já compara quem cobra menos pelo mesmo
+     resíduo. Mesmo verbo visual (fundo e número em verde), lado espelhado —
+     lá "melhor" é o menor custo; aqui é o maior preço de venda. */
+  .mat-preco.melhor{background:var(--verde-claro);border-radius:8px;
+    margin-left:-8px;margin-right:-8px;padding-left:8px;padding-right:8px;}
+  .mat-preco.melhor .mat-cliente b{color:var(--verde);}
+  .mat-parceiro{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-top:6px;align-items:center;}
+  .mat-tel{display:flex;align-items:center;justify-content:center;width:36px;height:36px;
+    border-radius:50%;background:var(--verde-claro);color:var(--verde);font-size:1rem;
+    text-decoration:none;flex:0 0 auto;}
+  .mat-tel.oculto{visibility:hidden;}
   .mat-nums{display:grid;grid-template-columns:1.4fr .8fr .7fr;gap:6px;margin-top:6px;}
   .mat-linha input{padding:8px 10px;font-size:.86rem;}
   .mat-linha textarea{font-size:.78rem;min-height:0;padding:8px 10px;}
@@ -633,8 +658,8 @@
 <nav class="abas" id="barraAbas">
   <div class="abas-int">
     <button data-aba="proposta" onclick="mostrarAba('proposta')">Gerador PO e Aceite</button>
-    <button data-aba="destinacoes" onclick="mostrarAba('destinacoes')">Destinações</button>
-    <button data-aba="equipamentos" onclick="mostrarAba('equipamentos')">Equipamentos</button>
+    <button data-aba="destinacoes" onclick="mostrarAba('destinacoes')">Destinações e Recicláveis</button>
+    <button data-aba="equipamentos" onclick="mostrarAba('equipamentos')">Equipamentos e MDO</button>
     <button data-aba="carteira" onclick="mostrarAba('carteira')">Propostas e Clientes <span class="badge" id="badgeAbaSalvas">0</span></button>
     <button data-aba="apoio" onclick="mostrarAba('apoio')">Apoio ao Cliente</button>
     <button data-aba="ajustes" onclick="mostrarAba('ajustes')">Ajustes</button>
@@ -708,31 +733,6 @@
     <div class="status" id="statusReci"></div>
     </div>
   </div>
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleAjudaDest()">Importar / exportar planilha<span class="seta" id="setaAjudaDest">▾</span></h2>
-    <div id="ajudaDestCorpo" class="oculto">
-      <div class="sub" style="margin-bottom:10px">
-        Aqui fica o que cada parceiro <strong>cobra da Corpus</strong> pra destinar
-        cada resíduo. É custo: a proposta sai com o preço de venda, que é esse
-        valor mais o BDI. Tudo fica só neste aparelho.
-      </div>
-      <div class="row2">
-        <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
-        <button class="btn-sec" onclick="exportarDest()">Exportar</button>
-      </div>
-      <button class="btn-sec btn-full" style="margin-top:8px" onclick="baixarModeloPlanilha()">Baixar planilha modelo (em branco)</button>
-      <div class="sub">A planilha modelo já vem com os cabeçalhos que o app procura
-        e uma linha de exemplo. Preencher nela evita o erro mais comum da
-        importação: coluna com nome que o app não reconhece.</div>
-      <input type="file" id="arqDest" accept=".xlsx,.csv,.json" class="oculto" onchange="importarDest(this)">
-      <div class="sub">
-        Aceita a sua planilha em .xlsx ou .csv — colunas DESTINADOR, CLASSE, TIPO DE
-        RESÍDUO, VALOR UNIT. (R$) e UNID. As colunas são procuradas pelo título,
-        então a ordem delas não importa. Importar de novo substitui a tabela
-        inteira, mas as junções de resíduo que você fez continuam valendo.
-      </div>
-    </div>
-  </div>
 </section>
 
 <!-- Propostas salvas e Clientes na mesma aba: a lista de clientes é alimentada
@@ -749,11 +749,6 @@
       </div>
       <input type="text" id="buscaProposta" placeholder="Buscar por cliente ou número..." oninput="renderHistorico()">
       <div id="listaHistorico" style="margin-top:8px"></div>
-      <div class="row2" style="margin-top:8px">
-        <button class="btn-sec" onclick="document.getElementById('arqPropostas').click()">Importar</button>
-        <button class="btn-sec" onclick="exportarPropostas()">Exportar</button>
-      </div>
-      <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
       <div class="status" id="statusHistorico"></div>
     </div>
   </div>
@@ -805,6 +800,25 @@
       </div>
       <input type="text" id="buscaFrota" placeholder="Buscar veículo..." oninput="renderFrota()">
       <div id="listaFrota" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <!-- Mão de obra tinha preço em lugar nenhum: a função entrava na proposta com
+       o campo de valor sempre vazio. Dois valores por função — mensal e diária
+       convivem, não é um trocando o outro —, porque é assim que o Léo negocia.
+       Só a Diária alimenta a linha da proposta; o Mensal fica pra consulta. -->
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleCard('cargos')">Mão de obra
+      <span class="badge" id="badgeCargos">0</span><span class="seta" id="seta-cargos">▾</span></h2>
+    <div id="corpo-cargos">
+      <div class="sub" style="margin-bottom:10px">
+        Valor por diária e por mês de cada função. O da <strong>Diária</strong>
+        entra sozinho no campo de valor quando você marcar a função na proposta
+        — é a unidade que a Mão de Obra sempre usa lá. O <strong>Mensal</strong>
+        fica guardado só pra consulta.
+      </div>
+      <input type="text" id="buscaCargos" placeholder="Buscar função..." oninput="renderPrecosCargos()">
+      <div id="listaCargos" style="margin-top:8px"></div>
     </div>
   </div>
 </section>
@@ -936,8 +950,14 @@
       documento do cliente nem para a sincronia.</div>
     <div class="fotos-grade" id="gradeFotos"></div>
     <input type="file" id="arqFotos" accept="image/*" multiple class="oculto" onchange="guardarFotos(this)">
-    <button class="btn-sec btn-full" style="margin-top:8px"
-            onclick="document.getElementById('arqFotos').click()">📷 Anexar fotos</button>
+    <!-- tabindex: sem foco não existe evento de colar. Clicar continua abrindo
+         o seletor de arquivo; arrastar e colar são portas extras pro mesmo
+         guardarFotos(), que já sabe reduzir e gravar — nada muda lá dentro. -->
+    <div class="caixa-fotos" id="caixaFotos" tabindex="0"
+         onclick="document.getElementById('arqFotos').click()">
+      <button class="btn-sec btn-full" type="button" tabindex="-1">📷 Anexar fotos</button>
+      <div class="caixa-fotos-dica">ou arraste aqui, ou cole com Ctrl+V</div>
+    </div>
     <div class="status" id="statusFotos"></div>
   </div>
 </section>
@@ -1089,6 +1109,45 @@
         as <strong>fotos da atividade</strong> e os arquivos da aba Apoio — esses
         vivem só no aparelho. O cofre vai junto, mas continua cifrado com a senha dele.</div>
       <div class="status" id="statusBackup"></div>
+
+      <!-- Estes dois controles moraram nas abas Destinações e Propostas e
+           Clientes. Vieram pra cá porque são backup — só que de um formato
+           diferente do resto: a planilha do parceiro é .xlsx, o Backup
+           completo é um JSON próprio. Juntar os dois debaixo do mesmo rótulo
+           fingiria que são a mesma coisa; separados aqui dentro, cada um
+           continua sendo o que é, e o Léo só olha num lugar quando pensa
+           "backup". -->
+      <div class="titulo-secao"><span>Planilha de destinadores</span></div>
+      <div class="sub" style="margin-bottom:10px">
+        O que cada parceiro <strong>cobra da Corpus</strong> pra destinar cada
+        resíduo. É custo: a proposta sai com o preço de venda, que é esse valor
+        mais o BDI. Tudo fica só neste aparelho.
+      </div>
+      <div class="row2">
+        <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
+        <button class="btn-sec" onclick="exportarDest()">Exportar</button>
+      </div>
+      <button class="btn-sec btn-full" style="margin-top:8px" onclick="baixarModeloPlanilha()">Baixar planilha modelo (em branco)</button>
+      <div class="sub">A planilha modelo já vem com os cabeçalhos que o app procura
+        e uma linha de exemplo. Preencher nela evita o erro mais comum da
+        importação: coluna com nome que o app não reconhece.</div>
+      <input type="file" id="arqDest" accept=".xlsx,.csv,.json" class="oculto" onchange="importarDest(this)">
+      <div class="sub">
+        Aceita a sua planilha em .xlsx ou .csv — colunas DESTINADOR, CLASSE, TIPO DE
+        RESÍDUO, VALOR UNIT. (R$) e UNID. As colunas são procuradas pelo título,
+        então a ordem delas não importa. Importar de novo substitui a tabela
+        inteira, mas as junções de resíduo que você fez continuam valendo.
+      </div>
+
+      <div class="titulo-secao"><span>Propostas salvas</span></div>
+      <div class="sub" style="margin-bottom:10px">Um arquivo só com as propostas
+        — mais estreito que o Backup completo, útil pra levar só o histórico
+        pra outro aparelho sem mexer no resto.</div>
+      <div class="row2">
+        <button class="btn-sec" onclick="document.getElementById('arqPropostas').click()">Importar</button>
+        <button class="btn-sec" onclick="exportarPropostas()">Exportar</button>
+      </div>
+      <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
     </div>
   </div>
   <!-- Um lugar só pras observações que saem na proposta. Elas nascem espalhadas
@@ -1365,7 +1424,12 @@
     <label>Assunto</label>
     <input type="text" id="emailAssunto">
     <label>Mensagem</label>
-    <textarea id="emailCorpo" rows="11" oninput="ajustarAltura(this)"></textarea>
+    <!-- Estilo cosmético: mailto: é texto puro, sem formatação embutida — quem
+         decide a fonte de verdade é o próprio Outlook (Aptos 11 é o padrão de
+         fábrica desde 2023). Mostrar aqui a cara que o texto vai ter lá é só
+         pra conferir antes de mandar; não muda uma letra do que chega. -->
+    <textarea id="emailCorpo" rows="11" oninput="ajustarAltura(this)"
+              style="font-family:Aptos,Calibri,sans-serif;font-size:11px;line-height:1.4"></textarea>
     <div class="sub" id="emailAnexos"></div>
     <div class="row2" style="margin-top:10px">
       <button class="btn-sec" onclick="copiarEmail(this)">Copiar texto</button>
@@ -2136,7 +2200,7 @@ function renderResumoEndereco(sufixo){
 const ABAS={
   proposta:null,
   destinacoes:()=>{renderDest();renderPrecosReci();},
-  equipamentos:()=>{renderPrecosEquip();renderFrota();},
+  equipamentos:()=>{renderPrecosEquip();renderFrota();renderPrecosCargos();},
   carteira:()=>{renderHistorico();listarClientes();},
   apoio:()=>{carregarApoio();pintarInstrutivos();renderResiduosMTR();renderArquivosApoio();},
   ajustes:null
@@ -2152,7 +2216,7 @@ let abaAtual="proposta";
    entrega duas telas empilhadas. */
 const LS_CARDS="corpus_cards_v1";
 const CARDS_PADRAO={dest:true, reci:false, salvas:true, clientes:false,
-  equip:true, frota:false,
+  equip:true, frota:false, cargos:false,
   mtrCadastro:true, mtrModelo:false, mtrEmitir:false, mtrResiduos:false, mtrArquivos:false};
 let cardsAbertos={};
 function carregarCards(){
@@ -4154,6 +4218,7 @@ function iniciarApp(){
   iniciarSync();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderFotos();
+  iniciarCaixaFotos();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
   medirAlturaVisivel();
@@ -4240,12 +4305,6 @@ function toggleExibicaoDest(){
   exibDestAberta=!exibDestAberta;
   document.getElementById("exibicaoDest").classList.toggle("oculto",!exibDestAberta);
   document.getElementById("setaExibDest").classList.toggle("aberta",exibDestAberta);
-}
-let ajudaDestAberta=false;
-function toggleAjudaDest(){
-  ajudaDestAberta=!ajudaDestAberta;
-  document.getElementById("ajudaDestCorpo").classList.toggle("oculto",!ajudaDestAberta);
-  document.getElementById("setaAjudaDest").classList.toggle("aberta",ajudaDestAberta);
 }
 /* Densidade da tabela. Compacto por padrão: com 41 resíduos e 6 parceiros, o
    que importa é ver muitas linhas de uma vez pra comparar. Guardado porque é
@@ -5329,9 +5388,16 @@ function precosReci(nome){
   const p=(precos.reci||{})[nome];
   if(!p||!Array.isArray(p.itens)) return [];
   return p.itens.filter(x=>x&&x.v).map(x=>({
-    rotulo:x.r||"", unidade:x.u||"", venda:numeroBR(x.v), repasse:x.rep,
+    rotulo:x.r||"", parceiro:x.parceiro||"", contato:x.contato||"",
+    unidade:x.u||"", venda:numeroBR(x.v), repasse:x.rep,
     cliente:precoAoCliente(x.v,x.rep)
   }));
+}
+// O de maior venda entre os parceiros de um material — "melhor" aqui é o
+// oposto do BDI: a Corpus vende, então quanto mais alto, melhor pra ela.
+function melhorPrecoReci(lista){
+  if(!lista.length) return null;
+  return lista.reduce((a,b)=>b.venda>a.venda?b:a);
 }
 function guardarPreco(tipo,nome,dados){
   precos[tipo]=precos[tipo]||{};
@@ -5339,7 +5405,7 @@ function guardarPreco(tipo,nome,dados){
   // med e oi são ficha interna do equipamento (medidas e anotação de operação).
   // Ficam guardados aqui junto do preço porque é a mesma peça, mas NUNCA são
   // lidos por montarLinhas() — só `o` alimenta a observação que vai pro cliente.
-  const limpo_campos=["v","u","o","med","oi"];
+  const limpo_campos=["v","u","o","med","oi","mensal"];
   limpo_campos.forEach(k=>{ if(dados[k]&&String(dados[k]).trim()) limpo[k]=String(dados[k]).trim(); });
   if(Object.keys(limpo).length) precos[tipo][nome]=limpo;
   else delete precos[tipo][nome];   // esvaziou tudo: volta a ser item sem preço
@@ -5355,6 +5421,10 @@ function atualizarBadgesPrecos(){
   const e=document.getElementById("badgeEquip");
   if(e) e.textContent=listaLocacoes().filter(x=>{
     const p=precoSalvo("loc:"+x.n); return p&&p.v;
+  }).length;
+  const c=document.getElementById("badgeCargos");
+  if(c) c.textContent=listaCargos().filter(n=>{
+    const p=precoSalvo("cargo:"+n); return p&&(p.v||p.mensal);
   }).length;
 }
 /* Uma linha editável por item do catálogo. Os dois catálogos usam o mesmo
@@ -5607,7 +5677,8 @@ function renderPrecosReci(){
     div.querySelector(".mat-resumo").textContent=
       !lista.length ? "sem preço"
       : lista.length===1 ? "R$ "+fmtDinheiro(lista[0].cliente)+(lista[0].unidade?"/"+lista[0].unidade:"")
-      : lista.length+" preços";
+      : (m=>"melhor R$ "+fmtDinheiro(m.cliente)+(m.unidade?"/"+m.unidade:"")+
+             (m.parceiro?" · "+m.parceiro:"")+"  ("+lista.length+")")(melhorPrecoReci(lista));
     div.querySelector(".mat-cab").onclick=()=>abrirMaterialReci(x.n);
     if(!aberto) return;
 
@@ -5616,11 +5687,27 @@ function renderPrecosReci(){
     const linhas=reciLinhas;
     const salvar=()=>guardarReci(x.n,{itens:linhas,o:corpo.querySelector('[data-c="o"]').value});
 
+    // Destaque do "melhor" entre as linhas abertas: mesma regra da matriz de
+    // Destinadores (só marca havendo 2+ com valor, e marca TODOS os empatados
+    // no extremo — aqui o extremo é o maior, não o menor).
+    const pintarMelhor=()=>{
+      const comValor=linhas.filter(l=>l.v&&numeroBR(l.v)>0);
+      const maior=comValor.length>1?Math.max(...comValor.map(l=>numeroBR(l.v))):null;
+      [...corpo.querySelectorAll(".mat-preco")].forEach((el,k)=>{
+        const l=linhas[k];
+        el.classList.toggle("melhor", maior!==null&&l&&l.v&&numeroBR(l.v)===maior);
+      });
+    };
     linhas.forEach((it,i)=>{
       const p=document.createElement("div");
       p.className="mat-preco";
       p.innerHTML=
         `<input type="text" placeholder="variação (ex.: branco)" data-c="r">
+         <div class="mat-parceiro">
+           <input type="text" placeholder="parceiro (quem compra)" data-c="parceiro">
+           <input type="text" inputmode="tel" placeholder="contato" data-c="contato">
+           <a class="mat-tel oculto" title="Ligar">📞</a>
+         </div>
          <div class="mat-nums">
            <div class="campo-calc">
              <input type="text" inputmode="numeric" placeholder="venda 0,00" data-c="v">
@@ -5632,8 +5719,17 @@ function renderPrecosReci(){
          <div class="mat-cliente"></div>
          <button class="mat-tira" title="Remover este preço">remover</button>`;
       corpo.appendChild(p);
-      const [ir,iv,iu,irep]=["r","v","u","rep"].map(k=>p.querySelector(`[data-c="${k}"]`));
-      ir.value=it.r||""; iv.value=it.v||""; iu.value=it.u||""; irep.value=it.rep||"";
+      const [ir,ipar,icon,iv,iu,irep]=["r","parceiro","contato","v","u","rep"]
+        .map(k=>p.querySelector(`[data-c="${k}"]`));
+      ir.value=it.r||""; ipar.value=it.parceiro||""; icon.value=it.contato||"";
+      iv.value=it.v||""; iu.value=it.u||""; irep.value=it.rep||"";
+      const tel=p.querySelector(".mat-tel");
+      const pintarTel=()=>{
+        const digitos=icon.value.replace(/\D/g,"");
+        tel.classList.toggle("oculto",!digitos);
+        tel.href=digitos?"tel:"+digitos:"";
+      };
+      pintarTel();
       const mostrar=()=>{
         const c=precoAoCliente(iv.value,irep.value);
         const caixa=p.querySelector(".mat-cliente");
@@ -5647,12 +5743,14 @@ function renderPrecosReci(){
           : '<span class="mat-conta">preencha a venda pra ver o preço ao cliente</span>';
       };
       const guardaCampo=()=>{
-        it.r=ir.value; it.v=iv.value; it.u=iu.value; it.rep=irep.value;
-        mostrar(); salvar();
+        it.r=ir.value; it.parceiro=ipar.value; it.contato=icon.value; it.v=iv.value; it.u=iu.value; it.rep=irep.value;
+        mostrar(); pintarMelhor(); salvar();
       };
       iv.oninput=()=>{mascaraValor(iv);guardaCampo();};
       irep.oninput=()=>{irep.value=irep.value.replace(/[^\d,.]/g,"");guardaCampo();};
       ir.oninput=guardaCampo;
+      ipar.oninput=guardaCampo;
+      icon.oninput=()=>{pintarTel();guardaCampo();};
       // Unidade: popup com a lista do material (editável) e conversão KG↔TON
       const converterReci=ligarConversaoMassa(iv,iu.value,()=>guardaCampo());
       const trocouUnid=u=>{converterReci(u);guardaCampo();};
@@ -5668,6 +5766,7 @@ function renderPrecosReci(){
       };
       mostrar();
     });
+    pintarMelhor();
 
     const mais=document.createElement("button");
     mais.className="btn-sec btn-mini"; mais.style.width="100%";
@@ -5694,6 +5793,77 @@ function renderPrecosEquip(){
     unidades:UNIDADES_POR_TIPO.loc,
     ficha:true,
     obsPadrao:()=>OBS_LOC
+  });
+}
+
+/* ---- Mão de obra: dois valores, não um trocando de unidade ----
+   Diferente de Equipamentos/Recicláveis, aqui não existe "escolher a unidade":
+   Diária e Mensal são dois números que convivem sempre, e é por isso que este
+   card tem desenho próprio em vez de reaproveitar montarCatalogoPrecos() — o
+   motor de lá guarda um valor só, com um chip pra trocar de KG pra Tonelada.
+   Forçar dois campos naquele molde exigiria fingir que "Mensal" é uma unidade,
+   o que não é.
+
+   Guardado em precos.cargo (o mesmo `tipoLinha` que "cargo:Nome" produz), nos
+   campos genéricos `v`/`mensal` — `v` é o valor que qualquer linha de preço já
+   usa pra alimentar a proposta, então o pré-preenchimento em renderLinhasValores()
+   funciona sem precisar de um caso especial pra Mão de Obra. */
+function renderPrecosCargos(){
+  const el=document.getElementById("listaCargos");
+  if(!el) return;
+  const itens=listaCargos();
+  atualizarBadgesPrecos();
+  const busca=semAc(document.getElementById("buscaCargos").value.trim());
+  const vis=itens.filter(n=>!busca||semAc(n).includes(busca));
+  el.innerHTML="";
+  if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  vis.forEach(nome=>{
+    const p=precoSalvo("cargo:"+nome)||{};
+    const aberto=precoAberto.cargo===nome;
+    const temPreco=!!(p.v||p.mensal);
+    const div=document.createElement("div");
+    div.className="mat-linha"+(aberto?" aberto":"")+(temPreco?" tem-preco":"");
+    div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
+                  (aberto?'<div class="mat-corpo"></div>':'');
+    el.appendChild(div);
+    div.querySelector(".mat-nome").textContent=nome;
+    const pintarResumo=()=>{
+      const g=precoSalvo("cargo:"+nome)||{};
+      const partes=[];
+      if(g.v) partes.push("R$ "+g.v+"/diária");
+      if(g.mensal) partes.push("R$ "+g.mensal+"/mês");
+      div.querySelector(".mat-resumo").textContent=partes.length?partes.join(" · "):"sem preço";
+      div.classList.toggle("tem-preco",!!partes.length);
+    };
+    pintarResumo();
+    div.querySelector(".mat-cab").onclick=()=>abrirItemPreco("cargo",nome,renderPrecosCargos);
+    if(!aberto) return;
+
+    const corpo=div.querySelector(".mat-corpo");
+    corpo.innerHTML=
+      `<div class="row2">
+         <div><label>Diária</label>
+           <div class="campo-calc">
+             <input type="text" inputmode="numeric" placeholder="0,00" data-c="v">
+             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
+           </div></div>
+         <div><label>Mensal</label>
+           <div class="campo-calc">
+             <input type="text" inputmode="numeric" placeholder="0,00" data-c="mensal">
+             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
+           </div></div>
+       </div>
+       <div class="sub">A Diária é o que entra sozinho no campo de valor quando você
+         marca a função na proposta. O Mensal fica só pra consulta — nenhum lugar do
+         app soma ou usa esse número por enquanto.</div>`;
+    const iv=corpo.querySelector('[data-c="v"]'), im=corpo.querySelector('[data-c="mensal"]');
+    iv.value=p.v||""; im.value=p.mensal||"";
+    const salvar=()=>{ guardarPreco("cargo",nome,{v:iv.value,mensal:im.value}); pintarResumo(); };
+    iv.oninput=()=>{mascaraValor(iv);salvar();};
+    im.oninput=()=>{mascaraValor(im);salvar();};
+    const calcs=corpo.querySelectorAll(".abre-calc");
+    calcs[0].onclick=()=>abrirCalc(iv);
+    calcs[1].onclick=()=>abrirCalc(im);
   });
 }
 
@@ -6377,7 +6547,7 @@ const COLUNAS_TABELA=[
   {cab:"Descrição",            campo:"descricao",   teto:2480, folga:1, pisoMin:2100},
   {cab:"Resíduo",              campo:"residuo",     teto:1290, folga:0, pisoMin:1290},
   {cab:"Unidade",              campo:"unidade",     teto:900,  folga:0, pisoMin:868},
-  {cab:"Valor\nUnitário (R$)", campo:"valor",       teto:1400, folga:0, pisoMin:1400, prioCorte:1},
+  {cab:"Valor\nUnitário (R$)", campo:"valor",       teto:1450, folga:0, pisoMin:1450, prioCorte:1, fonteCorpo:"11pt Arial"},
   {cab:"Observações",          campo:"observacoes", teto:5400, folga:2, prosa:true, pisoMin:3500, prioCorte:2}
 ];
 let ctxMedida=null;
@@ -6402,12 +6572,17 @@ function larguraColunas(itens){
   // Sem fator de compensação: Arial mede igual em qualquer navegador, porque
   // resolve pra Liberation Sans, que é metricamente compatível.
   const CORPO="10pt Arial", CABECALHO="bold 11pt Arial";
+  // Só a coluna de Valor sai em Arial 11 no corpo (pedido explícito) — as
+  // demais continuam em 10. medidasTexto() precisa medir na fonte que o Word
+  // vai usar de verdade, senão a coluna nasce estreita demais pro próprio
+  // conteúdo — foi assim que "Unitário (R$)" quebrou em 3 linhas antes.
+  const fonteDe=c=>c.fonteCorpo||CORPO;
   const dados=COLUNAS_TABELA.map(c=>{
     const mc=medidasTexto(c.cab,CABECALHO);
     let linha=mc.linha, palavra=mc.palavra;
     (itens||[]).forEach(it=>{
       const texto=(c.campo==="observacoes")?quebrarFrases(it[c.campo]):it[c.campo];
-      const m=medidasTexto(texto,CORPO);
+      const m=medidasTexto(texto,fonteDe(c));
       linha=Math.max(linha,m.linha); palavra=Math.max(palavra,m.palavra);
     });
     return {linha,palavra};
@@ -6513,7 +6688,58 @@ function aplicarLarguras(xml,larg){
   tabela=tabela.replace(/<w:tcW w:w="\d+" w:type="dxa"\/>/g,()=>`<w:tcW w:w="${larg[n++%larg.length]}" w:type="dxa"/>`);
   return xml.slice(0,ini)+tabela+xml.slice(fim);
 }
-async function preencherDocx(tpl,mapa,loop){
+/* ---- QR do Aceite: da imagem estática pro link de verdade ----
+   O Aceite já trazia um QR no rodapé, colado no Word, sempre apontando pro
+   mesmo lugar (o site da Corpus) — uma imagem, sem lógica nenhuma atrás. Vira
+   um QR de verdade aqui: desenhado na hora, sempre pra central de contatos
+   (WhatsApp, site, catálogo), sem precisar reabrir o Word pra trocar link.
+
+   A técnica é a mesma da Tarefa 8 (recompressão): substitui só os BYTES do
+   arquivo que já existe dentro do zip — word/media/image2.jpeg, o mesmo slot
+   onde o QR antigo morava —, sem tocar em document.xml nem nos .rels. O
+   documento nem sabe que a imagem mudou de conteúdo. */
+const URL_CENTRAL="https://leocade22-design.github.io/propostas-corpus/central.html";
+// Desenha o próprio QR num canvas, módulo a módulo — sem canvas não dá pra
+// gerar bytes de imagem, e desenhar à mão garante bordas nítidas (sem
+// anti-serrilhado borrando os quadrados, que é o que faria o leitor de QR
+// de celular ter mais dificuldade pra focar).
+// 4 módulos de margem em cada lado é a "zona quieta" mínima do padrão QR. Sem
+// ela o desenho fica tecnicamente correto e mesmo assim ilegível pra muitos
+// leitores — inclusive o que usei pra testar isto: sem margem, o QR gerado
+// aqui simplesmente não decodificava de volta, mesmo com as bordas nítidas.
+const QR_MARGEM_MODULOS=4;
+function desenharQR(texto,ladoPx){
+  const q=qrcode(0,"M");           // tipo automático; correção de erro média
+  q.addData(texto);
+  q.make();
+  const n=q.getModuleCount();
+  const nComMargem=n+QR_MARGEM_MODULOS*2;
+  const escala=Math.max(1,Math.floor(ladoPx/nComMargem));
+  const tam=escala*nComMargem;
+  const c=document.createElement("canvas");
+  c.width=tam; c.height=tam;
+  const ctx=c.getContext("2d");
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,tam,tam);
+  ctx.fillStyle="#000";
+  for(let r=0;r<n;r++) for(let col=0;col<n;col++)
+    if(q.isDark(r,col))
+      ctx.fillRect((col+QR_MARGEM_MODULOS)*escala,(r+QR_MARGEM_MODULOS)*escala,escala,escala);
+  return c;
+}
+function qrComoJpeg(texto,ladoPx){
+  return new Promise(resolve=>
+    desenharQR(texto,ladoPx).toBlob(b=>resolve(b),"image/jpeg",0.92));
+}
+async function trocarQrDoAceite(zip){
+  const nome="word/media/image2.jpeg";
+  if(!zip.files[nome]) return;   // modelo mudou e o slot não existe mais: não quebra, só não troca
+  try{
+    const qr=await qrComoJpeg(URL_CENTRAL,350);
+    if(qr) zip.file(nome,qr);
+  }catch(e){ console.warn("QR do Aceite: não deu pra gerar, mantendo a imagem do modelo",e); }
+}
+async function preencherDocx(tpl,mapa,loop,opts){
+  opts=opts||{};
   const zip=await JSZip.loadAsync(b64Bytes(tpl));
   let xml=await zip.file("word/document.xml").async("string");
   for(const[k,v]of Object.entries(mapa)) xml=xml.split("{"+k+"}").join(escXml(v));
@@ -6537,8 +6763,38 @@ async function preencherDocx(tpl,mapa,loop){
     }
   }
   zip.file("word/document.xml",xml);
+  // Recomprime primeiro, troca o QR depois: a recompressão genérica rodaria
+  // por cima do QR recém-desenhado com uma qualidade mais baixa (0.75 contra
+  // os 0.92 que ele precisa pra continuar legível) — uma segunda passada de
+  // JPEG em cima de um desenho de módulos pretos e brancos é o tipo de coisa
+  // que quebra a leitura sem dar nenhum aviso. O QR precisa ser a última
+  // palavra, não o que entra primeiro pra ser mexido de novo depois.
+  await recomprimirImagensDoModelo(zip);
+  if(opts.qrAceite) await trocarQrDoAceite(zip);
   return await zip.generateAsync({type:"blob",
     mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+/* As imagens do timbrado (cabeçalho, rodapé) chegam do arquivo Word em
+   resolução de tela cheia — sete vezes mais pesadas do que precisam ser pra
+   aparecer do tamanho de um cabeçalho no papel. Mesmo motor que já reduz as
+   fotos da atividade (reduzirImagem), com um alvo menor: aqui não precisa da
+   nitidez de uma foto em tela cheia, só de não sair borrado impresso pequeno.
+
+   Só troca se REALMENTE ficou menor — puxar o zip inteiro pra recomprimir uma
+   imagem que já estava otimizada e trocá-la por uma maior seria o oposto do
+   que essa tarefa existe pra fazer. */
+async function recomprimirImagensDoModelo(zip){
+  const nomes=Object.keys(zip.files).filter(n=>/^word\/media\/.*\.(jpe?g|png)$/i.test(n));
+  for(const nome of nomes){
+    try{
+      const original=await zip.file(nome).async("blob");
+      const formato=/\.png$/i.test(nome)?"image/png":"image/jpeg";
+      const menor=await reduzirImagem(original,{ladoMax:900,qualidade:0.75,formato});
+      if(menor&&menor.size<original.size) zip.file(nome,menor);
+    }catch(e){
+      console.warn("recompressão de imagem falhou em "+nome+" — mantendo a original",e);
+    }
+  }
 }
 // tipo: "proposta" ou "aceite" — cada um tem a própria pasta de destino
 async function baixar(blob,nome,tipo){
@@ -7153,20 +7409,39 @@ function idDaPropostaAtual(){
   if(!propostaAtualId) propostaAtualId=String(Date.now());
   return propostaAtualId;
 }
-function reduzirImagem(arquivo){
+/* `opts` é o que a Tarefa 8 (recompressão do timbrado dentro do .docx) precisa
+   e as fotos da atividade não usam — sem passar nada o comportamento é
+   idêntico a antes: ladoMax/qualidade padrão, sempre JPEG.
+
+   `opts.formato` NUNCA pode divergir da extensão do arquivo dentro do zip.
+   Cheguei a tentar decidir PNG-ou-JPEG olhando se a imagem usa transparência
+   de verdade — e criei um bug pior que o que resolvia: um PNG sem alfa virava
+   bytes de JPEG guardados num arquivo chamado "imageN.png". O Word não lê o
+   conteúdo pelos bytes, lê pela extensão que o [Content_Types].xml declara —
+   então a imagem simplesmente parava de aparecer. Formato segue o nome do
+   arquivo, sempre; é o que garante que o Word ainda reconhece o resultado. */
+function reduzirImagem(arquivo,opts){
+  opts=opts||{};
+  const ladoMax=opts.ladoMax||FOTO_LADO_MAX;
+  const qualidade=opts.qualidade||FOTO_QUALIDADE;
+  const formato=opts.formato||"image/jpeg";
   return new Promise((resolve)=>{
     const url=URL.createObjectURL(arquivo);
     const img=new Image();
     img.onload=()=>{
       URL.revokeObjectURL(url);
       const maior=Math.max(img.width,img.height);
-      const f=maior>FOTO_LADO_MAX?FOTO_LADO_MAX/maior:1;
+      const f=maior>ladoMax?ladoMax/maior:1;
       const c=document.createElement("canvas");
-      c.width=Math.round(img.width*f); c.height=Math.round(img.height*f);
+      c.width=Math.max(1,Math.round(img.width*f)); c.height=Math.max(1,Math.round(img.height*f));
+      // Canvas com alfa por padrão: um PNG com transparência sai de dentro do
+      // mesmo jeito que entrou, sem precisar checar nada.
       c.getContext("2d").drawImage(img,0,0,c.width,c.height);
       // Se a redução falhar por qualquer motivo, guarda o original: perder a
-      // foto pra economizar espaço seria o pior dos dois mundos.
-      c.toBlob(b=>resolve(b||arquivo),"image/jpeg",FOTO_QUALIDADE);
+      // foto (ou a imagem do timbrado) pra economizar espaço seria o pior dos
+      // dois mundos.
+      if(formato==="image/png") c.toBlob(b=>resolve(b||arquivo),"image/png");
+      else c.toBlob(b=>resolve(b||arquivo),"image/jpeg",qualidade);
     };
     img.onerror=()=>{ URL.revokeObjectURL(url); resolve(arquivo); };
     img.src=url;
@@ -7204,6 +7479,31 @@ async function guardarFotos(input){
   st.textContent=n+" foto(s) anexadas a esta proposta.";
   setTimeout(()=>{ if(st.textContent.includes("anexadas")) st.textContent=""; },4000);
   await renderFotos();
+}
+/* Três portas pro mesmo lugar. Clicar já existia (abre o seletor do sistema);
+   arrastar e colar convergem no mesmo guardarFotos(), que já reduz e grava —
+   nada muda lá dentro, só nasce mais um jeito de chegar até ele. Um objeto
+   {files:[...]} no lugar do <input> de verdade é o bastante: guardarFotos só
+   lê `.files` e escreve em `.value`, e um objeto solto aceita as duas coisas
+   sem reclamar. */
+function iniciarCaixaFotos(){
+  const caixa=document.getElementById("caixaFotos");
+  if(!caixa) return;
+  caixa.ondragover=e=>{ e.preventDefault(); caixa.classList.add("arrastando"); };
+  caixa.ondragleave=()=>caixa.classList.remove("arrastando");
+  caixa.ondrop=e=>{
+    e.preventDefault();
+    caixa.classList.remove("arrastando");
+    if(e.dataTransfer.files.length) guardarFotos({files:e.dataTransfer.files,value:""});
+  };
+  // Precisa de foco pra receber "paste" — por isso o tabindex no HTML. Um
+  // toque na caixa (que também abre o seletor) já deixa ela em condição de
+  // receber Ctrl+V logo em seguida, sem passo extra.
+  caixa.onpaste=e=>{
+    const arquivos=[...(e.clipboardData?e.clipboardData.items:[])]
+      .filter(i=>/^image\//.test(i.type)).map(i=>i.getAsFile()).filter(Boolean);
+    if(arquivos.length){ e.preventDefault(); guardarFotos({files:arquivos,value:""}); }
+  };
 }
 async function renderFotos(){
   const el=document.getElementById("gradeFotos");
@@ -7483,7 +7783,7 @@ async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textConten
     mostrarPronto([{blob:b,nome:n,pasta}]);
   }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
 async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
-  try{const b=await preencherDocx(TPL_A,mapaAceite(c.mapa),null);
+  try{const b=await preencherDocx(TPL_A,mapaAceite(c.mapa),null,{qrAceite:true});
     const n=`Aceite de Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
     const pasta=await baixar(b,n,"aceite");
     salvarPropostaAtual();c.st.textContent="";
@@ -7491,7 +7791,7 @@ async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent
   }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
 async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),
-            ba=await preencherDocx(TPL_A,mapaAceite(c.mapa),null);
+            ba=await preencherDocx(TPL_A,mapaAceite(c.mapa),null,{qrAceite:true});
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
     const nomeP=`${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
     // Cada um vai pra sua pasta
@@ -8489,7 +8789,7 @@ function exportarClientes(){
 }
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.28-1";
+const APP_VERSION="2026.08.29-1";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");

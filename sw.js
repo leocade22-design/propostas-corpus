@@ -1,7 +1,7 @@
 // IMPORTANTE: ao publicar uma versão nova, mude VERSAO aqui e a constante
 // APP_VERSION no index.html (as duas juntas). É a mudança neste arquivo que faz o
 // navegador perceber que existe versão nova e reinstalar o service worker.
-const VERSAO = '2026.08.28-1';
+const VERSAO = '2026.08.29-1';
 const CACHE_NAME = 'propostas-corpus-' + VERSAO;
 
 const ARQUIVOS_PARA_CACHE = [
@@ -10,6 +10,7 @@ const ARQUIVOS_PARA_CACHE = [
   './manifest.json',
   './modelos.js',
   './vendor/jszip.min.js',
+  './vendor/qrcode-generator.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-512-maskable.png'
