@@ -253,7 +253,7 @@
   .passo-card .abrir.mais{display:inline-flex;align-items:center;justify-content:center;
     width:23px;height:23px;border-radius:50%;background:var(--verde);color:var(--branco);
     font-size:1.02rem;line-height:1;font-weight:700;}
-  /* Cliente da base rápida: tracejado pra diferenciar de quem está no cofre */
+  /* Cliente da base rápida: tracejado pra diferenciar do chip de catálogo */
   .chip-rapido{border-style:dashed;}
   .dest-barra{display:flex;justify-content:space-between;align-items:center;gap:8px;
     flex-wrap:wrap;margin-bottom:6px;}
@@ -491,9 +491,16 @@
   .dest-sug .linkado{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
   .dest-sug .linkado .solta{background:none;border:none;color:var(--alerta);
     font-size:.7rem;font-family:inherit;padding:0;}
-  .btn-linkar{background:none;border:1px dashed var(--campo-borda);border-radius:9px;
-    color:var(--verde);font-size:.72rem;font-weight:600;font-family:inherit;
-    padding:6px 10px;margin-top:6px;width:100%;}
+  /* A entrada do link era um botão tracejado verde ocupando a largura toda —
+     chamava mais atenção que o próprio campo de preço ao lado, e ainda assim
+     não parecia parte do app: nenhum outro lugar tem esse desenho. Agora é uma
+     linha no mesmo padrão do resto (.passo-card, .mat-linha): fundo de campo,
+     borda fina, texto normal à esquerda e a ação em verde à direita. */
+  .linha-acao{display:flex;align-items:center;gap:10px;width:100%;cursor:pointer;
+    background:var(--campo);border:1px solid var(--card-borda);border-radius:10px;
+    padding:9px 12px;margin-top:6px;font-family:inherit;text-align:left;color:inherit;}
+  .linha-acao .rot{font-size:.78rem;flex:1;line-height:1.25;}
+  .linha-acao .abrir{font-size:.74rem;color:var(--verde);font-weight:600;flex:0 0 auto;}
   /* Apoio ao cliente: instrutivos, tabela de resíduos e arquivos locais */
   .link-portal{display:inline-block;margin:8px 0;font-size:.8rem;font-weight:600;
     color:var(--verde);text-decoration:none;background:var(--verde-claro);
@@ -744,7 +751,7 @@
     <div id="corpo-salvas">
       <div class="sub" id="avisoHistorico" style="margin-bottom:8px">
         Toda proposta é guardada sozinha quando você gera os arquivos. Abra pra editar
-        e gerar de novo. Fica só neste aparelho — e, diferente do cofre de clientes,
+        e gerar de novo. Fica só neste aparelho — e, diferente dos clientes,
         <strong>sem senha</strong>: quem abrir o app vê a lista.
       </div>
       <input type="text" id="buscaProposta" placeholder="Buscar por cliente ou número..." oninput="renderHistorico()">
@@ -756,10 +763,9 @@
     <h2 class="clicavel" onclick="toggleCard('clientes')">Meus clientes
       <span class="badge" id="badgeClientes">–</span><span class="seta" id="seta-clientes">▾</span></h2>
     <div id="corpo-clientes">
-      <!-- Só a base rápida, alimentada pelas propostas geradas. O cofre com
-           senha mudou pra Ajustes: são coisas diferentes, e misturar as duas
-           numa lista só obrigava a explicar o cadeado toda vez. A lista mostra
-           apenas a razão social — o resto abre no toque. -->
+      <!-- A carteira de clientes, alimentada por toda proposta gerada e
+           sincronizada entre os aparelhos. A lista mostra apenas a razão
+           social — o resto abre no toque. -->
       <input type="text" id="buscaCliente" placeholder="Buscar cliente..." oninput="listarClientes()">
       <div id="listaClientes" style="margin-top:8px"></div>
       <button class="btn-sec btn-mini" style="width:100%;margin-top:8px" onclick="incluirClienteRapido()">+ incluir cliente</button>
@@ -1041,6 +1047,32 @@
 </section>
 
 <section class="aba-conteudo" id="aba-ajustes" hidden>
+  <!-- Primeiro card da aba de propósito: é o que alguém preenche no primeiro
+       dia. Sem isto a proposta sai sem assinatura no rodapé. -->
+  <div class="card">
+    <h2 class="clicavel" onclick="toggleMeus()">Meus dados
+      <span class="badge" id="badgeMeus">—</span><span class="seta" id="setaMeus">▾</span></h2>
+    <div id="meusCorpo" class="oculto">
+      <div class="sub" style="margin-bottom:10px">
+        É com isto que a <strong>Proposta e o Aceite são assinados</strong>, no
+        rodapé de todas as páginas, e é para cá que o QR code dos dois
+        documentos leva o cliente. Antes o nome estava escrito dentro do
+        arquivo Word; agora é seu.
+      </div>
+      <label>Nome</label>
+      <input type="text" id="meuNome" placeholder="como deve sair assinado" autocomplete="off" oninput="guardarMeuDado('nome',this.value)">
+      <label>Cargo</label>
+      <input type="text" id="meuCargo" placeholder="Analista Comercial" autocomplete="off" oninput="guardarMeuDado('cargo',this.value)">
+      <label>WhatsApp</label>
+      <input type="tel" id="meuTelefone" placeholder="(27) 99999-9999" autocomplete="off" oninput="guardarMeuDado('telefone',this.value)">
+      <label>E-mail</label>
+      <input type="email" id="meuEmail" placeholder="nome@corpus.com.br" autocomplete="off" oninput="guardarMeuDado('email',this.value)">
+      <label>Recado que o cliente já encontra escrito no WhatsApp</label>
+      <input type="text" id="meuRecado" placeholder="Olá! Vim pelo QR code da proposta." autocomplete="off" oninput="guardarMeuDado('recado',this.value)">
+      <div class="sub aviso-sigilo" id="avisoMeus"></div>
+      <div class="status" id="statusMeus"></div>
+    </div>
+  </div>
   <!-- Sincronia: o mesmo cadastro no PC do trabalho e nos dois celulares, sem
        que o conteúdo saia legível do aparelho. -->
   <div class="card">
@@ -1067,7 +1099,7 @@
       <button class="btn-sec btn-full" style="margin-top:8px" id="btnSyncDesligar" onclick="desligarSync()">Desligar neste aparelho</button>
       <div class="sub estado-sync" id="estadoSync"></div>
       <div class="sub aviso-sigilo">Fica de fora: o rascunho em andamento, o tema,
-        o tamanho da tabela e o cofre com senha — esse já tem a criptografia dele.</div>
+        o tamanho da tabela.</div>
       <div class="sub" id="syncAjuda" style="margin-top:10px"></div>
     </div>
   </div>
@@ -1088,7 +1120,7 @@
     </div>
   </div>
   <!-- Backup de tudo num arquivo só. Existia exportação de três coisas em três
-       lugares diferentes (custos, propostas, cofre) e nenhuma levava catálogos,
+       lugares diferentes (custos, propostas, clientes) e nenhuma levava catálogos,
        frota, preços, vínculos nem a base rápida de clientes. -->
   <div class="card">
     <h2 class="clicavel" onclick="toggleBackup()">Backup completo
@@ -1107,7 +1139,7 @@
       <input type="file" id="arqTudo" accept="application/json" class="oculto" onchange="importarTudo(this)">
       <div class="sub aviso-sigilo">Fora do arquivo, porque não cabem em JSON:
         as <strong>fotos da atividade</strong> e os arquivos da aba Apoio — esses
-        vivem só no aparelho. O cofre vai junto, mas continua cifrado com a senha dele.</div>
+        vivem só no aparelho.</div>
       <div class="status" id="statusBackup"></div>
 
       <!-- Estes dois controles moraram nas abas Destinações e Propostas e
@@ -1169,28 +1201,6 @@
     </div>
   </div>
   <div class="card">
-    <h2 class="clicavel" onclick="toggleCofre()">Cofre com senha<span class="seta" id="setaCofre">▾</span></h2>
-    <div id="cofreCorpo" class="oculto">
-      <div id="cofreBloqueado">
-        <label>Senha do cofre</label>
-        <div class="row2">
-          <input type="password" id="senhaCofre" inputmode="text" placeholder="sua senha">
-          <button class="btn-sec" onclick="abrirCofre()">Abrir</button>
-        </div>
-        <div class="sub" id="avisoCofre">Primeira vez? Digite uma senha nova e toque em Abrir para criar o cofre.</div>
-      </div>
-      <div id="cofreAberto" class="oculto">
-        <button class="btn-sec btn-full" onclick="salvarClienteAtual()">Salvar o cliente do formulário no cofre</button>
-        <div class="row2" style="margin-top:8px">
-          <button class="btn-sec" onclick="document.getElementById('arqClientes').click()">Importar lista</button>
-          <button class="btn-sec" onclick="exportarClientes()">Exportar lista</button>
-        </div>
-        <input type="file" id="arqClientes" accept="application/json" class="oculto" onchange="importarClientes(this)">
-        <div class="sub">Guardado só neste aparelho, criptografado com sua senha. O cofre nasce vazio — traga sua lista pelo botão Importar.</div>
-      </div>
-    </div>
-  </div>
-  <div class="card">
     <h2 class="clicavel" onclick="toggleDownloads()">Downloads <span class="badge" id="badgePasta">padrão</span><span class="seta" id="setaDownloads">▾</span></h2>
     <div id="downloadsCorpo" class="oculto">
       <!-- Duas pastas: Proposta e Aceite têm destinos próprios, e "gerar os dois"
@@ -1224,7 +1234,7 @@
             proposta fica guardada pra você reabrir e editar depois.</li>
       </ol>
       <div class="sub">Também tem catálogo editável de veículos, resíduos, funções e
-        equipamentos, cofre de clientes com senha e modo escuro. Funciona sem internet,
+        equipamentos, carteira de clientes e modo escuro. Funciona sem internet,
         e nada do que você digita sai deste aparelho.</div>
       <div class="sobre-atualizar">
         <button class="link-acao" onclick="buscarAtualizacao()">buscar atualização</button>
@@ -1308,7 +1318,6 @@
     </div>
     <div class="ficha-cli" id="cliCorpo"></div>
     <button class="btn-principal btn-full" style="margin-top:12px" id="cliUsar">Usar nesta proposta</button>
-    <button class="btn-sec btn-full" style="margin-top:8px" id="cliCofre">Guardar no cofre com senha</button>
   </div>
 </div>
 
@@ -1322,6 +1331,7 @@
       <button class="modal-fechar" onclick="fecharLink()">✕</button>
     </div>
     <div class="sub" id="linkAlvoNome"></div>
+    <div class="sub aviso-sigilo oculto" id="linkIntencao"></div>
     <label>Nome que sai na proposta</label>
     <input type="text" id="linkRotulo">
     <div class="sub">Deixe vazio pra manter o nome do catálogo. O nome da tabela
@@ -1900,7 +1910,7 @@ function alternar(lista,valor){
 /* ============ MÁSCARAS ============ */
 function so(v){return v.replace(/\D/g,"");}
 /* Depois de preencher um campo por código (colar, buscar na Receita, carregar
-   do cofre), o navegador deixa o conteúdo rolado no fim. Num campo curto isso
+   de senha), o navegador deixa o conteúdo rolado no fim. Num campo curto isso
    esconde o COMEÇO do valor — e um CNPJ sem o primeiro dígito parece dado
    perdido, não texto rolado. Enquanto o campo está sob o dedo/cursor não se
    mexe: ali o fim é justamente onde a pessoa está escrevendo. */
@@ -2471,12 +2481,6 @@ document.addEventListener("touchcancel",soltarSwipe,{passive:true});
 function toggleClientes(){
   irParaCard("carteira","clientes");
 }
-let cofreCardAberto=false;
-function toggleCofre(){
-  cofreCardAberto=!cofreCardAberto;
-  document.getElementById("cofreCorpo").classList.toggle("oculto",!cofreCardAberto);
-  document.getElementById("setaCofre").classList.toggle("aberta",cofreCardAberto);
-}
 function montarChipsColeta(){
   chips("chipsColeta",["Mesmo endereço do cliente","Endereço diferente"],
     mesmoEnd?"Mesmo endereço do cliente":"Endereço diferente",op=>{
@@ -3003,10 +3007,50 @@ function montarOpcoesReci(alvo,linha,campoValor,campoUnidade){
   alvo.appendChild(box);
   return true;
 }
+/* Mesmo gesto dos recicláveis, aplicado à mão de obra: com uma variação só o
+   app preenche sozinho; com duas ou mais, preencher seria chutar qual — então
+   ele mostra as duas e quem escolhe é quem está montando a proposta. */
+function montarOpcoesCargo(alvo,linha,campoValor){
+  const lista=precosCargo(linha.nome);
+  if(lista.length<2) return false;
+  alvo.innerHTML="";
+  const t=document.createElement("div");
+  t.className="titulo";
+  t.textContent="Esta função tem mais de um valor — escolha o desta proposta:";
+  alvo.appendChild(t);
+  const box=document.createElement("div");
+  box.className="opcoes";
+  lista.forEach(x=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.innerHTML='<b></b><span class="c"></span>';
+    b.querySelector("b").textContent=(x.rotulo||"Padrão")+
+      (x.diaria?" — R$ "+x.diaria+"/diária":" — sem diária");
+    b.querySelector(".c").textContent=x.mensal?"mensal R$ "+x.mensal+" (só consulta)":"sem valor mensal";
+    b.onclick=()=>{
+      if(!x.diaria) return;
+      campoValor.value=x.diaria;
+      campoValor.dispatchEvent(new Event("input"));
+    };
+    box.appendChild(b);
+  });
+  alvo.appendChild(box);
+  return true;
+}
 /* ---- Popup de link manual ---- */
 let linkEditando=null;
-function abrirLink(chave,nomeLinha){
+const INTENCAO_LINK={
+  incluir:"Toque num destinador da lista pra somá-lo a esta linha. Os que já estão linkados continuam onde estão.",
+  trocar:"Toque no novo pra linkar e no atual pra desmarcar.",
+  remover:"Toque num destinador marcado pra tirá-lo desta linha."
+};
+function abrirLink(chave,nomeLinha,intencao){
   linkEditando={chave, nome:nomeLinha};
+  const dica=document.getElementById("linkIntencao");
+  if(dica){
+    dica.textContent=INTENCAO_LINK[intencao]||"";
+    dica.classList.toggle("oculto",!INTENCAO_LINK[intencao]);
+  }
   const v=vincCustomDe(chave);
   document.getElementById("linkAlvoNome").textContent="Linha da proposta: "+nomeLinha;
   document.getElementById("linkRotulo").value=(v&&v.rot)||"";
@@ -3102,15 +3146,22 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
       });
       alvo.appendChild(box);
     }
-    const gerir=document.createElement("button");
-    gerir.type="button"; gerir.className="btn-linkar";
-    gerir.textContent=vincs.length===1?"🔗 trocar ou incluir outro destinador"
-                                      :"🔗 incluir ou remover destinadores";
-    gerir.onclick=()=>abrirLink(linha.chave,linha.nome);
-    alvo.appendChild(gerir);
+    /* Eram os dois verbos num botão só ("trocar ou incluir outro destinador"),
+       e o resultado foi previsível: quem lia entendia "dá pra trocar" e parava
+       aí — incluir um segundo parceiro parecia não existir, embora sempre
+       tenha existido. Duas linhas, dois verbos, cada uma dizendo uma coisa.
+       As duas abrem a mesma tela, que é onde as duas coisas acontecem. */
+    linhaAcao(alvo,"🔗 Incluir outro destinador nesta linha","incluir",
+      ()=>abrirLink(linha.chave,linha.nome,"incluir"),
+      "Um mesmo resíduo pode ter vários parceiros; a escolha de qual usar é feita em cada proposta");
+    linhaAcao(alvo,vincs.length===1?"Trocar por outro destinador":"Remover destinadores desta linha",
+      vincs.length===1?"trocar":"remover",
+      ()=>abrirLink(linha.chave,linha.nome,vincs.length===1?"trocar":"remover"));
     return;
   }
   if(montarOpcoesReci(alvo,linha,campoValor,campoUnidade)){ oferecerLink(alvo,linha); return; }
+  // Mão de obra não tem linha de custo de parceiro pra linkar: o valor é da casa.
+  if(montarOpcoesCargo(alvo,linha,campoValor)) return;
   alvo.innerHTML="";
   /* Aqui ficava o casamento automático: o app comparava o nome do resíduo com o
      da planilha do parceiro, pontuava a semelhança e oferecia até seis
@@ -3128,18 +3179,28 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
 /* O convite pro link manual. Só onde faz sentido — resíduo e reciclável são os
    dois que têm linha de custo do outro lado. Veículo, cargo e locação têm preço
    próprio no catálogo deles, não uma tabela de parceiro pra apontar. */
+/* Uma linha de ação, no desenho do resto do app: rótulo à esquerda, verbo à
+   direita. Devolve o elemento pra quem chamou pendurar onde quiser. */
+function linhaAcao(alvo,texto,verbo,acao,dica){
+  const b=document.createElement("button");
+  b.type="button"; b.className="linha-acao";
+  b.innerHTML='<span class="rot"></span><span class="abrir"></span>';
+  b.querySelector(".rot").textContent=texto;
+  b.querySelector(".abrir").textContent=verbo;
+  if(dica) b.title=dica;
+  b.onclick=acao;
+  alvo.appendChild(b);
+  return b;
+}
 function oferecerLink(alvo,linha){
   const t=tipoLinha(linha.chave);
   if(t!=="res"&&t!=="reci") return;
   if(!linhasDeCusto().length) return;
-  const b=document.createElement("button");
-  b.type="button"; b.className="btn-linkar";
   // Era "não achou? linke..." quando havia sugestão automática pra não achar.
   // Agora é o caminho e não a saída de emergência, e o texto tem que dizer isso.
-  b.textContent="🔗 escolher a linha de custo";
-  b.title="Aponte à mão qual linha de Destinadores ou Recicláveis alimenta esta linha da proposta";
-  b.onclick=()=>abrirLink(linha.chave,linha.nome);
-  alvo.appendChild(b);
+  linhaAcao(alvo,"🔗 De onde vem o preço desta linha?","escolher",
+    ()=>abrirLink(linha.chave,linha.nome),
+    "Aponte à mão qual linha de Destinadores ou Recicláveis alimenta esta linha da proposta");
 }
 
 function renderLinhasValores(){
@@ -3192,6 +3253,14 @@ function renderLinhasValores(){
       salvo=(lista.length===1)
         ? {v:fmtDinheiro(lista[0].cliente), u:lista[0].unidade||""}
         : {};
+    }
+    /* Função com uma variação só continua preenchendo sozinha, exatamente como
+       antes de existirem variações. Com duas, o campo fica vazio de propósito:
+       o preço de insalubridade entrando calado numa proposta que não é de
+       insalubridade é o tipo de erro que só aparece depois de enviada. */
+    if(tipoLinha(l.chave)==="cargo"){
+      const lista=precosCargo(l.nome);
+      salvo=(lista.length===1&&lista[0].diaria)?{v:lista[0].diaria,u:salvo.u||""}:{};
     }
     // Link manual por último: é escolha explícita e vence qualquer sugestão.
     const lkPreco=custoVinculado(l.chave);
@@ -3899,6 +3968,20 @@ let obsPadraoCustom={};
 const LS_APOIO="corpus_apoio_v1";
 let meusDadosApoio={nome:"",cpf:"",cargo:"",email:""};
 
+/* Quem assina o que sai daqui.
+
+   O nome e o cargo estavam escritos dentro do arquivo Word — o modelo assinava
+   "LEONARDO CADE / Analista Comercial" e pronto. Enquanto o app tem um usuário
+   só isso funciona; no dia em que um colega usar, ou o cargo mudar, seria
+   preciso um modelo por pessoa. Agora o rodapé tem {assinaturaNome} e
+   {assinaturaCargo}, e o que preenche esses campos mora aqui.
+
+   Isto SINCRONIZA, ao contrário dos dados de apoio ali em cima: aqui não tem
+   CPF nem documento, e cada pessoa usa a própria conta de sincronia — então o
+   que viaja entre os aparelhos é sempre o dado de quem já é dono deles. */
+const LS_MEUS="corpus_meus_dados_v1";
+let meusDados={nome:"",cargo:"",telefone:"",email:"",recado:""}, meusAberto=false;
+
 const LS_SYNC="corpus_sync_v1";
 // `base` guarda, por seção, qual versão do servidor este aparelho já viu — é
 // o que substituiu a comparação de relógios entre aparelhos.
@@ -4113,6 +4196,11 @@ function soltarArrastoCat(){
 function fecharCatalogo(){
   document.getElementById("modalCatalogo").classList.add("oculto");
   fluxo();
+  /* O editor de catálogo só era alcançado de dentro do assistente, então
+     redesenhar o assistente bastava. Agora ele também abre a partir dos cards
+     de preço — e quem acabou de cadastrar um cargo ali precisa vê-lo aparecer
+     na lista atrás, não depois de trocar de aba e voltar. */
+  try{ if(ABAS[abaAtual]) ABAS[abaAtual](); }catch(e){ console.warn("catálogo: a aba não recarregou",e); }
 }
 function renderCamposCatalogo(){
   const def=TIPOS_CAT[tipoCatAtual];
@@ -4211,6 +4299,8 @@ function iniciarApp(){
   carregarVincCustom();
   carregarObsPadrao();
   carregarExcluidos();
+  carregarMeusDados();
+  pintarMeus();
   carregarSnapshots();
   carregarCards();
   carregarClientesRapidos();
@@ -4235,7 +4325,7 @@ function iniciarApp(){
    A tabela nasce VAZIA de propósito. Custo negociado com fornecedor é segredo
    comercial, e este app mora num repositório público — então o dado real entra
    por importação da planilha do Léo, no aparelho dele, e fica só lá. Mesmo
-   princípio do cofre de clientes. */
+   princípio da carteira de clientes. */
 // LS_DEST e `dest` são declarados lá em cima, junto do resto do estado, e não
 // aqui — a inicialização do app chama carregarDest() antes deste ponto do
 // arquivo, e `let`/`const` não existem antes da linha que os declara.
@@ -5041,7 +5131,7 @@ function salvarFichaDest(){
 
 /* ============ PREÇOS PRÓPRIOS (RECICLÁVEIS E EQUIPAMENTOS) ============
    Cada catálogo é dono do que é dele, numa chave de localStorage própria — do
-   mesmo jeito que o cofre de clientes e o catálogo de nomes. A aba Proposta
+   mesmo jeito que a carteira de clientes e o catálogo de nomes. A aba Proposta
    nunca escreve aqui: ela só consulta pela MESMA chave que já usa pra tudo
    (`l.chave`, montada em montarLinhas() — "reci:Papel/Papelão",
    "loc:CAIXA POLI 5m³"). É por isso que dá pra mexer num preço aqui sem
@@ -5393,6 +5483,43 @@ function precosReci(nome){
     cliente:precoAoCliente(x.v,x.rep)
   }));
 }
+/* ---- Mão de obra: mais de uma linha de preço por função ----
+
+   "Auxiliar de Serviços Gerais" não tem um preço: tem o preço normal e o preço
+   com insalubridade. "Jardineiro" tem o de chão e o de trabalho em altura. Um
+   número só por função obrigava a cadastrar a função duas vezes com nomes
+   inventados, e o nome inventado ia parar na proposta.
+
+   Formato igual ao que Recicláveis já usa ({itens:[...]}), e não um array cru,
+   pra que os dois cards se leiam do mesmo jeito.
+
+   MIGRAÇÃO: quem cadastrou preço na rodada passada tem {v, mensal} direto no
+   objeto. Isso é lido como a primeira (e única) variação, sem rótulo — nada do
+   que já foi digitado se perde, e nada precisa ser reconvertido em disco. */
+function linhasCargo(nome){
+  const p=(precos.cargo||{})[nome];
+  if(!p) return [];
+  if(Array.isArray(p.itens)) return p.itens;
+  return (p.v||p.mensal)?[{r:"",v:p.v||"",mensal:p.mensal||""}]:[];
+}
+function precosCargo(nome){
+  return linhasCargo(nome).filter(x=>x&&(x.v||x.mensal)).map(x=>({
+    rotulo:x.r||"", diaria:x.v||"", mensal:x.mensal||""
+  }));
+}
+function guardarCargo(nome,linhas){
+  precos.cargo=precos.cargo||{};
+  const limpas=(linhas||[]).map(x=>{
+    const o={};
+    ["r","v","mensal"].forEach(k=>{ if(x[k]&&String(x[k]).trim()) o[k]=String(x[k]).trim(); });
+    return o;
+  }).filter(x=>x.v||x.mensal);
+  if(limpas.length) precos.cargo[nome]={itens:limpas};
+  else delete precos.cargo[nome];
+  gravarPrecos();
+  atualizarBadgesPrecos();
+  renderLinhasValores();
+}
 // O de maior venda entre os parceiros de um material — "melhor" aqui é o
 // oposto do BDI: a Corpus vende, então quanto mais alto, melhor pra ela.
 function melhorPrecoReci(lista){
@@ -5424,7 +5551,7 @@ function atualizarBadgesPrecos(){
   }).length;
   const c=document.getElementById("badgeCargos");
   if(c) c.textContent=listaCargos().filter(n=>{
-    const p=precoSalvo("cargo:"+n); return p&&(p.v||p.mensal);
+    return precosCargo(n).length;
   }).length;
 }
 /* Uma linha editável por item do catálogo. Os dois catálogos usam o mesmo
@@ -5449,7 +5576,19 @@ function montarCatalogoPrecos(cfg){
   const busca=semAc(document.getElementById(cfg.busca).value.trim());
   const vis=itens.filter(x=>!busca||semAc(x.n).includes(busca));
   el.innerHTML="";
-  if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  /* Antes só dava pra criar um equipamento ou cargo novo passando pelo chip
+     "✎ editar lista" dentro do assistente de proposta — a aba de preços só
+     exibia o que já existia. É a mesma lista dos dois lados (listaLocacoes e
+     listaCargos já mesclam o catálogo), então bastava a porta de entrada.
+     Fica ANTES do "nada encontrado" de propósito: procurar e não achar é
+     justamente a hora em que se quer cadastrar. */
+  if(cfg.gerenciar) linhaAcao(el,"Falta algum item nesta lista?","+ adicionar",cfg.gerenciar);
+  if(!vis.length){
+    const nada=document.createElement("span");
+    nada.className="sub"; nada.textContent="Nada encontrado.";
+    el.appendChild(nada);
+    return;
+  }
   const redesenhar=()=>montarCatalogoPrecos(cfg);
   vis.forEach(x=>{
     const p=precoSalvo(cfg.tipo+":"+x.n)||{};
@@ -5790,6 +5929,7 @@ function renderPrecosEquip(){
   montarCatalogoPrecos({
     tipo:"loc", alvo:"listaEquip", badge:"badgeEquip", busca:"buscaEquip",
     itens:()=>listaLocacoes(),
+    gerenciar:()=>abrirCatalogo("locacoes"),
     unidades:UNIDADES_POR_TIPO.loc,
     ficha:true,
     obsPadrao:()=>OBS_LOC
@@ -5808,19 +5948,27 @@ function renderPrecosEquip(){
    campos genéricos `v`/`mensal` — `v` é o valor que qualquer linha de preço já
    usa pra alimentar a proposta, então o pré-preenchimento em renderLinhasValores()
    funciona sem precisar de um caso especial pra Mão de Obra. */
+let cargoEditando=null;   // rascunho da função aberta: {nome, linhas}
 function renderPrecosCargos(){
   const el=document.getElementById("listaCargos");
   if(!el) return;
+  if(cargoEditando&&precoAberto.cargo!==cargoEditando.nome) cargoEditando=null;
   const itens=listaCargos();
   atualizarBadgesPrecos();
   const busca=semAc(document.getElementById("buscaCargos").value.trim());
   const vis=itens.filter(n=>!busca||semAc(n).includes(busca));
   el.innerHTML="";
-  if(!vis.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
+  linhaAcao(el,"Falta alguma função nesta lista?","+ adicionar",()=>abrirCatalogo("cargos"));
+  if(!vis.length){
+    const nada=document.createElement("span");
+    nada.className="sub"; nada.textContent="Nada encontrado.";
+    el.appendChild(nada);
+    return;
+  }
   vis.forEach(nome=>{
-    const p=precoSalvo("cargo:"+nome)||{};
+    const linhas=linhasCargo(nome);
     const aberto=precoAberto.cargo===nome;
-    const temPreco=!!(p.v||p.mensal);
+    const temPreco=linhas.some(x=>x.v||x.mensal);
     const div=document.createElement("div");
     div.className="mat-linha"+(aberto?" aberto":"")+(temPreco?" tem-preco":"");
     div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
@@ -5828,42 +5976,87 @@ function renderPrecosCargos(){
     el.appendChild(div);
     div.querySelector(".mat-nome").textContent=nome;
     const pintarResumo=()=>{
-      const g=precoSalvo("cargo:"+nome)||{};
-      const partes=[];
-      if(g.v) partes.push("R$ "+g.v+"/diária");
-      if(g.mensal) partes.push("R$ "+g.mensal+"/mês");
-      div.querySelector(".mat-resumo").textContent=partes.length?partes.join(" · "):"sem preço";
-      div.classList.toggle("tem-preco",!!partes.length);
+      const atuais=precosCargo(nome);
+      const texto=atuais.map(x=>{
+        const partes=[];
+        if(x.diaria) partes.push("R$ "+x.diaria+"/diária");
+        if(x.mensal) partes.push("R$ "+x.mensal+"/mês");
+        return (x.rotulo?x.rotulo+": ":"")+partes.join(" · ");
+      }).join("  |  ");
+      div.querySelector(".mat-resumo").textContent=texto||"sem preço";
+      div.classList.toggle("tem-preco",!!atuais.length);
     };
     pintarResumo();
     div.querySelector(".mat-cab").onclick=()=>abrirItemPreco("cargo",nome,renderPrecosCargos);
     if(!aberto) return;
 
     const corpo=div.querySelector(".mat-corpo");
-    corpo.innerHTML=
-      `<div class="row2">
-         <div><label>Diária</label>
-           <div class="campo-calc">
-             <input type="text" inputmode="numeric" placeholder="0,00" data-c="v">
-             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
-           </div></div>
-         <div><label>Mensal</label>
-           <div class="campo-calc">
-             <input type="text" inputmode="numeric" placeholder="0,00" data-c="mensal">
-             <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
-           </div></div>
-       </div>
-       <div class="sub">A Diária é o que entra sozinho no campo de valor quando você
-         marca a função na proposta. O Mensal fica só pra consulta — nenhum lugar do
-         app soma ou usa esse número por enquanto.</div>`;
-    const iv=corpo.querySelector('[data-c="v"]'), im=corpo.querySelector('[data-c="mensal"]');
-    iv.value=p.v||""; im.value=p.mensal||"";
-    const salvar=()=>{ guardarPreco("cargo",nome,{v:iv.value,mensal:im.value}); pintarResumo(); };
-    iv.oninput=()=>{mascaraValor(iv);salvar();};
-    im.oninput=()=>{mascaraValor(im);salvar();};
-    const calcs=corpo.querySelectorAll(".abre-calc");
-    calcs[0].onclick=()=>abrirCalc(iv);
-    calcs[1].onclick=()=>abrirCalc(im);
+    /* O rascunho da função aberta vive fora do desenho.
+
+       Sem isso a linha nova nascia e morria no mesmo instante: "+ outra linha"
+       empurrava uma variação vazia, o card se redesenhava, e o redesenho relia
+       o que está SALVO — onde variação vazia não existe, porque nada foi
+       digitado ainda. O par de campos aparecia e sumia antes de dar pra ver.
+       Agora o rascunho sobrevive ao redesenho e só o que tem valor é gravado. */
+    if(!cargoEditando||cargoEditando.nome!==nome){
+      cargoEditando={nome, linhas:linhas.length?linhas.map(x=>Object.assign({},x))
+                                               :[{r:"",v:"",mensal:""}]};
+    }
+    const edit=cargoEditando.linhas;
+    const salvar=()=>{ guardarCargo(nome,edit); pintarResumo(); };
+
+    edit.forEach((linha,i)=>{
+      const bloco=document.createElement("div");
+      if(i) bloco.style.marginTop="10px";
+      bloco.innerHTML=
+        `<label>Nome desta variação${i?"":" (opcional)"}</label>
+         <input type="text" data-c="r" placeholder="${i?"Insalubridade, altura, noturno...":"deixe vazio para a linha padrão"}">
+         <div class="row2" style="margin-top:6px">
+           <div><label>Diária</label>
+             <div class="campo-calc">
+               <input type="text" inputmode="numeric" placeholder="0,00" data-c="v">
+               <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
+             </div></div>
+           <div><label>Mensal</label>
+             <div class="campo-calc">
+               <input type="text" inputmode="numeric" placeholder="0,00" data-c="mensal">
+               <button class="abre-calc" title="Calculadora">${ICONE_CALC}</button>
+             </div></div>
+         </div>`;
+      corpo.appendChild(bloco);
+      const ir=bloco.querySelector('[data-c="r"]');
+      const iv=bloco.querySelector('[data-c="v"]');
+      const im=bloco.querySelector('[data-c="mensal"]');
+      ir.value=linha.r||""; iv.value=linha.v||""; im.value=linha.mensal||"";
+      ir.oninput=()=>{ linha.r=ir.value; salvar(); };
+      iv.oninput=()=>{ mascaraValor(iv); linha.v=iv.value; salvar(); };
+      im.oninput=()=>{ mascaraValor(im); linha.mensal=im.value; salvar(); };
+      const calcs=bloco.querySelectorAll(".abre-calc");
+      calcs[0].onclick=()=>abrirCalc(iv);
+      calcs[1].onclick=()=>abrirCalc(im);
+      if(edit.length>1){
+        const tira=document.createElement("button");
+        tira.type="button"; tira.className="btn-mini"; tira.style.marginTop="6px";
+        tira.textContent="🗑 tirar esta variação";
+        tira.onclick=()=>{ edit.splice(i,1); guardarCargo(nome,edit); renderPrecosCargos(); };
+        // guardarCargo já reescreveu o salvo; o rascunho continua sendo a verdade da tela
+        bloco.appendChild(tira);
+      }
+    });
+
+    const mais=document.createElement("button");
+    mais.type="button"; mais.className="btn-mini"; mais.style.marginTop="10px";
+    mais.textContent="+ outra linha de preço para esta função";
+    // Só redesenha: a linha nova nasce vazia e ainda não tem o que gravar.
+    mais.onclick=()=>{ edit.push({r:"",v:"",mensal:""}); renderPrecosCargos(); };
+    corpo.appendChild(mais);
+
+    const nota=document.createElement("div");
+    nota.className="sub"; nota.style.marginTop="8px";
+    nota.textContent="A Diária é o que entra no campo de valor quando você marca a função "+
+      "na proposta — com mais de uma variação, o app pergunta qual usar. O Mensal fica "+
+      "só pra consulta: nenhum lugar do app soma ou usa esse número por enquanto.";
+    corpo.appendChild(nota);
   });
 }
 
@@ -6015,7 +6208,7 @@ function renderFrota(){
 
 /* ============ PROPOSTAS SALVAS ============
    Toda proposta gerada vira um registro aqui, pra poder ser reaberta e editada
-   depois. Fica em localStorage, neste aparelho — e sem a criptografia do cofre
+   depois. Fica em localStorage, neste aparelho — sem criptografia,
    de clientes, porque exigir a senha na hora de gerar travaria o caminho todo. */
 const LS_PROPOSTAS="corpus_propostas_v1";
 const CAMPOS_FORM=["razaoSocial","cnpj","ie","solicitante","telefone","email","enderecoUnico",
@@ -6436,7 +6629,7 @@ function importarPropostas(input){
 
 /* ============ NOVA PROPOSTA ============ */
 // Zera o formulário sem recarregar a página — recarregar funcionaria também,
-// mas aí o cofre de clientes fecha de novo e pede a senha à toa.
+// mas aí a tela de clientes se redesenha à toa.
 // silencioso = quem chamou foi o próprio app, logo depois de gerar os arquivos.
 // Nesse caso não pergunta nada: o que estava preenchido já virou documento e já
 // está guardado no histórico.
@@ -6726,20 +6919,45 @@ function desenharQR(texto,ladoPx){
       ctx.fillRect((col+QR_MARGEM_MODULOS)*escala,(r+QR_MARGEM_MODULOS)*escala,escala,escala);
   return c;
 }
-function qrComoJpeg(texto,ladoPx){
+/* PNG, e não JPEG. O QR nasceu como JPEG a 0.92 de qualidade e isso era ruim
+   por dois motivos ao mesmo tempo: 34 KB pra um desenho de quadrados pretos no
+   branco (o PNG faz o mesmo em cerca de um décimo disso), e principalmente os
+   borrões do JPEG em volta de cada módulo — que num QR não são feiúra, são o
+   que faz leitor de celular desistir. Agora o slot no modelo é .png e o
+   desenho vai sem perda nenhuma. */
+function qrComoPng(texto,ladoPx){
   return new Promise(resolve=>
-    desenharQR(texto,ladoPx).toBlob(b=>resolve(b),"image/jpeg",0.92));
+    desenharQR(texto,ladoPx).toBlob(b=>resolve(b),"image/png"));
 }
-async function trocarQrDoAceite(zip){
-  const nome="word/media/image2.jpeg";
+async function trocarQr(zip){
+  const nome="word/media/qrcode.png";
   if(!zip.files[nome]) return;   // modelo mudou e o slot não existe mais: não quebra, só não troca
   try{
-    const qr=await qrComoJpeg(URL_CENTRAL,350);
+    const qr=await qrComoPng(linkDaCentral(),350);
     if(qr) zip.file(nome,qr);
-  }catch(e){ console.warn("QR do Aceite: não deu pra gerar, mantendo a imagem do modelo",e); }
+  }catch(e){ console.warn("QR: não deu pra gerar, mantendo a imagem do modelo",e); }
+}
+/* A central deixou de ser uma página só do Léo. O QR carrega quem assinou o
+   documento, e é a página que se ajusta — assim um colega gera a proposta dele
+   sem que ninguém precise publicar uma segunda central. Campo vazio não vai:
+   a página tem os valores da Corpus como padrão. */
+function linkDaCentral(){
+  const p=new URLSearchParams();
+  if(meusDados.nome)     p.set("nome",meusDados.nome);
+  if(meusDados.telefone) p.set("tel",so(meusDados.telefone));
+  if(meusDados.email)    p.set("email",meusDados.email);
+  if(meusDados.recado)   p.set("msg",meusDados.recado);
+  const q=p.toString();
+  return q?URL_CENTRAL+"?"+q:URL_CENTRAL;
+}
+function camposDaAssinatura(){
+  return {assinaturaNome:meusDados.nome||"", assinaturaCargo:meusDados.cargo||""};
 }
 async function preencherDocx(tpl,mapa,loop,opts){
   opts=opts||{};
+  // A assinatura entra em todo documento sem que cada chamada precise lembrar
+  // dela; se algum mapa trouxer o campo, o dele vale.
+  mapa=Object.assign(camposDaAssinatura(),mapa);
   const zip=await JSZip.loadAsync(b64Bytes(tpl));
   let xml=await zip.file("word/document.xml").async("string");
   for(const[k,v]of Object.entries(mapa)) xml=xml.split("{"+k+"}").join(escXml(v));
@@ -6763,6 +6981,34 @@ async function preencherDocx(tpl,mapa,loop,opts){
     }
   }
   zip.file("word/document.xml",xml);
+  /* Cabeçalho e rodapé também têm campo. A assinatura ("Atenciosamente,
+     Fulano, Analista Comercial") saiu do corpo do documento e virou rodapé —
+     é o lugar certo, porque se repete em toda página e sobra espaço editável
+     no meio. Só que rodapé mora em outra parte do zip, e o preenchimento só
+     olhava word/document.xml: os {campos} de lá sairiam impressos como estão.
+     Aqui a mesma troca passa por header*.xml e footer*.xml. */
+  for(const nome of Object.keys(zip.files)){
+    if(!/^word\/(header|footer)\d*\.xml$/.test(nome)) continue;
+    let parte=await zip.file(nome).async("string");
+    const antes=parte;
+    for(const[k,v]of Object.entries(mapa)) parte=parte.split("{"+k+"}").join(escXml(v));
+    if(parte!==antes) zip.file(nome,parte);
+  }
+  /* Quem gerou também vai nas Propriedades do arquivo. O modelo saía com a
+     autoria de quem o desenhou no Word — some pro cliente na tela, mas está
+     lá em Propriedades, e uma proposta assinada por um colega chegando com o
+     nome de outra pessoa na autoria é o mesmo erro do rodapé, só escondido. */
+  try{
+    const nomeCore="docProps/core.xml";
+    if(zip.files[nomeCore]&&meusDados.nome){
+      let core=await zip.file(nomeCore).async("string");
+      core=core.replace(/<dc:creator>[^<]*<\/dc:creator>/,
+        "<dc:creator>"+escXml(meusDados.nome)+"<\/dc:creator>");
+      core=core.replace(/<cp:lastModifiedBy>[^<]*<\/cp:lastModifiedBy>/,
+        "<cp:lastModifiedBy>"+escXml(meusDados.nome)+"<\/cp:lastModifiedBy>");
+      zip.file(nomeCore,core);
+    }
+  }catch(e){ console.warn("autoria do documento: mantive a do modelo",e); }
   // Recomprime primeiro, troca o QR depois: a recompressão genérica rodaria
   // por cima do QR recém-desenhado com uma qualidade mais baixa (0.75 contra
   // os 0.92 que ele precisa pra continuar legível) — uma segunda passada de
@@ -6770,8 +7016,14 @@ async function preencherDocx(tpl,mapa,loop,opts){
   // que quebra a leitura sem dar nenhum aviso. O QR precisa ser a última
   // palavra, não o que entra primeiro pra ser mexido de novo depois.
   await recomprimirImagensDoModelo(zip);
-  if(opts.qrAceite) await trocarQrDoAceite(zip);
-  return await zip.generateAsync({type:"blob",
+  await trocarQr(zip);   // os dois documentos têm QR agora, não só o Aceite
+  /* compression: "DEFLATE" não estava aqui, e a falta dela custava caro sem
+     aparecer em lugar nenhum: por padrão o JSZip GRAVA TUDO CRU. Cada
+     documento saía com os 43 KB de document.xml, os 32 KB de styles.xml e o
+     resto do XML inteirinhos, quando deflatados eles somam uma fração disso.
+     Word lê zip comprimido — é o formato normal de um .docx; era só pedir. */
+  return await zip.generateAsync({type:"blob",compression:"DEFLATE",
+    compressionOptions:{level:6},
     mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
 }
 /* As imagens do timbrado (cabeçalho, rodapé) chegam do arquivo Word em
@@ -6784,7 +7036,8 @@ async function preencherDocx(tpl,mapa,loop,opts){
    imagem que já estava otimizada e trocá-la por uma maior seria o oposto do
    que essa tarefa existe pra fazer. */
 async function recomprimirImagensDoModelo(zip){
-  const nomes=Object.keys(zip.files).filter(n=>/^word\/media\/.*\.(jpe?g|png)$/i.test(n));
+  const nomes=Object.keys(zip.files).filter(n=>/^word\/media\/.*\.(jpe?g|png)$/i.test(n)
+    &&!/qrcode\.png$/i.test(n));   // o QR é redesenhado depois; recomprimir o marcador é trabalho jogado fora
   for(const nome of nomes){
     try{
       const original=await zip.file(nome).async("blob");
@@ -7783,7 +8036,7 @@ async function gerarProposta(){const c=checar(true);if(!c)return;c.st.textConten
     mostrarPronto([{blob:b,nome:n,pasta}]);
   }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
 async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent="Gerando...";
-  try{const b=await preencherDocx(TPL_A,mapaAceite(c.mapa),null,{qrAceite:true});
+  try{const b=await preencherDocx(TPL_A,mapaAceite(c.mapa),null);
     const n=`Aceite de Proposta ${c.mapa.proposta_numero} - ${c.rs}.docx`.replace(/[\\/:*?"<>|]/g,"-");
     const pasta=await baixar(b,n,"aceite");
     salvarPropostaAtual();c.st.textContent="";
@@ -7791,7 +8044,7 @@ async function gerarAceite(){const c=checar(false);if(!c)return;c.st.textContent
   }catch(e){console.error(e);c.st.textContent="";avisar("Não consegui montar o arquivo. Detalhe técnico: "+(e&&e.message?e.message:e));}}
 async function gerarAmbos(){const c=checar(true);if(!c)return;c.st.textContent="Gerando...";
   try{const bp=await preencherDocx(TPL_P,c.mapa,itens),
-            ba=await preencherDocx(TPL_A,mapaAceite(c.mapa),null,{qrAceite:true});
+            ba=await preencherDocx(TPL_A,mapaAceite(c.mapa),null);
     const base=`${c.mapa.proposta_numero} - ${c.rs}`.replace(/[\\/:*?"<>|]/g,"-");
     const nomeP=`${base}.docx`, nomeA=`Aceite de Proposta ${base}.docx`;
     // Cada um vai pra sua pasta
@@ -7890,7 +8143,7 @@ async function buscarCNPJ(){
 
    Fora daqui de propósito: o rascunho em andamento (é do momento, não do
    cadastro), o tema e a densidade da tabela (preferência de tela, que pode
-   muito bem ser diferente no celular e no monitor de 24"), e o cofre com senha
+   muito bem ser diferente no celular e no monitor de 24"), e o rascunho
    — esse já é cifrado com outra senha e tem exportar/importar próprio. */
 function secoesSync(){
   return [
@@ -7902,6 +8155,7 @@ function secoesSync(){
     {id:"obsp",       ls:LS_OBSP,     fusao:"recente", titulo:"as observações padrão", aplicar:()=>{carregarObsPadrao();renderLinhasValores();}},
     {id:"fichas",     ls:LS_FICHAS,   fusao:"recente", titulo:"as fichas da frota", aplicar:()=>{carregarFichas();renderFrota();}},
     {id:"numero",     ls:LS_NUMERO,   fusao:"recente", titulo:"o contador de numeração", aplicar:()=>{}},
+    {id:"meus",       ls:LS_MEUS,     fusao:"recente", titulo:"os seus dados de assinatura", aplicar:()=>{carregarMeusDados();pintarMeus();}},
     // Vem antes das listas de propósito: a fusão delas consulta as marcas, e
     // consultar marca velha traria de volta o que já tinha sido apagado.
     {id:"excluidos", ls:LS_EXCL, fusao:"marcas", aplicar:()=>{carregarExcluidos();}},
@@ -7932,7 +8186,7 @@ function gravarSync(){
   try{localStorage.setItem(LS_SYNC,JSON.stringify(sync));}catch(e){}
 }
 /* ---- Cifragem do que sobe ----
-   Mesma receita do cofre (PBKDF2 + AES-GCM), com salt próprio: o salt vai junto
+   PBKDF2 + AES-GCM, com salt próprio: o salt vai junto
    da configuração e é o mesmo nos três aparelhos, senão a mesma senha geraria
    chaves diferentes e um não leria o do outro. */
 async function derivarSync(senha,salt){
@@ -8431,6 +8685,40 @@ function toggleSnapshots(){
   document.getElementById("setaSnap").classList.toggle("aberta",snapAberto);
   if(snapAberto) renderSnapshots();
 }
+function carregarMeusDados(){
+  try{
+    const s=localStorage.getItem(LS_MEUS);
+    if(s) meusDados=Object.assign(meusDados,JSON.parse(s));
+  }catch(e){ console.warn("meus dados: não deu pra ler",e); }
+}
+function guardarMeuDado(campo,valor){
+  meusDados[campo]=valor;
+  try{
+    localStorage.setItem(LS_MEUS,JSON.stringify(meusDados));
+    marcarSuja(LS_MEUS);
+  }catch(e){
+    document.getElementById("statusMeus").textContent="Não deu pra salvar — armazenamento cheio.";
+    return;
+  }
+  pintarMeus();
+}
+function pintarMeus(){
+  const v=(id,k)=>{ const el=document.getElementById(id); if(el&&el.value!==(meusDados[k]||"")) el.value=meusDados[k]||""; };
+  v("meuNome","nome"); v("meuCargo","cargo"); v("meuTelefone","telefone");
+  v("meuEmail","email"); v("meuRecado","recado");
+  const b=document.getElementById("badgeMeus");
+  if(b) b.textContent=meusDados.nome?meusDados.nome.split(/\s+/)[0]:"!";
+  const av=document.getElementById("avisoMeus");
+  if(av) av.textContent=meusDados.nome
+    ? "Vai junto na sincronia — é dado seu de trabalho, não documento pessoal."
+    : "Enquanto o nome estiver em branco, a Proposta e o Aceite saem com o rodapé sem assinatura.";
+}
+function toggleMeus(){
+  meusAberto=!meusAberto;
+  document.getElementById("meusCorpo").classList.toggle("oculto",!meusAberto);
+  document.getElementById("setaMeus").classList.toggle("aberta",meusAberto);
+  if(meusAberto) pintarMeus();
+}
 function toggleSync(){
   syncAberto=!syncAberto;
   document.getElementById("syncCorpo").classList.toggle("oculto",!syncAberto);
@@ -8551,57 +8839,10 @@ document.addEventListener("visibilitychange",()=>{
 });
 window.addEventListener("online",()=>rodarSync("voltou o sinal"));
 
-/* ============ COFRE DE CLIENTES (criptografia real AES-GCM) ============ */
-let clientes=[], chaveCofre=null;
-const CHAVE_LS="corpus_cofre_v1";
-
-async function derivar(senha,salt){
-  const enc=new TextEncoder();
-  const base=await crypto.subtle.importKey("raw",enc.encode(senha),"PBKDF2",false,["deriveKey"]);
-  return crypto.subtle.deriveKey(
-    {name:"PBKDF2",salt:salt,iterations:150000,hash:"SHA-256"},
-    base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
-}
-async function gravarCofre(){
-  if(!chaveCofre)return;
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const dados=new TextEncoder().encode(JSON.stringify(clientes));
-  const cif=await crypto.subtle.encrypt({name:"AES-GCM",iv},chaveCofre,dados);
-  const salt=JSON.parse(localStorage.getItem(CHAVE_LS)).salt;
-  localStorage.setItem(CHAVE_LS,JSON.stringify({salt,
-    iv:Array.from(iv),dados:Array.from(new Uint8Array(cif))}));
-}
-async function abrirCofre(){
-  const senha=document.getElementById("senhaCofre").value;
-  const aviso=document.getElementById("avisoCofre");
-  if(senha.length<4){aviso.textContent="Use ao menos 4 caracteres.";return;}
-  let guardado=localStorage.getItem(CHAVE_LS);
-  try{
-    if(!guardado){
-      const salt=Array.from(crypto.getRandomValues(new Uint8Array(16)));
-      localStorage.setItem(CHAVE_LS,JSON.stringify({salt,iv:[],dados:[]}));
-      chaveCofre=await derivar(senha,new Uint8Array(salt));
-      clientes=[];
-      await gravarCofre();
-    } else {
-      const g=JSON.parse(guardado);
-      chaveCofre=await derivar(senha,new Uint8Array(g.salt));
-      if(g.dados.length){
-        const pl=await crypto.subtle.decrypt({name:"AES-GCM",iv:new Uint8Array(g.iv)},
-          chaveCofre,new Uint8Array(g.dados));
-        clientes=JSON.parse(new TextDecoder().decode(pl));
-      } else clientes=[];
-    }
-  }catch(e){aviso.textContent="Senha incorreta.";chaveCofre=null;return;}
-  document.getElementById("cofreBloqueado").classList.add("oculto");
-  document.getElementById("cofreAberto").classList.remove("oculto");
-  document.getElementById("senhaCofre").value="";
-  listarClientes();
-}
 /* ---- Base rápida ----
    Toda proposta gerada deixa o cliente aqui, com o mínimo pra reaproveitar
-   depois. É SEPARADA do cofre: sem senha, mesma classe de dado das propostas
-   salvas, que já ficam abertas. O cofre criptografado continua existindo e é
+   depois. Sem senha, mesma classe de dado das propostas
+   salvas, que já ficam abertas. É
    pra onde vai o que merece senha — daí o botão de promover.
 
    Sem CNPJ válido não grava: uma base cheia de registro quebrado é pior que uma
@@ -8636,29 +8877,7 @@ function registrarClienteRapido(){
   gravarClientesRapidos();
   if(!document.getElementById("aba-carteira").hidden) listarClientes();
 }
-async function promoverParaCofre(cnpj){
-  // Sem o cofre destrancado não dá: a chave de criptografia só existe depois
-  // que a senha foi digitada nesta sessão.
-  if(!chaveCofre){
-    avisar("Abra o cofre com a sua senha primeiro — é pra lá que este cliente vai.");
-    return;
-  }
-  const r=clientesRapidos.find(x=>so(x.cnpj)===so(cnpj));
-  if(!r) return;
-  const i=clientes.findIndex(x=>so(x.cnpj)===so(cnpj));
-  // Leva tudo o que a base rápida tem: desde a Parte 5 ela guarda e-mail e
-  // endereço, e promover jogando os dois fora seria perder dado no caminho.
-  const reg={razaoSocial:r.razaoSocial,cnpj:r.cnpj,ie:"",email:r.email||"",
-             contato:[r.contato,r.telefone].filter(Boolean).join(" - "),
-             endereco:r.endereco||""};
-  if(i>=0) clientes[i]=Object.assign({},clientes[i],reg); else clientes.push(reg);
-  await gravarCofre();
-  listarClientes();
-  document.getElementById("avisoCofre").textContent=r.razaoSocial+" foi pro cofre.";
-}
-/* A lista é a base rápida e só ela. O cofre com senha vive em Ajustes agora:
-   são duas coisas de naturezas diferentes, e tê-las lado a lado obrigava a
-   explicar o cadeado toda vez que alguém batia o olho aqui.
+/* A lista de clientes.
 
    Na linha, só a razão social. Contato, telefone, e-mail e endereço abrem no
    toque — é a informação que se procura uma vez por cliente, não a que se lê
@@ -8690,7 +8909,7 @@ function listarClientes(){
   });
   const aviso=document.getElementById("avisoRapidos");
   if(aviso) aviso.textContent=clientesRapidos.length
-    ? "Alimentada pelas propostas geradas, sem senha, só neste aparelho. O cofre com senha está em Ajustes."
+    ? "Alimentada pelas propostas geradas — e sincronizada entre os seus aparelhos."
     : "";
 }
 /* Telefone brasileiro pro formato que o WhatsApp entende: só dígitos, com o 55
@@ -8751,12 +8970,6 @@ function abrirFichaCliente(c){
     fecharCliente();
     carregarClienteRapido(c);
   };
-  // O caminho pro cofre morava num toque-e-segure no chip, que ninguém acha.
-  // Aqui é um botão com nome.
-  document.getElementById("cliCofre").onclick=()=>{
-    promoverParaCofre(c.cnpj);
-    if(chaveCofre) fecharCliente();
-  };
   document.getElementById("modalCliente").classList.remove("oculto");
 }
 /* Cliente que nunca passou por uma proposta — o que o Léo atende antes de
@@ -8809,69 +9022,10 @@ function carregarClienteRapido(c){
   mostrarAba("proposta");
   document.getElementById("cardCliente").scrollIntoView({behavior:"smooth",block:"start"});
 }
-function carregarCliente(i){
-  const c=clientes[i];if(!c)return;
-  document.getElementById("razaoSocial").value=(c.razaoSocial||"").toUpperCase();
-  conferirRazaoSocial();
-  const elc=document.getElementById("cnpj");elc.value=c.cnpj||"";mascaraCNPJ(elc);conferirCNPJ();
-  document.getElementById("ie").value=c.ie||"";
-  document.getElementById("email").value=c.email||"";
-  const contato=(c.contato||"");
-  const mt=contato.match(/(\(?\d{2}\)?[\s-]?9?\d{4}[-\s]?\d{4})/);
-  document.getElementById("solicitante").value=contato.replace(/\s*[-–]\s*.*$/,"").trim();
-  if(mt){const elt=document.getElementById("telefone");elt.value=mt[1];mascaraTelefone(elt);}
-  document.getElementById("enderecoUnico").value=c.endereco||"";
-  ultimoEnderecoLido[""]="";  // força reinterpretar o endereço que veio do cofre
-  quebrarEndereco();
-  document.getElementById("statusCNPJ").textContent="Carregado do cofre.";
-  window.scrollTo({top:0,behavior:"smooth"});
-}
-async function salvarClienteAtual(){
-  const g=id=>document.getElementById(id).value.trim();
-  const rs=g("razaoSocial").toUpperCase();
-  if(!rs){avisar("Pra guardar no cofre o cliente precisa ter pelo menos a Razão Social — é por ela que a busca funciona depois.");return;}
-  const novo={razaoSocial:rs,cnpj:g("cnpj"),ie:g("ie"),email:g("email"),
-    contato:[g("solicitante"),g("telefone")].filter(Boolean).join(" - "),
-    endereco:g("enderecoUnico")||g("logradouro")};
-  const i=clientes.findIndex(c=>so(c.cnpj)&&so(c.cnpj)===so(novo.cnpj));
-  if(i>=0) clientes[i]=Object.assign({},clientes[i],novo); else clientes.push(novo);
-  clientes.sort((a,b)=>a.razaoSocial.localeCompare(b.razaoSocial));
-  await gravarCofre();listarClientes();
-  document.getElementById("statusCNPJ").textContent="Cliente salvo no cofre.";
-}
 
-/* A lista viaja em JSON puro: é assim que ela passa de um aparelho pro outro,
-   já que o cofre em si nunca sai deste navegador. */
-function importarClientes(input){
-  const arq=input.files&&input.files[0]; if(!arq)return;
-  const st=document.getElementById("avisoCofre");
-  const leitor=new FileReader();
-  leitor.onload=async()=>{
-    try{
-      const lista=JSON.parse(leitor.result);
-      if(!Array.isArray(lista)) throw new Error("formato");
-      let novos=0,atualizados=0;
-      lista.forEach(c=>{
-        if(!c||!c.razaoSocial)return;
-        const i=clientes.findIndex(x=>so(x.cnpj)&&so(x.cnpj)===so(c.cnpj||""));
-        if(i>=0){clientes[i]=Object.assign({},clientes[i],c);atualizados++;}
-        else{clientes.push(c);novos++;}
-      });
-      clientes.sort((a,b)=>a.razaoSocial.localeCompare(b.razaoSocial));
-      await gravarCofre();listarClientes();
-      st.textContent=`Importados: ${novos} novos, ${atualizados} atualizados.`;
-    }catch(e){ st.textContent="Arquivo inválido — esperava uma lista JSON de clientes."; }
-    input.value="";
-  };
-  leitor.readAsText(arq);
-}
-function exportarClientes(){
-  const blob=new Blob([JSON.stringify(clientes,null,2)],{type:"application/json"});
-  baixar(blob,"clientes-corpus.json");
-}
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.29-2";
+const APP_VERSION="2026.08.29-4";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");

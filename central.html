@@ -44,6 +44,9 @@
   .secundarios a.botao{padding:12px 16px;font-size:.9rem;font-weight:500;
     background:transparent;border-color:var(--card-borda);}
   .secundarios a.botao .ic{font-size:1.2rem;width:28px;}
+  /* .botao é display:flex, e flex ganha do display:none que o atributo hidden
+     traz por padrão — sem esta linha o botão escondido continua na tela. */
+  a.botao[hidden]{display:none;}
   footer{margin-top:auto;padding-top:32px;color:var(--suave);font-size:.72rem;
     text-align:center;}
 </style>
@@ -55,32 +58,70 @@
     Fale com a gente pelo canal que preferir.</div>
 
   <div class="wrap principais">
-    <a class="botao" href="https://wa.me/5527999448204" target="_blank" rel="noopener">
+    <a class="botao" id="btWhats" target="_blank" rel="noopener">
       <span class="ic">💬</span>
-      <span class="tx">WhatsApp<small>Fale agora com um analista comercial</small></span>
+      <span class="tx">WhatsApp<small id="txWhats">Fale agora com o analista comercial</small></span>
     </a>
-    <a class="botao" href="https://corpus.com.br/" target="_blank" rel="noopener">
-      <span class="ic">🌐</span>
-      <span class="tx">Site oficial<small>corpus.com.br</small></span>
-    </a>
-    <a class="botao" href="./apresentacao-corpus.pdf" target="_blank" rel="noopener">
-      <span class="ic">📄</span>
-      <span class="tx">Catálogo de serviços<small>Apresentação institucional em PDF</small></span>
+    <a class="botao" href="https://www.instagram.com/corpus_saneamento" target="_blank" rel="noopener">
+      <span class="ic">📷</span>
+      <span class="tx">Instagram<small>O dia a dia da Corpus, em foto e vídeo</small></span>
     </a>
   </div>
 
   <div class="wrap secundarios">
-    <a class="botao" href="https://www.instagram.com/corpus_saneamento" target="_blank" rel="noopener">
-      <span class="ic">📷</span><span class="tx">Instagram</span>
-    </a>
-    <a class="botao" href="mailto:leonardo.cade@corpus.com.br">
-      <span class="ic">✉️</span><span class="tx">leonardo.cade@corpus.com.br</span>
+    <a class="botao" id="btMail"><span class="ic">✉️</span><span class="tx" id="txMail"></span></a>
+    <a class="botao" href="https://corpus.com.br/" target="_blank" rel="noopener">
+      <span class="ic">🌐</span><span class="tx">corpus.com.br</span>
     </a>
     <a class="botao" href="https://youtu.be/4hvyR9FAvRU" target="_blank" rel="noopener">
       <span class="ic">▶️</span><span class="tx">Vídeo institucional</span>
     </a>
+    <a class="botao" id="btCatalogo" href="./apresentacao-corpus.pdf" target="_blank" rel="noopener" hidden>
+      <span class="ic">📄</span><span class="tx">Apresentação Grupo Corpus 2026</span>
+    </a>
   </div>
 
   <footer>Corpus Saneamento e Obras Ltda</footer>
+
+<script>
+/* A central deixou de ser a página de uma pessoa só.
+
+   O QR impresso na proposta e no aceite carrega quem assinou o documento
+   (?nome=&tel=&email=&msg=), e é a página que se adapta — assim um colega
+   entrega a proposta dele sem que ninguém precise publicar uma segunda
+   central. Sem parâmetro nenhum, tudo cai nos valores da Corpus.
+
+   Tudo o que vem da URL é tratado como texto de estranho: nome só entra por
+   textContent (nunca innerHTML), telefone perde tudo que não é dígito, e-mail
+   só passa se parecer e-mail. Um link de central pode ser reenviado por
+   qualquer um — não é lugar pra confiar no que veio escrito. */
+(function(){
+  var p=new URLSearchParams(location.search);
+  var so=function(v){ return String(v||"").replace(/\D/g,""); };
+
+  var nome=(p.get("nome")||"Leonardo Cade").slice(0,60);
+  var tel=so(p.get("tel"))||"27999448204";
+  if(tel.length<10||tel.length>13) tel="27999448204";        // fora disso não é telefone
+  if(tel.length<=11) tel="55"+tel;                            // sem DDI, assume Brasil
+  var email=(p.get("email")||"").slice(0,80);
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) email="leonardo.cade@corpus.com.br";
+  var recado=(p.get("msg")||"").slice(0,200);
+
+  var whats=document.getElementById("btWhats");
+  whats.href="https://wa.me/"+tel+(recado?"?text="+encodeURIComponent(recado):"");
+  document.getElementById("txWhats").textContent="Fale agora com "+nome;
+
+  var mail=document.getElementById("btMail");
+  mail.href="mailto:"+email;
+  document.getElementById("txMail").textContent=email;
+
+  /* O catálogo só aparece se o arquivo existir de verdade. Link quebrado numa
+     página que o cliente abre a partir de uma proposta é pior do que botão
+     nenhum, e o PDF ainda não foi publicado. */
+  fetch("./apresentacao-corpus.pdf",{method:"HEAD"})
+    .then(function(r){ if(r.ok) document.getElementById("btCatalogo").hidden=false; })
+    .catch(function(){});
+})();
+</script>
 </body>
 </html>

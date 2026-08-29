@@ -11,8 +11,11 @@ documento é montado no próprio aparelho.
 - **Buscar por CNPJ** — puxa razão social e endereço da Receita (BrasilAPI, com
   Minha Receita de reserva). É a única coisa que sai do aparelho, e só quando você
   toca no botão.
-- **Cofre de clientes** — guarda a carteira criptografada com AES-GCM e uma senha
-  sua, no `localStorage`. Chave derivada por PBKDF2, 150 mil iterações.
+- **Carteira de clientes** — toda proposta gerada alimenta a lista, e ela
+  sincroniza entre os seus aparelhos (cifrada de ponta a ponta: o servidor
+  guarda um embaralhado que nem ele consegue ler).
+- **Timbrado no documento** — cabeçalho, marca d'água e rodapé com a assinatura
+  de quem gerou e um QR code que leva o cliente à central de contato.
 - **Linha de serviço em etapas** — categoria → classe → modalidade → veículo, com
   a descrição, a unidade e as observações técnicas já preenchidas pelo catálogo
   da Corpus (resíduos Classe I e II, recicláveis, mão de obra, locação).
@@ -30,13 +33,15 @@ documento é montado no próprio aparelho.
 ## Onde ficam os dados
 
 No `localStorage` **deste aparelho**, e em nenhum outro lugar — nunca no HTML,
-que é público e somente leitura. Celular e PC do trabalho são armazenamentos
-separados, sem sincronia entre eles.
+que é público e somente leitura. Com a sincronia ligada (Ajustes → Sincronizar
+aparelhos), o mesmo conteúdo passa a valer nos três aparelhos, cifrado antes de
+sair daqui.
 
 | Chave                  | O que guarda                          | Exportável por        |
 |------------------------|---------------------------------------|-----------------------|
 | `corpus_propostas_v1`  | histórico de propostas geradas        | Propostas salvas → Exportar |
-| `corpus_cofre_v1`      | carteira de clientes, criptografada   | Meus clientes → Exportar lista |
+| `corpus_clientes_rapidos_v1` | a carteira de clientes          | Ajustes → Backup completo |
+| `corpus_meus_dados_v1` | quem assina a proposta e o aceite     | Ajustes → Backup completo |
 | `corpus_catalogo_v1`   | catálogo editado e categorias         | *(sem exportação)*    |
 | `corpus_rascunho_v1`   | o preenchimento em andamento          | —                     |
 
@@ -60,7 +65,7 @@ O `.gitignore` bloqueia `clientes*.json` de propósito. A carteira tem razão
 social, CNPJ, nome e telefone de contato de clientes reais; num repositório
 público isso ficaria legível pra qualquer pessoa da internet.
 
-O app nasce com o cofre vazio. O formato esperado está em
+O app nasce com a carteira vazia. O formato esperado está em
 [`dados/clientes-exemplo.json`](dados/clientes-exemplo.json):
 
 ```json
