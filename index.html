@@ -7047,6 +7047,14 @@ async function preencherDocx(tpl,mapa,loop,opts){
   // palavra, não o que entra primeiro pra ser mexido de novo depois.
   await recomprimirImagensDoModelo(zip);
   await trocarQr(zip,mapa);   // os dois documentos têm QR agora, não só o Aceite
+  /* Um .docx é um pacote OPC, e o OPC não tem entradas de pasta — só arquivos
+     com caminho. O JSZip cria "word/", "word/media/" sozinho quando a gente
+     adiciona um arquivo dentro delas, e o Word engole isso sem reclamar. Mas
+     esta rodada foi atrás de um documento que dava erro ao exportar PDF, e a
+     lição foi que o Word tolera muita coisa na LEITURA e cobra na exportação.
+     Pacote fora do padrão em detalhe nenhum: sai. */
+  Object.keys(zip.files).forEach(n=>{ if(zip.files[n].dir) delete zip.files[n]; });
+
   /* compression: "DEFLATE" não estava aqui, e a falta dela custava caro sem
      aparecer em lugar nenhum: por padrão o JSZip GRAVA TUDO CRU. Cada
      documento saía com os 43 KB de document.xml, os 32 KB de styles.xml e o
@@ -9055,7 +9063,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.29-6";
+const APP_VERSION="2026.08.29-7";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
