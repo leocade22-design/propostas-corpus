@@ -129,18 +129,32 @@
   var so=function(v){ return String(v||"").replace(/\D/g,""); };
   var texto=function(v,max){ return String(v||"").slice(0,max||60); };
 
+  /* Os nomes dos parâmetros encolheram (nome→n, cargo→c, tel→t, email→e,
+     cli→d, po→p). Não é economia à toa: cada caractere do link vira módulo no
+     desenho do QR, e QR mais denso é QR que a câmera não lê. Os nomes longos
+     continuam valendo — proposta já impressa e entregue tem o link antigo no
+     rodapé, e ela precisa continuar abrindo esta página do mesmo jeito. */
+  var par=function(curto,longo){ return p.get(curto)||p.get(longo); };
+
   var GESTOR={nome:"Felipe Cocco", cargo:"Gestor Comercial", tel:"27981558469"};
 
-  var nome=texto(p.get("nome")||"Leonardo Cade");
-  var cargo=texto(p.get("cargo")||"Analista Comercial",40);
-  var tel=so(p.get("tel"))||"27999448204";
+  var nome=texto(par("n","nome")||"Leonardo Cade");
+  var cargo=texto(par("c","cargo")||"Analista Comercial",40);
+  var tel=so(par("t","tel"))||"27999448204";
   if(tel.length<10||tel.length>13) tel="27999448204";        // fora disso não é telefone
   if(tel.length<=11) tel="55"+tel;                            // sem DDI, assume Brasil
   var gestorTel=so(p.get("gestorTel"))||GESTOR.tel;
   if(gestorTel.length<10||gestorTel.length>13) gestorTel=GESTOR.tel;
   if(gestorTel.length<=11) gestorTel="55"+gestorTel;
   var gestorNome=texto(p.get("gestor")||GESTOR.nome);
-  var email=texto(p.get("email"),80);
+  /* O e-mail viaja sem "@corpus.com.br": são 16 caracteres que seriam iguais em
+     todo mundo da empresa, e o QR paga por cada um deles. Quem vier só com a
+     parte antes do @ ganha o domínio de volta aqui. */
+  var email=texto(par("e","email"),80);
+  // só completa o domínio se o que veio puder mesmo ser um usuário de e-mail;
+  // qualquer outra coisa segue pro teste abaixo e cai no endereço padrão
+  if(email&&email.indexOf("@")<0&&/^[A-Za-z0-9._%+-]+$/.test(email))
+    email=email+"@corpus.com.br";
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) email="leonardo.cade@corpus.com.br";
 
   /* A conversa já começa sabendo do que se trata.
@@ -149,8 +163,8 @@
      branco obriga a pessoa a se apresentar e a procurar o número do documento
      que ela acabou de fechar. Com cliente e PO no link, o texto já vem escrito
      e o comercial recebe a mensagem sabendo qual proposta abrir. */
-  var cliente=texto(p.get("cli"),80), po=texto(p.get("po"),30);
-  var recado=texto(p.get("msg"),200);
+  var cliente=texto(par("d","cli"),80), po=texto(par("p","po"),30);
+  var recado=texto(par("m","msg"),200);
   if(!recado){
     if(cliente&&po)      recado="Olá! Sou da "+cliente+" e quero falar sobre a proposta "+po+".";
     else if(po)          recado="Olá! Quero falar sobre a proposta "+po+".";
