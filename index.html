@@ -6972,7 +6972,16 @@ function linkDaCentral(mapa){
   return q?URL_CENTRAL+"?"+q:URL_CENTRAL;
 }
 function camposDaAssinatura(){
-  return {assinaturaNome:meusDados.nome||"", assinaturaCargo:meusDados.cargo||""};
+  /* A assinatura voltou pro fim do texto da Proposta — o rodapé agora é
+     institucional (endereço da empresa e QR, igual em toda página), e nome de
+     pessoa não é isso: fecha o documento uma vez, no fim. Telefone e e-mail
+     entram junto porque é o que o cliente procura ali. */
+  return {
+    assinaturaNome:     meusDados.nome||"",
+    assinaturaCargo:    meusDados.cargo||"",
+    assinaturaTelefone: meusDados.telefone||"",
+    assinaturaEmail:    meusDados.email||""
+  };
 }
 async function preencherDocx(tpl,mapa,loop,opts){
   opts=opts||{};
@@ -9046,7 +9055,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.29-5";
+const APP_VERSION="2026.08.29-6";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
