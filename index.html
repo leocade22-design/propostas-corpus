@@ -154,6 +154,15 @@
   .chip.ativo{background:var(--verde);border-color:var(--verde);
     color:#fff;}
   html[data-tema="escuro"] .chip.ativo{color:#0B1710;}
+  /* Alternância Empresa/Pessoa física no cabeçalho do card de cliente — mesmo
+     desenho da alternância de Destinações (dest-visao), compacto o bastante
+     pra caber ao lado do título sem empurrar ele pra baixo. */
+  .pessoa-toggle{display:flex;gap:4px;flex:0 0 auto;}
+  .pessoa-toggle button{background:var(--campo);border:1.5px solid var(--campo-borda);
+    border-radius:14px;padding:4px 10px;font-size:.72rem;color:inherit;font-family:inherit;
+    white-space:nowrap;}
+  .pessoa-toggle button.ativa{background:var(--verde);border-color:var(--verde);color:#fff;}
+  html[data-tema="escuro"] .pessoa-toggle button.ativa{color:#0B1710;}
   .oculto{display:none !important;}
   .etapa{margin-top:12px;padding-top:10px;border-top:1px dashed var(--card-borda);}
   .etapa-titulo{font-size:.78rem;color:var(--suave);text-transform:uppercase;
@@ -831,7 +840,16 @@
 
 <section class="aba-conteudo" id="aba-proposta">
   <div class="card" id="cardCliente">
-    <h2>Dados do cliente</h2>
+    <h2 style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span>Dados do cliente</span>
+      <!-- Empresa é o padrão (a esmagadora maioria das propostas), então nasce
+           marcado. Trocar pra Pessoa física reetiqueta o card inteiro — e o
+           que sai no Word também: CNPJ vira CPF, Razão Social vira Nome. -->
+      <span class="pessoa-toggle" role="group" aria-label="Tipo de cliente">
+        <button type="button" class="ativa" id="btnPJ" onclick="definirTipoPessoa('PJ')">Empresa</button>
+        <button type="button" id="btnPF" onclick="definirTipoPessoa('PF')">Pessoa física</button>
+      </span>
+    </h2>
 
     <!-- Um caminho só pra preencher: cola o que o cliente mandou (ou só o CNPJ)
          e o app extrai o que der do texto e completa o resto na Receita. -->
@@ -839,12 +857,12 @@
     <button class="btn-principal btn-full" onclick="preencherAutomatico()">Preencher automaticamente</button>
     <div class="sub" id="resumoExtracao"></div>
 
-    <label>Razão Social</label>
+    <label id="lblRazaoSocial">Razão Social</label>
     <input type="text" id="razaoSocial" style="text-transform:uppercase" oninput="conferirRazaoSocial()">
     <div class="sub" id="avisoRazaoSocial"></div>
     <div class="row-doc">
-      <div><label>CNPJ</label><input type="text" id="cnpj" inputmode="numeric" oninput="mascaraCNPJ(this);conferirCNPJ()"></div>
-      <div><label>Inscrição Estadual</label><input type="text" id="ie" inputmode="numeric" oninput="mascaraIE(this)" placeholder="ISENTO se em branco"></div>
+      <div><label id="lblCnpj">CNPJ</label><input type="text" id="cnpj" inputmode="numeric" oninput="mascaraDocumento(this);conferirDocumento()"></div>
+      <div><label id="lblIe">Inscrição Estadual</label><input type="text" id="ie" inputmode="numeric" oninput="mascaraIE(this)" placeholder="ISENTO se em branco"></div>
     </div>
     <div class="sub" id="avisoCNPJ"></div>
     <div class="sub" id="statusCNPJ"></div>
@@ -1654,6 +1672,9 @@ const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agos
 const OBJETO_PADRAO="COLETA, TRANSPORTE E DESTINAÇÃO FINAL DE RESÍDUO";
 const SUBOBJETO_PADRAO="PRESTAÇÃO";
 let itens=[], sel={}, objetoSel=OBJETO_PADRAO, subObjetoSel=SUBOBJETO_PADRAO, mesmoEnd=true;
+// "PJ" (empresa, com CNPJ) ou "PF" (pessoa física, com CPF). Muda os rótulos do
+// card, a máscara e validação do campo de documento, e o que sai no Word.
+let tipoPessoa="PJ";
 /* Contatos ALÉM do primeiro. O campo "Contato"/"Telefone" de cima continua
    sendo o responsável — é ele, sozinho, que vai pra Proposta. No Aceite saem
    todos, separados por barra. */
@@ -1950,6 +1971,18 @@ function mascaraCNPJ(el){
     .replace(/^(\d{2})(\d)/,"$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/,"$1.$2.$3")
     .replace(/\.(\d{3})(\d)/,".$1/$2").replace(/(\d{4})(\d)/,"$1-$2"));
 }
+// Mesma receita de máscara incremental do CNPJ, só que com grupos de CPF
+// (3,3,3,2 em vez de 2,3,3,4,2) — por isso um passo a menos na cadeia.
+function mascaraCPF(el){
+  aplicarMascara(el,txt=>so(txt).slice(0,11)
+    .replace(/^(\d{3})(\d)/,"$1.$2").replace(/^(\d{3})\.(\d{3})(\d)/,"$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/,".$1-$2"));
+}
+// O campo de documento é um só (id="cnpj") pros dois tipos de pessoa — troca
+// de nome exigiria atualizar rascunho, propostas salvas, base de clientes e
+// ficha de cliente, tudo pra guardar o mesmo dígito no fim. A máscara certa é
+// escolhida na hora, pelo que estiver marcado no card.
+function mascaraDocumento(el){ (tipoPessoa==="PF"?mascaraCPF:mascaraCNPJ)(el); }
 function mascaraTelefone(el){
   aplicarMascara(el,txt=>{
     let v=so(txt).slice(0,11);
@@ -1993,6 +2026,11 @@ function aplicaGruposIE(v,cfg){
   return out;
 }
 function mascaraIE(el){
+  // RG não tem uma quantidade fixa de dígitos nem separador único — muda de
+  // estado pra estado, e vários incluem letra no dígito verificador ("X",
+  // por exemplo). Forçar o mesmo molde da IE erraria mais do que ajudaria;
+  // pessoa física digita o RG livre, sem máscara nenhuma.
+  if(tipoPessoa==="PF") return;
   const uf=(document.getElementById("uf")?.value||"").toUpperCase().trim();
   aplicarMascara(el,txt=>{
     if(uf==="BA"){
@@ -2043,7 +2081,9 @@ function partirEndereco(txt){
 function conferirRazaoSocial(){
   const v=document.getElementById("razaoSocial").value.trim();
   const el=document.getElementById("avisoRazaoSocial");
-  if(!v){el.textContent="";return;}
+  // Pessoa física não tem sufixo de empresa pra conferir — o nome da pessoa
+  // é o nome da pessoa, sem LTDA nem S.A. no fim.
+  if(!v||tipoPessoa==="PF"){el.textContent="";return;}
   const temSufixo=/\b(LTDA|ME|EIRELI|S\/?A|EPP|MEI|SS)\.?\s*$/i.test(v);
   el.textContent=temSufixo?"":"Confira se falta LTDA, ME, S.A. ou outro sufixo — confronte com o Cartão CNPJ.";
 }
@@ -2064,20 +2104,70 @@ function cnpjValido(valor){
   };
   return digito(n.slice(0,12))===n[12] && digito(n.slice(0,13))===n[13];
 }
+// Mesma ideia do CNPJ (módulo 11), só que com 11 dígitos e dois dígitos
+// verificadores em vez de um — a conta clássica de CPF.
+function cpfValido(valor){
+  const n=so(valor);
+  if(n.length!==11) return false;
+  if(/^(\d)\1{10}$/.test(n)) return false;           // 00000000000 e parentes
+  const digito=base=>{
+    let peso=base.length+1, soma=0;
+    for(let i=0;i<base.length;i++) soma+=Number(base[i])*(peso--);
+    const r=soma%11;
+    return String(r<2?0:11-r);
+  };
+  return digito(n.slice(0,9))===n[9] && digito(n.slice(0,10))===n[10];
+}
 /* Avisa, mas NÃO trava a geração: pode existir motivo pra digitar algo fora do
    padrão, e barrar por isso atrapalharia mais do que ajudaria. */
-function conferirCNPJ(){
+function conferirDocumento(){
   const el=document.getElementById("cnpj"), aviso=document.getElementById("avisoCNPJ");
   if(!el||!aviso) return;
   const n=so(el.value);
   if(!n){aviso.textContent="";aviso.classList.remove("ruim");return;}
-  if(n.length<14){
-    aviso.textContent="CNPJ incompleto — "+n.length+" de 14 dígitos.";
+  const rotulo=tipoPessoa==="PF"?"CPF":"CNPJ", alvo=tipoPessoa==="PF"?11:14;
+  if(n.length<alvo){
+    aviso.textContent=rotulo+" incompleto — "+n.length+" de "+alvo+" dígitos.";
     aviso.classList.add("ruim"); return;
   }
-  const ok=cnpjValido(n);
-  aviso.textContent=ok?"":"Esse CNPJ não passa na conta do dígito verificador. Confira antes de gerar.";
+  const ok=tipoPessoa==="PF"?cpfValido(n):cnpjValido(n);
+  aviso.textContent=ok?"":"Esse "+rotulo+" não passa na conta do dígito verificador. Confira antes de gerar.";
   aviso.classList.toggle("ruim",!ok);
+}
+/* ============ PESSOA FÍSICA ============
+   Só reetiqueta o card: nome do rótulo, placeholder e teclado do RG. Nenhum
+   campo novo — CPF mora no mesmo #cnpj que o CNPJ, RG no mesmo #ie que a
+   Inscrição Estadual. É o que faz rascunho, propostas salvas e base de
+   clientes funcionarem sem precisar duplicar campo nenhum. */
+function aplicarRotulosPessoa(){
+  document.getElementById("btnPJ").classList.toggle("ativa",tipoPessoa==="PJ");
+  document.getElementById("btnPF").classList.toggle("ativa",tipoPessoa==="PF");
+  document.getElementById("lblRazaoSocial").textContent=tipoPessoa==="PF"?"Nome":"Razão Social";
+  document.getElementById("lblCnpj").textContent=tipoPessoa==="PF"?"CPF":"CNPJ";
+  document.getElementById("lblIe").textContent=tipoPessoa==="PF"?"RG":"Inscrição Estadual";
+  const campoIe=document.getElementById("ie");
+  campoIe.placeholder=tipoPessoa==="PF"?"opcional":"ISENTO se em branco";
+  campoIe.inputMode=tipoPessoa==="PF"?"text":"numeric";
+}
+// Restaura um tipo já decidido (rascunho, proposta salva, cliente da base
+// rápida) — só ajeita a etiqueta, sem mexer no que já está digitado.
+function restaurarTipoPessoa(tipo){
+  tipoPessoa=(tipo==="PF")?"PF":"PJ";
+  aplicarRotulosPessoa();
+}
+// Troca feita pelo próprio Léo, no card: reaproveita os dígitos que já
+// estavam sob a máscara antiga e revalida na hora — sem isso um CNPJ pela
+// metade ficaria com pontuação de CPF (ou o contrário) até a tecla seguinte.
+function definirTipoPessoa(tipo){
+  if((tipo!=="PF"&&tipo!=="PJ")||tipo===tipoPessoa) return;
+  tipoPessoa=tipo;
+  aplicarRotulosPessoa();
+  const campoDoc=document.getElementById("cnpj");
+  campoDoc.value=so(campoDoc.value);
+  mascaraDocumento(campoDoc);
+  conferirDocumento();
+  conferirRazaoSocial();
+  agendarRascunho();
 }
 // sufixo "" = endereço de faturamento; "Coleta" = endereço de coleta
 function quebrarGenerico(sufixo){
@@ -2529,8 +2619,15 @@ function extrairDoTexto(){
   const achados=[];
   const set=(id,v)=>{if(v){document.getElementById(id).value=v;}};
 
-  const mC=t.match(/\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2}/);
-  if(mC){const el=document.getElementById("cnpj");el.value=mC[0];mascaraCNPJ(el);conferirCNPJ();achados.push("CNPJ");}
+  // O documento que se procura no texto colado depende do que está marcado no
+  // card: pessoa física não tem CNPJ pra achar, e o contrário também vale.
+  if(tipoPessoa==="PF"){
+    const mP=t.match(/\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}/);
+    if(mP){const el=document.getElementById("cnpj");el.value=mP[0];mascaraDocumento(el);conferirDocumento();achados.push("CPF");}
+  }else{
+    const mC=t.match(/\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2}/);
+    if(mC){const el=document.getElementById("cnpj");el.value=mC[0];mascaraDocumento(el);conferirDocumento();achados.push("CNPJ");}
+  }
   const mE=t.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
   if(mE){set("email",mE[0]);achados.push("e-mail");}
   const fone=telefoneDoTexto(t);
@@ -2603,6 +2700,21 @@ async function preencherAutomatico(){
   const st=document.getElementById("resumoExtracao");
   const campoTexto=document.getElementById("colaTexto");
   const achados=campoTexto.value.trim()?extrairDoTexto():[];
+
+  // A Receita responde por CNPJ — não existe consulta pública equivalente pra
+  // CPF, e nem seria o caso de tentar: dado de pessoa física não se busca
+  // assim. Pessoa física fica só com o que veio do texto colado.
+  if(tipoPessoa==="PF"){
+    if(enderecoInformado){
+      document.getElementById("enderecoUnico").value=enderecoInformado;
+      ultimoEnderecoLido[""]="";
+      quebrarEndereco();
+    }
+    st.textContent=achados.length
+      ? "Reconhecido: "+achados.join(", ")+". Pessoa física não tem consulta automática — confira o resto à mão."
+      : "Nada reconhecido — preencha à mão. Pessoa física não tem consulta automática.";
+    return;
+  }
 
   const doc=so(document.getElementById("cnpj").value);
   if(doc.length===14){
@@ -6231,7 +6343,7 @@ function salvarRascunho(){
       v && v.trim() && k!=="proposalNumber" && k!=="dataProposta");
     if(vazio){localStorage.removeItem(LS_RASCUNHO);return;}
     localStorage.setItem(LS_RASCUNHO,JSON.stringify({
-      form, itens, objetoSel, subObjetoSel, mesmoEnd, propostaAtualId,
+      form, itens, objetoSel, subObjetoSel, mesmoEnd, propostaAtualId, tipoPessoa,
       enderecoInformado, contatosExtras, pontosColeta, quando:Date.now()
     }));
   }catch(e){}
@@ -6251,6 +6363,7 @@ function restaurarRascunho(){
     if(s) d=JSON.parse(s);
   }catch(e){}
   if(!d||!d.form) return false;
+  restaurarTipoPessoa(d.tipoPessoa||"PJ");
   CAMPOS_FORM.forEach(id=>{const el=document.getElementById(id); if(el&&d.form[id]!==undefined) el.value=d.form[id];});
   itens=Array.isArray(d.itens)?d.itens:[];
   objetoSel=d.objetoSel||OBJETO_PADRAO;
@@ -6266,6 +6379,7 @@ function restaurarRascunho(){
                       "Coleta":document.getElementById("enderecoColetaUnico").value};
   document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
   conferirRazaoSocial();
+  conferirDocumento();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   return true;
@@ -6325,6 +6439,7 @@ function salvarPropostaAtual(){
     cliente: form.razaoSocial.toUpperCase(),
     data: form.dataProposta,
     salvoEm: new Date().toISOString(),
+    tipoPessoa,
     form, mesmoEnd, objetoSel, subObjetoSel,
     contatosExtras: JSON.parse(JSON.stringify(contatosExtras)),
     pontosColeta: pontosColeta.slice(),
@@ -6380,11 +6495,18 @@ function renderHistorico(){
   });
 }
 /* ---- Ficha da proposta salva ---- */
-const CAMPOS_FICHA=[
-  ["razaoSocial","Razão social"],["cnpj","CNPJ"],["ie","Inscrição Estadual"],
-  ["solicitante","Contato"],["telefone","Telefone"],["email","E-mail"],
-  ["proposalNumber","Nº da proposta"],["dataProposta","Data"]
-];
+// O tipo é o que a PROPOSTA guardou (p.tipoPessoa), não o que está marcado no
+// card agora — reabrir uma proposta antiga de pessoa física continua mostrando
+// Nome/CPF/RG mesmo que a próxima, no card, seja de uma empresa.
+function camposFicha(tipoP){
+  return [
+    ["razaoSocial",tipoP==="PF"?"Nome":"Razão social"],
+    ["cnpj",tipoP==="PF"?"CPF":"CNPJ"],
+    ["ie",tipoP==="PF"?"RG":"Inscrição Estadual"],
+    ["solicitante","Contato"],["telefone","Telefone"],["email","E-mail"],
+    ["proposalNumber","Nº da proposta"],["dataProposta","Data"]
+  ];
+}
 let fichaPropostaId=null;
 function abrirFichaProposta(id){
   const p=propostas.find(x=>x.id===id);
@@ -6425,7 +6547,7 @@ function abrirFichaProposta(id){
   const form=document.getElementById("propForm");
   form.innerHTML="";
   p.form=p.form||{};
-  CAMPOS_FICHA.forEach(([campo,rotulo])=>{
+  camposFicha(p.tipoPessoa||"PJ").forEach(([campo,rotulo])=>{
     const lab=document.createElement("label"); lab.textContent=rotulo;
     const inp=document.createElement("input");
     inp.type=(campo==="dataProposta")?"date":"text";
@@ -6478,6 +6600,7 @@ async function abrirProposta(id,comoCopia){
     if(!segue) return;
   }
 
+  restaurarTipoPessoa(p.tipoPessoa||"PJ");
   CAMPOS_FORM.forEach(campo=>{
     const el=document.getElementById(campo);
     if(el) el.value=(p.form&&p.form[campo])||"";
@@ -6506,6 +6629,7 @@ async function abrirProposta(id,comoCopia){
 
   document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
   conferirRazaoSocial();
+  conferirDocumento();
   // Endereço vem salvo já separado — marca como lido pra não reprocessar
   ultimoEnderecoLido={"":document.getElementById("enderecoUnico").value,
                       "Coleta":document.getElementById("enderecoColetaUnico").value};
@@ -6643,6 +6767,7 @@ async function novaProposta(silencioso){
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;
   mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; linkEscolhido={};
+  restaurarTipoPessoa("PJ");
   enderecoInformado="";
   contatosExtras=[];renderContatosExtras();
   pontosColeta=[];renderPontosColeta();
@@ -7135,17 +7260,24 @@ function mapear(){
   const cepC=mesmoEnd?g("cep"):g("cepColeta");
   const locais=pontosDeColeta(endC?(endC+(cepC?", CEP "+cepC:"")):"");
   const d=g("dataProposta")?new Date(g("dataProposta")+"T00:00:00"):new Date();
-  // Cliente que não informa Inscrição Estadual é isento — em branco o Aceite
-  // sairia com o campo vazio, que o cliente devolve perguntando. Na Proposta o
-  // sufixo some de vez: "; IE: ISENTO" ao lado do CNPJ é ruído numa linha que
-  // já diz o que precisa.
-  const ie=g("ie")||"ISENTO";
+  // Cliente PJ que não informa Inscrição Estadual é isento — em branco o
+  // Aceite sairia com o campo vazio, que o cliente devolve perguntando. Na
+  // Proposta o sufixo some de vez: "; IE: ISENTO" ao lado do CNPJ é ruído numa
+  // linha que já diz o que precisa. Pessoa física não tem essa convenção —
+  // "ISENTO" ao lado de um CPF não quer dizer nada — então RG em branco fica
+  // simplesmente em branco.
+  const rotuloIE=tipoPessoa==="PF"?"RG":"IE";
+  const ie=g("ie")||(tipoPessoa==="PF"?"":"ISENTO");
   return {rs:g("razaoSocial").toUpperCase(),mapa:{
     razao_social:g("razaoSocial").toUpperCase(),
+    // Os rótulos fixos do Word ("CNPJ:", "Razão Social:") viraram campo — é o
+    // que faz o mesmo modelo servir os dois tipos de cliente.
+    rotulo_doc:tipoPessoa==="PF"?"CPF":"CNPJ",
+    rotulo_nome:tipoPessoa==="PF"?"Nome":"Razão Social",
     // Proposta leva só o responsável; o Aceite troca isso por todos (mapaAceite)
     contato_nome:contatosParaDocumento().primeiro.nome,
     telefone:contatosParaDocumento().primeiro.fone,
-    cnpj:g("cnpj"),inscricao_estadual_sufixo:g("ie")?`; IE: ${g("ie")}`:"",inscricao_estadual:ie,
+    cnpj:g("cnpj"),inscricao_estadual_sufixo:g("ie")?`; ${rotuloIE}: ${g("ie")}`:"",inscricao_estadual:ie,
     endereco_completo:end,endereco_logradouro:G("logradouro"),bairro:G("bairro"),cidade_uf:cu,cep:g("cep"),
     email:g("email"),email_nfe:g("email"),endereco_coleta:endC,endereco_coleta_local:endCLocal,cidade_uf_coleta:cuC,
     rotulo_coleta:locais.length>1?"Locais de Coleta":"Local de Coleta",
@@ -8002,7 +8134,9 @@ function alternarTema(){
 function checar(precisaItens){
   const st=document.getElementById("statusGeracao");
   const {rs,mapa}=mapear();
-  if(!rs){st.textContent="";avisar("Sem a Razão Social o documento sai sem o nome do cliente. Preencha o campo lá em cima — ou cole o CNPJ e toque em Preencher automaticamente.");return null;}
+  if(!rs){st.textContent="";avisar(tipoPessoa==="PF"
+    ?"Sem o Nome o documento sai sem identificar o cliente. Preencha o campo lá em cima."
+    :"Sem a Razão Social o documento sai sem o nome do cliente. Preencha o campo lá em cima — ou cole o CNPJ e toque em Preencher automaticamente.");return null;}
   if(precisaItens&&!itens.length){st.textContent="";avisar("A proposta não tem nenhuma linha de serviço. Escolha uma categoria, marque os itens e toque em “+ Adicionar à proposta”.");return null;}
   return {rs,mapa,st};
 }
@@ -8899,16 +9033,17 @@ function gravarClientesRapidos(){
 }
 function registrarClienteRapido(){
   const g=id=>(document.getElementById(id).value||"").trim();
-  const cnpj=so(g("cnpj"));
-  if(!cnpjValido(cnpj)) return;                 // sem documento válido, não entra
+  const doc=so(g("cnpj"));
+  // sem documento válido pro tipo marcado, não entra
+  if(!(tipoPessoa==="PF"?cpfValido(doc):cnpjValido(doc))) return;
   const c=contatosParaDocumento();
   // E-mail e endereço entram junto: a ficha do cliente mostra os quatro, e
   // guardar só nome e telefone obrigava a reabrir a proposta antiga pro resto.
-  const novo={razaoSocial:g("razaoSocial").toUpperCase(), cnpj:g("cnpj"),
+  const novo={razaoSocial:g("razaoSocial").toUpperCase(), cnpj:g("cnpj"), tipoPessoa,
               contato:c.primeiro.nome, telefone:c.primeiro.fone,
               email:g("email"), endereco:g("enderecoUnico"), em:Date.now()};
-  // Dedup por CNPJ (só os dígitos): cliente repetido atualiza, não duplica.
-  const i=clientesRapidos.findIndex(x=>so(x.cnpj)===cnpj);
+  // Dedup por documento (só os dígitos): cliente repetido atualiza, não duplica.
+  const i=clientesRapidos.findIndex(x=>so(x.cnpj)===doc);
   if(i>=0) clientesRapidos[i]=Object.assign(clientesRapidos[i],novo);
   else clientesRapidos.unshift(novo);
   if(clientesRapidos.length>400) clientesRapidos=clientesRapidos.slice(0,400);
@@ -8964,20 +9099,25 @@ function linkWhatsApp(fone){
    antigo — e não havia como consertar sem gerar outra proposta. Agora os
    próprios campos são editáveis, e grava na base rápida ao sair do campo. */
 let clienteAberto=null;
-const CAMPOS_CLIENTE=[
-  ["razaoSocial","Razão social","text"],
-  ["cnpj","CNPJ","text"],
-  ["contato","Contato","text"],
-  ["telefone","Telefone","tel"],
-  ["email","E-mail","email"],
-  ["endereco","Endereço","text"]
-];
+// O rótulo do documento acompanha o tipo GRAVADO no cliente (c.tipoPessoa),
+// não o que está marcado no card agora — cada cliente da base lembra o que é.
+function camposCliente(tipoP){
+  return [
+    ["razaoSocial",tipoP==="PF"?"Nome":"Razão social","text"],
+    ["cnpj",tipoP==="PF"?"CPF":"CNPJ","text"],
+    ["contato","Contato","text"],
+    ["telefone","Telefone","tel"],
+    ["email","E-mail","email"],
+    ["endereco","Endereço","text"]
+  ];
+}
 function abrirFichaCliente(c){
   clienteAberto=c;
+  const tipoP=c.tipoPessoa||"PJ";
   document.getElementById("cliTitulo").textContent=c.razaoSocial||"Cliente";
   const el=document.getElementById("cliCorpo");
   el.innerHTML="";
-  CAMPOS_CLIENTE.forEach(([campo,rotulo,tipo])=>{
+  camposCliente(tipoP).forEach(([campo,rotulo,tipo])=>{
     const d=document.createElement("div");
     d.className="campo";
     const r=document.createElement("div"); r.className="rot"; r.textContent=rotulo;
@@ -8988,7 +9128,7 @@ function abrirFichaCliente(c){
     if(campo==="cnpj") inp.inputMode="numeric";
     if(campo==="telefone") inp.inputMode="tel";
     inp.oninput=()=>{
-      if(campo==="cnpj") mascaraCNPJ(inp);
+      if(campo==="cnpj") (tipoP==="PF"?mascaraCPF:mascaraCNPJ)(inp);
       if(campo==="telefone") mascaraTelefone(inp);
       c[campo]=inp.value;
       if(campo==="razaoSocial") document.getElementById("cliTitulo").textContent=inp.value||"Cliente";
@@ -9045,9 +9185,10 @@ function fecharCliente(){
   listarClientes();   // razão social editada precisa aparecer na lista
 }
 function carregarClienteRapido(c){
+  restaurarTipoPessoa(c.tipoPessoa||"PJ");
   document.getElementById("razaoSocial").value=(c.razaoSocial||"").toUpperCase();
   conferirRazaoSocial();
-  const elc=document.getElementById("cnpj");elc.value=c.cnpj||"";mascaraCNPJ(elc);conferirCNPJ();
+  const elc=document.getElementById("cnpj");elc.value=c.cnpj||"";mascaraDocumento(elc);conferirDocumento();
   document.getElementById("solicitante").value=c.contato||"";
   const elt=document.getElementById("telefone");elt.value=c.telefone||"";mascaraTelefone(elt);
   if(c.email) document.getElementById("email").value=c.email;
@@ -9063,7 +9204,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.29-7";
+const APP_VERSION="2026.08.31-9";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
