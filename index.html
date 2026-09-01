@@ -966,12 +966,18 @@
     <div class="vazio" id="listaVazia">Nenhum item adicionado ainda.</div>
     <div id="listaItensProposta"></div>
 
-    <!-- Fotos que o cliente manda da atividade. Ficam presas à proposta, no
-         aparelho: não entram no .docx nem na sincronia. -->
-    <div class="titulo-secao"><span>Fotos da atividade <span class="badge" id="contagemFotos">0</span></span></div>
-    <div class="sub">O que o cliente mandou do local — caçamba, área, resíduo. Fica
-      guardado <strong>com esta proposta</strong>, neste aparelho. Não vai pro
-      documento do cliente nem para a sincronia.</div>
+    <!-- O que se sabe da atividade: um texto livre com os detalhes do serviço e
+         as fotos que o cliente mandou. Fica preso à proposta, no aparelho: não
+         entra no .docx nem na sincronia. -->
+    <div class="titulo-secao"><span>Informações da atividade <span class="badge" id="contagemAtividade">0</span></span></div>
+    <div class="sub">Os detalhes do serviço e o que o cliente mandou do local —
+      caçamba, área, resíduo. Fica guardado <strong>com esta proposta</strong>,
+      neste aparelho. Não vai pro documento do cliente nem para a sincronia.</div>
+    <!-- O texto é o lugar do que a foto não conta: horário que o portão abre, com
+         quem falar na portaria, por que o preço saiu daquele jeito. Some junto
+         com a proposta quando ela é apagada, como as fotos. -->
+    <textarea id="notaAtividade" rows="3" oninput="ajustarAltura(this);agendarNotaAtividade()"
+      placeholder="Ex.: caçamba fica no pátio dos fundos, acesso só até as 16h. Portão estreito, não entra caminhão grande. Falar com o Sr. Antônio na portaria."></textarea>
     <div class="fotos-grade" id="gradeFotos"></div>
     <input type="file" id="arqFotos" accept="image/*" multiple class="oculto" onchange="guardarFotos(this)">
     <!-- tabindex: sem foco não existe evento de colar. Clicar continua abrindo
@@ -1156,8 +1162,8 @@
       </div>
       <input type="file" id="arqTudo" accept="application/json" class="oculto" onchange="importarTudo(this)">
       <div class="sub aviso-sigilo">Fora do arquivo, porque não cabem em JSON:
-        as <strong>fotos da atividade</strong> e os arquivos da aba Apoio — esses
-        vivem só no aparelho.</div>
+        as <strong>informações da atividade</strong> (anotação e fotos) e os
+        arquivos da aba Apoio — esses vivem só no aparelho.</div>
       <div class="status" id="statusBackup"></div>
 
       <!-- Estes dois controles moraram nas abas Destinações e Propostas e
@@ -4001,11 +4007,19 @@ function soltarArrasto(){
   render();
 }
 
-// Textarea que cresce com o texto, em vez de esconder o que foi colado
+/* Textarea que cresce com o texto, em vez de esconder o que foi colado.
+
+   A guarda do offsetParent é o conserto de um defeito real: elemento dentro de
+   algo com display:none tem scrollHeight 0, e a altura acabava fixada em 0px.
+   Era o que espremia a mensagem do e-mail em três linhas com barra de rolagem
+   — a medição rodava antes de o modal aparecer. Sem layout não dá pra medir:
+   deixa o `rows` do HTML valendo e ajusta de novo quando estiver visível. */
 function ajustarAltura(el){
-  if(!el) return;
+  if(!el||!el.offsetParent) return;
   el.style.height="auto";
-  el.style.height=Math.min(el.scrollHeight,420)+"px";
+  const alvo=el.scrollHeight;
+  if(!alvo){ el.style.height=""; return; }
+  el.style.height=Math.min(alvo,420)+"px";
 }
 
 /* ============ CATÁLOGO EDITÁVEL ============
@@ -4134,7 +4148,7 @@ let snapshots={};
    existem antes da linha que os declara. Foi a SEXTA vez que esse tropeço
    apareceu neste arquivo — na quinta ele derrubou o script inteiro em silêncio. */
 const IDB_NOME="corpus_fs", IDB_LOJA="alcas";
-const IDB_FOTO="foto:";
+const IDB_FOTO="foto:", IDB_NOTA="nota:";
 const FOTO_LADO_MAX=1600, FOTO_QUALIDADE=0.82;
 let urlsFotos=[];
 /* E as propostas salvas junto — renderFotos() precisa saber de qual proposta são
@@ -6382,6 +6396,12 @@ function restaurarRascunho(){
   conferirDocumento();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderResumoEndereco("");renderResumoEndereco("Coleta");
+  /* O cartão da atividade é pintado lá no iniciarApp(), que roda ANTES daqui —
+     ou seja, antes de existir propostaAtualId. Sem repintar agora, quem
+     recarregasse a página com um rascunho em andamento via o cartão vazio: as
+     fotos e a anotação continuavam guardadas no banco, mas sumiam da tela, que
+     do lado de cá é a mesma coisa que ter perdido. */
+  renderFotos();
   return true;
 }
 
@@ -7362,8 +7382,10 @@ function abrirEmail(){
   // Abre já no modelo que corresponde ao que acabou de sair
   emailModeloId=(MODELOS_EMAIL.find(m=>m.id===tipo)||MODELOS_EMAIL[0]).id;
   document.getElementById("emailPara").value=(document.getElementById("email")||{}).value||"";
-  pintarEmail(true);
+  // Mostra ANTES de preencher: a mensagem se ajusta à própria altura, e altura
+  // só existe pra quem está na tela (ver ajustarAltura).
   document.getElementById("modalEmail").classList.remove("oculto");
+  pintarEmail(true);
 }
 function fecharEmail(){
   document.getElementById("modalEmail").classList.add("oculto");
@@ -7797,42 +7819,55 @@ function nomeParaSaudacao(){
    são as continuações da mesma conversa — cobrar retorno, reenviar depois de
    ajustar valor, e agradecer quando o aceite volta assinado. Todos editáveis
    antes de enviar: modelo é ponto de partida, não camisa de força. */
+/* O assunto é o que o cliente vê na caixa de entrada e é por onde ele acha o
+   e-mail meses depois — então diz o que é, de qual proposta e de quem, nessa
+   ordem: "Proposta 100900-2026 - CETURB-ES". O nome da Corpus saía no fim de
+   todo assunto e não ajudava ninguém: quem recebe já sabe quem mandou, e a
+   razão social do cliente é o que ele procura.
+
+   Os três de continuação (cobrar retorno, revisada, aceite recebido) mantêm o
+   assunto de "Proposta": é a mesma conversa, e assunto igual faz o e-mail cair
+   na mesma thread em vez de abrir uma nova. */
+function assuntoEmail(rotulo,a){
+  const cli=String(a.cliente||"").trim();
+  return rotulo+" "+a.numero+(cli?" - "+cli:"");
+}
 const MODELOS_EMAIL=[
   {id:"proposta", rot:"Proposta", quando:["proposta"],
-   assunto:a=>"Proposta Comercial "+a.numero+" — Corpus Saneamento e Obras",
+   assunto:a=>assuntoEmail("Proposta",a),
    corpo:()=>
-"Segue proposta comercial para avaliação, caso esteja de acordo, peço que nos sinalize para darmos andamento ao cadasto e no agendamento dos serviços.\n\n"+
+"Segue proposta comercial para avaliação, caso esteja de acordo, peço que nos sinalize para darmos andamento ao cadastro e no agendamento dos serviços.\n\n"+
 "Qualquer dúvida, estamos à disposição."},
 
   {id:"aceite", rot:"Aceite", quando:["aceite"],
-   assunto:a=>"Aceite de Proposta "+a.numero+" — Corpus Saneamento e Obras",
+   assunto:a=>assuntoEmail("Aceite",a),
    corpo:()=>
 "Gentileza conferir as informações do arquivo “Aceite de Proposta” e devolvê-lo devidamente assinado, para darmos andamento ao cadastro e à execução do serviço.\n\n"+
 "Fico à disposição para quaisquer dúvidas."},
 
   {id:"ambos", rot:"Proposta + Aceite", quando:["ambos"],
-   assunto:a=>"Proposta Comercial e Aceite "+a.numero+" — Corpus Saneamento e Obras",
+   assunto:a=>assuntoEmail("Proposta e Aceite",a),
    corpo:()=>
 "Encaminho, em anexo, a proposta comercial juntamente com o termo de aceite para sua avaliação.\n\n"+
 "Caso esteja de acordo com os valores, gentileza conferir as informações do arquivo “Aceite de Proposta” e devolvê-lo devidamente assinado, para darmos andamento ao cadastro e à execução do serviço.\n\n"+
 "Fico à disposição para quaisquer dúvidas."},
 
   {id:"retorno", rot:"Cobrar retorno", quando:["proposta","aceite","ambos"],
-   assunto:a=>"Retomando — Proposta Comercial "+a.numero+" — Corpus Saneamento e Obras",
+   assunto:a=>assuntoEmail("Proposta",a),
    corpo:()=>
 "Retomo o contato a respeito da proposta comercial encaminhada anteriormente.\n\n"+
 "Permanece válida nas mesmas condições. Havendo interesse, peço que nos sinalize para darmos andamento ao cadastro e ao agendamento dos serviços.\n\n"+
 "Caso precise de algum ajuste para viabilizar, é só me dizer."},
 
   {id:"revisada", rot:"Proposta revisada", quando:["proposta","ambos"],
-   assunto:a=>"Proposta Comercial revisada "+a.numero+" — Corpus Saneamento e Obras",
+   assunto:a=>assuntoEmail("Proposta",a),
    corpo:()=>
 "Conforme conversamos, encaminho a proposta comercial revisada, já com os ajustes solicitados.\n\n"+
 "Peço que desconsidere a versão anterior. Estando de acordo, nos sinalize para darmos andamento ao cadastro e ao agendamento dos serviços.\n\n"+
 "Fico à disposição para quaisquer dúvidas."},
 
   {id:"assinado", rot:"Aceite recebido", quando:["proposta","aceite","ambos"],
-   assunto:a=>"Aceite recebido — "+a.numero+" — Corpus Saneamento e Obras",
+   assunto:a=>assuntoEmail("Proposta",a),
    corpo:()=>
 "Confirmo o recebimento do aceite devidamente assinado. Muito obrigado pela confiança.\n\n"+
 "Seguimos com o cadastro e retorno em seguida com o agendamento dos serviços.\n\n"+
@@ -7916,6 +7951,50 @@ async function idbListarPrefixo(prefixo){
   });
 }
 function prefixoFotos(id){ return IDB_FOTO+id+":"; }
+
+/* ---- A anotação da atividade ----
+   Mesmo contrato das fotos, e de propósito: mora no IndexedDB deste aparelho,
+   com a chave carregando o id da proposta. Não vai pro .docx (é anotação de
+   trabalho, não texto de cliente) e não entra na sincronia — o cartão promete
+   isso em letras grandes, e uma coisa dentro dele que se comportasse diferente
+   seria mentira. Apagar a proposta apaga a anotação junto.
+
+   Gravar a cada tecla escreveria no banco a cada letra; 500 ms depois da última
+   é rápido o bastante pra ninguém perceber e raro o bastante pra não pesar.
+
+   O que fica pendente nesses 500 ms carrega o DONO junto. Sem isso havia uma
+   corrida com jeito de perda de texto: quem escrevesse e anexasse uma foto em
+   seguida via a anotação sumir da tela — o cartão se repintava lendo do banco
+   uma anotação que ainda não tinha sido gravada. Levando o id junto, o que
+   está pendente é gravado antes de qualquer releitura, e vai pro dono certo
+   mesmo que a proposta aberta já tenha mudado. */
+function chaveNota(id){ return IDB_NOTA+id; }
+let timerNota=null, notaPendente=null;
+function agendarNotaAtividade(){
+  const el=document.getElementById("notaAtividade");
+  if(!el) return;
+  const txt=el.value.trim();
+  // Só cria dono pra anotação que existe: digitar e apagar não deve deixar uma
+  // proposta fantasma no histórico.
+  notaPendente={id: txt?idDaPropostaAtual():propostaAtualId, texto: txt};
+  clearTimeout(timerNota);
+  timerNota=setTimeout(salvarNotaAtividade,500);
+}
+async function salvarNotaAtividade(){
+  clearTimeout(timerNota); timerNota=null;
+  const p=notaPendente; notaPendente=null;
+  if(!p||!p.id) return;
+  try{
+    if(!p.texto) await idbApagar(chaveNota(p.id));
+    else await idbSet(chaveNota(p.id),{texto:p.texto,em:Date.now()});
+  }catch(e){ console.warn("nota da atividade: não deu pra guardar",e); }
+  await atualizarBadgeAtividade();
+}
+async function lerNotaAtividade(id){
+  if(!id) return "";
+  try{ const r=await idbGet(chaveNota(id)); return (r&&r.texto)||""; }
+  catch(e){ return ""; }
+}
 async function guardarFotos(input){
   const arqs=[...(input.files||[])].filter(a=>/^image\//.test(a.type));
   input.value="";
@@ -7965,6 +8044,20 @@ function iniciarCaixaFotos(){
     if(arquivos.length){ e.preventDefault(); guardarFotos({files:arquivos,value:""}); }
   };
 }
+/* O contador do cartão conta o que existe ali dentro: cada foto, e a anotação
+   como uma linha só. Assim uma proposta que só tem texto escrito não aparece
+   como se estivesse vazia. */
+async function atualizarBadgeAtividade(){
+  const badge=document.getElementById("contagemAtividade");
+  if(!badge) return;
+  const id=propostaAtualId;
+  let n=0;
+  if(id){
+    try{ n=(await idbListarPrefixo(prefixoFotos(id))).length; }catch(e){}
+    if((await lerNotaAtividade(id))) n++;
+  }
+  badge.textContent=n;
+}
 async function renderFotos(){
   const el=document.getElementById("gradeFotos");
   if(!el) return;
@@ -7975,8 +8068,16 @@ async function renderFotos(){
   const id=propostaAtualId;
   let chaves=[];
   if(id){ try{ chaves=await idbListarPrefixo(prefixoFotos(id)); }catch(e){ chaves=[]; } }
-  const badge=document.getElementById("contagemFotos");
-  if(badge) badge.textContent=chaves.length;
+  // a anotação da proposta que está aberta volta pra tela junto com as fotos.
+  // Grava o que estiver pendente ANTES de reler: o pendente sabe de quem é,
+  // então vai pro dono certo, e a leitura abaixo já enxerga a última tecla.
+  if(notaPendente) await salvarNotaAtividade();
+  const nota=document.getElementById("notaAtividade");
+  if(nota){
+    nota.value=await lerNotaAtividade(id);
+    ajustarAltura(nota);
+  }
+  await atualizarBadgeAtividade();
   if(!chaves.length){
     el.innerHTML='<span class="sub">Nenhuma foto anexada.</span>';
     return;
@@ -8001,12 +8102,21 @@ async function renderFotos(){
     el.appendChild(d);
   }
 }
+/* Some com tudo que era daquela proposta: as fotos e a anotação. É chamada
+   quando a proposta é excluída e quando um rascunho não salvo é abandonado —
+   nos dois casos o dono deixou de existir, e o que ficasse pra trás ficaria
+   ocupando espaço sem ninguém pra reclamar dele. */
 async function apagarFotosDe(id){
   if(!id) return;
+  /* Uma gravação de anotação ainda pendente PRA ESTA proposta tem que ser
+     esquecida aqui, não gravada: senão ela é escrita depois do apagamento e
+     ressuscita como anotação órfã, de uma proposta que não existe mais. */
+  if(notaPendente&&notaPendente.id===id){ clearTimeout(timerNota); timerNota=null; notaPendente=null; }
   try{
     const chaves=await idbListarPrefixo(prefixoFotos(id));
     for(const k of chaves) await idbApagar(k);
-  }catch(e){ console.warn("fotos: não deu pra apagar as de "+id,e); }
+    await idbApagar(chaveNota(id));
+  }catch(e){ console.warn("atividade: não deu pra apagar o que era de "+id,e); }
 }
 async function contarFotosDe(id){
   if(!id) return 0;
@@ -9241,7 +9351,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.08.31-10";
+const APP_VERSION="2026.09.01-11";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
