@@ -986,7 +986,7 @@
     <div class="caixa-fotos" id="caixaFotos" tabindex="0"
          onclick="document.getElementById('arqFotos').click()">
       <button class="btn-sec btn-full" type="button" tabindex="-1">📷 Anexar fotos</button>
-      <div class="caixa-fotos-dica">ou arraste aqui, ou cole com Ctrl+V</div>
+      <div class="caixa-fotos-dica">ou arraste o arquivo aqui — print de tela é só colar com Ctrl+V</div>
     </div>
     <div class="status" id="statusFotos"></div>
   </div>
@@ -1091,58 +1091,18 @@
       <input type="tel" id="meuTelefone" placeholder="(27) 99999-9999" autocomplete="off" oninput="guardarMeuDado('telefone',this.value)">
       <label>E-mail</label>
       <input type="email" id="meuEmail" placeholder="nome@corpus.com.br" autocomplete="off" oninput="guardarMeuDado('email',this.value)">
-      <label>Recado que o cliente já encontra escrito no WhatsApp</label>
-      <input type="text" id="meuRecado" placeholder="Olá! Vim pelo QR code da proposta." autocomplete="off" oninput="guardarMeuDado('recado',this.value)">
       <div class="sub aviso-sigilo" id="avisoMeus"></div>
       <div class="status" id="statusMeus"></div>
     </div>
   </div>
-  <!-- Sincronia: o mesmo cadastro no PC do trabalho e nos dois celulares, sem
-       que o conteúdo saia legível do aparelho. -->
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleSync()">Sincronizar aparelhos
-      <span class="badge" id="badgeSync">off</span><span class="seta" id="setaSync">▾</span></h2>
-    <div id="syncCorpo" class="oculto">
-      <div class="sub" style="margin-bottom:10px">
-        Clientes, propostas, custos e catálogos passam a valer nos três
-        aparelhos. O conteúdo é <strong>cifrado aqui dentro</strong> antes de
-        subir — o servidor guarda um embaralhado que nem ele consegue ler. A
-        senha não é gravada em lugar nenhum: você digita uma vez em cada
-        aparelho, e ela precisa ser <strong>a mesma nos três</strong>.
-      </div>
-      <label>Endereço do projeto</label>
-      <input type="text" id="syncUrl" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off">
-      <label>Chave pública (anon)</label>
-      <input type="text" id="syncAnon" placeholder="eyJhbGciOi..." autocomplete="off">
-      <label>Senha da sincronia</label>
-      <input type="password" id="syncSenha" placeholder="a mesma nos três aparelhos" autocomplete="new-password">
-      <div class="row2" style="margin-top:10px">
-        <button class="btn-sec" id="btnSyncLigar" onclick="ligarSync()">Ligar</button>
-        <button class="btn-sec" id="btnSyncAgora" onclick="rodarSync('botão')">Sincronizar agora</button>
-      </div>
-      <button class="btn-sec btn-full" style="margin-top:8px" id="btnSyncDesligar" onclick="desligarSync()">Desligar neste aparelho</button>
-      <div class="sub estado-sync" id="estadoSync"></div>
-      <div class="sub aviso-sigilo">Fica de fora: o rascunho em andamento, o tema,
-        o tamanho da tabela.</div>
-      <div class="sub" id="syncAjuda" style="margin-top:10px"></div>
-    </div>
-  </div>
-  <!-- Desfazer uma chegada da nuvem. Existe porque a fusão das tabelas grandes é
-       "vale a mais recente": se o aparelho errado subir por último, a versão boa
-       precisa ter pra onde voltar. -->
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleSnapshots()">Voltar uma versão
-      <span class="badge" id="badgeSnap">0</span><span class="seta" id="setaSnap">▾</span></h2>
-    <div id="snapCorpo" class="oculto">
-      <div class="sub" style="margin-bottom:10px">
-        Quando a sincronia substitui uma tabela inteira — custos, catálogos,
-        preços — a versão que estava aqui fica guardada <strong>neste
-        aparelho</strong>. Se chegou coisa errada, é um toque pra voltar.
-      </div>
-      <div id="listaSnapshots"></div>
-      <div class="status" id="statusSnap"></div>
-    </div>
-  </div>
+  <!-- A sincronia entre aparelhos e o "Voltar uma versão" saíram da tela.
+       Não davam a confiança que precisavam dar, e o Léo passou a centralizar
+       tudo no PC e levar o Backup completo pro celular quando precisa — que
+       para o uso dele faz o mesmo trabalho e é uma coisa só pra entender.
+       O motor continua no código, desligado (ver desligarMotorSync), porque
+       marcarSuja() é chamado de uma dúzia de lugares e arrancar isso agora
+       mexeria em todo canto que grava dado — inclusive no backup, que é
+       justamente o que ele passou a depender. -->
   <!-- Backup de tudo num arquivo só. Existia exportação de três coisas em três
        lugares diferentes (custos, propostas, clientes) e nenhuma levava catálogos,
        frota, preços, vínculos nem a base rápida de clientes. -->
@@ -4106,7 +4066,7 @@ let meusDadosApoio={nome:"",cpf:"",cargo:"",email:""};
    CPF nem documento, e cada pessoa usa a própria conta de sincronia — então o
    que viaja entre os aparelhos é sempre o dado de quem já é dono deles. */
 const LS_MEUS="corpus_meus_dados_v1";
-let meusDados={nome:"",cargo:"",telefone:"",email:"",recado:""}, meusAberto=false;
+let meusDados={nome:"",cargo:"",telefone:"",email:""}, meusAberto=false;
 
 const LS_SYNC="corpus_sync_v1";
 // `base` guarda, por seção, qual versão do servidor este aparelho já viu — é
@@ -4427,11 +4387,9 @@ function iniciarApp(){
   carregarExcluidos();
   carregarMeusDados();
   pintarMeus();
-  carregarSnapshots();
   carregarCards();
   carregarClientesRapidos();
   carregarFichas();
-  iniciarSync();
   fluxo();montarObjeto();montarChipsColeta();render();
   renderFotos();
   iniciarCaixaFotos();
@@ -6877,15 +6835,29 @@ function b64Bytes(b){const bin=atob(b),a=new Uint8Array(bin.length);
    Mexer em qualquer um desses números muda o equilíbrio dos outros quatro.
    Meça antes: larguraColunas() é determinístico e dá pra conferir no console. */
 const LARG_TOTAL=11052;              // largura da tabela no modelo, em twips
-const PAD_CELULA=300;                // margem interna das células + respiro contra
-                                      // kerning e margens que o canvas não replica 100%
+/* A margem interna real de cada célula é 216 twips (108 de cada lado, o padrão
+   do Word, que a tabela não sobrescreve). Os 300 daqui eram os 216 mais um
+   respiro largo contra kerning — largo demais: multiplicado pelas quatro
+   colunas estreitas, virava quase 1 cm que Observações não tinha. Em 240 sobra
+   respiro sem cobrar essa conta. Conferido em PDF: nada quebrou de linha. */
+const PAD_CELULA=240;
 // O "\n" em Valor Unitário é a quebra fixa que existe no modelo — o cabeçalho
 // sai sempre em duas linhas certas.
+/* Os tetos saíram das larguras que o Léo ajustou à mão na proposta do
+   CONSORCIO GLOBAL METROPOLE e mandou como base. O que ele fez foi consistente:
+   estreitou as quatro colunas da esquerda e passou quase 1 cm (594 twips) para
+   Observações — que é a coluna que carrega texto corrido de verdade e vinha
+   quebrando em muitas linhas enquanto as vizinhas sobravam largura.
+
+   Os números daqui reproduzem aquela proporção pela conta, em vez de fixá-la:
+   a tabela continua se adaptando ao conteúdo de cada proposta, só que com a
+   régua dele. Conferido convertendo pra PDF — o cabeçalho "Valor / Unitário
+   (R$)" continua em duas linhas, que é o que a calibração antiga protegia. */
 const COLUNAS_TABELA=[
   {cab:"Descrição",            campo:"descricao",   teto:2480, folga:1, pisoMin:2100},
-  {cab:"Resíduo",              campo:"residuo",     teto:1290, folga:0, pisoMin:1290},
-  {cab:"Unidade",              campo:"unidade",     teto:900,  folga:0, pisoMin:868},
-  {cab:"Valor\nUnitário (R$)", campo:"valor",       teto:1450, folga:0, pisoMin:1450, prioCorte:1, fonteCorpo:"11pt Arial"},
+  {cab:"Resíduo",              campo:"residuo",     teto:1200, folga:0, pisoMin:1120},
+  {cab:"Unidade",              campo:"unidade",     teto:780,  folga:0, pisoMin:700},
+  {cab:"Valor\nUnitário (R$)", campo:"valor",       teto:1340, folga:0, pisoMin:1340, prioCorte:1, fonteCorpo:"11pt Arial"},
   {cab:"Observações",          campo:"observacoes", teto:5400, folga:2, prosa:true, pisoMin:3500, prioCorte:2}
 ];
 let ctxMedida=null;
@@ -7118,7 +7090,6 @@ function linkDaCentral(mapa){
   // sem "@corpus.com.br": são 16 caracteres iguais pra empresa inteira, e a
   // central devolve o domínio na hora de montar o mailto
   if(meusDados.email)    p.set("e",meusDados.email.replace(/@corpus\.com\.br$/i,""));
-  if(meusDados.recado)   p.set("m",meusDados.recado);
   /* O QR de cada proposta carrega a proposta.
 
      O cliente lê o código com o documento na mão. Chegando no WhatsApp com a
@@ -8019,12 +7990,19 @@ async function guardarFotos(input){
   setTimeout(()=>{ if(st.textContent.includes("anexadas")) st.textContent=""; },4000);
   await renderFotos();
 }
-/* Três portas pro mesmo lugar. Clicar já existia (abre o seletor do sistema);
-   arrastar e colar convergem no mesmo guardarFotos(), que já reduz e grava —
-   nada muda lá dentro, só nasce mais um jeito de chegar até ele. Um objeto
-   {files:[...]} no lugar do <input> de verdade é o bastante: guardarFotos só
-   lê `.files` e escreve em `.value`, e um objeto solto aceita as duas coisas
-   sem reclamar. */
+/* Três portas pro mesmo lugar — clicar, arrastar e colar —, e cada uma no
+   lugar onde a mão já está.
+
+   Colar era a que estava errada. Ela morava no botão "Anexar fotos", que só
+   recebe Ctrl+V quando está com o foco; e clicar nele, que é como se dá foco,
+   é justamente o que abre o seletor de arquivo. Dava aquele malabarismo de
+   segurar o botão do mouse, apertar Ctrl+V e só então soltar. Print de tela
+   não se anexa pelo seletor de arquivo: ele vem da área de transferência, e
+   quem está com o cursor dentro da caixa de texto escrevendo os detalhes.
+   Então é lá que o Ctrl+V passa a valer — e no cartão inteiro, por garantia.
+
+   Clicar e arrastar continuam no botão, que é o gesto certo pra arquivo que
+   já existe no computador. */
 function iniciarCaixaFotos(){
   const caixa=document.getElementById("caixaFotos");
   if(!caixa) return;
@@ -8035,14 +8013,19 @@ function iniciarCaixaFotos(){
     caixa.classList.remove("arrastando");
     if(e.dataTransfer.files.length) guardarFotos({files:e.dataTransfer.files,value:""});
   };
-  // Precisa de foco pra receber "paste" — por isso o tabindex no HTML. Um
-  // toque na caixa (que também abre o seletor) já deixa ela em condição de
-  // receber Ctrl+V logo em seguida, sem passo extra.
-  caixa.onpaste=e=>{
+  const colar=e=>{
     const arquivos=[...(e.clipboardData?e.clipboardData.items:[])]
       .filter(i=>/^image\//.test(i.type)).map(i=>i.getAsFile()).filter(Boolean);
+    // Só intercepta quando o que veio é imagem: colar texto na caixa de texto
+    // continua sendo colar texto, sem susto.
     if(arquivos.length){ e.preventDefault(); guardarFotos({files:arquivos,value:""}); }
   };
+  /* Um ouvinte só, no cartão inteiro. O evento de colar sobe de quem tem o
+     foco até aqui, então isso já cobre a caixa de texto, as miniaturas e o
+     botão — sem correr o risco de dois ouvintes pegarem a mesma colagem e
+     anexarem a foto duas vezes. */
+  const cartao=caixa.closest(".card")||caixa.parentElement;
+  if(cartao) cartao.addEventListener("paste",colar);
 }
 /* O contador do cartão conta o que existe ali dentro: cada foto, e a anotação
    como uma linha só. Assim uma proposta que só tem texto escrito não aparece
@@ -8778,7 +8761,17 @@ function carregarSujas(){
 function gravarSujas(){
   try{ localStorage.setItem(LS_SUJAS,JSON.stringify(syncSujas)); }catch(e){}
 }
+/* ---- a sincronia está desligada ----
+   Ela saiu da tela a pedido do Léo: não estava dando a confiança que precisava
+   dar, e o fluxo virou centralizar no PC e levar o Backup completo pro celular.
+   As duas portas de entrada do motor (marcar algo como pendente e rodar uma
+   rodada) voltam na hora, então nada mais sobe nem desce. As funções continuam
+   existindo porque marcarSuja() é chamado de uma dúzia de lugares que gravam
+   dado; tirar as chamadas agora seria mexer em todo canto do arquivo, sem
+   ganho nenhum pra quem usa. */
+const SYNC_DESLIGADA=true;
 function marcarSuja(ls){
+  if(SYNC_DESLIGADA) return;
   if(!sync.ligado) return;
   const sec=secoesSync().find(x=>x.ls===ls);
   if(!sec) return;
@@ -8793,6 +8786,7 @@ function marcarSuja(ls){
    lados o que ficou diferente. Roda inteira ou não roda — se a rede cair no
    meio, o que não subiu continua marcado como sujo e sobe na próxima. */
 async function rodarSync(motivo){
+  if(SYNC_DESLIGADA) return;
   if(!sync.ligado||!syncChave||syncOcupado) return;
   if(!navigator.onLine){ pintarSync("offline"); return; }
   syncOcupado=true;
@@ -9024,7 +9018,7 @@ function guardarMeuDado(campo,valor){
 function pintarMeus(){
   const v=(id,k)=>{ const el=document.getElementById(id); if(el&&el.value!==(meusDados[k]||"")) el.value=meusDados[k]||""; };
   v("meuNome","nome"); v("meuCargo","cargo"); v("meuTelefone","telefone");
-  v("meuEmail","email"); v("meuRecado","recado");
+  v("meuEmail","email");
   const b=document.getElementById("badgeMeus");
   if(b) b.textContent=meusDados.nome?meusDados.nome.split(/\s+/)[0]:"!";
   const av=document.getElementById("avisoMeus");
@@ -9153,10 +9147,7 @@ async function iniciarSync(){
   const el=document.getElementById("estadoSync");
   if(el) el.textContent="Digite a senha da sincronia aqui em Ajustes pra retomar.";
 }
-document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible") rodarSync("voltou pra frente");
-});
-window.addEventListener("online",()=>rodarSync("voltou o sinal"));
+/* Os gatilhos automáticos da sincronia saíram junto com a tela dela. */
 
 /* ---- Base rápida ----
    Toda proposta gerada deixa o cliente aqui, com o mínimo pra reaproveitar
@@ -9351,7 +9342,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.01-13";
+const APP_VERSION="2026.09.04-14";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
