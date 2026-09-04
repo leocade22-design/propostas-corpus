@@ -6669,9 +6669,13 @@ function exportarTudo(){
                 em:new Date().toISOString(), chaves:Object.keys(dados).length, dados};
   const blob=new Blob([JSON.stringify(pacote,null,1)],{type:"application/json"});
   const nome="corpus-backup-"+new Date().toISOString().slice(0,10)+".json";
-  baixar(blob,nome);
-  document.getElementById("statusBackup").textContent=
-    pacote.chaves+" conjuntos de dados exportados em "+nome+".";
+  const st=document.getElementById("statusBackup");
+  st.textContent="Exportando...";
+  // "arquivo": vai pro download do navegador, não pra pasta dos documentos
+  baixar(blob,nome,"arquivo").then(pasta=>{
+    st.textContent=pacote.chaves+" conjuntos de dados exportados em "+nome
+      +(pasta?(" (pasta "+pasta+")"):" — procure em Downloads.");
+  }).catch(e=>{ st.textContent="Não deu pra exportar: "+(e.message||e); });
 }
 async function importarTudo(input){
   const arq=(input.files||[])[0];
@@ -6704,7 +6708,12 @@ async function importarTudo(input){
 }
 function exportarPropostas(){
   const blob=new Blob([JSON.stringify(propostas,null,2)],{type:"application/json"});
-  baixar(blob,"propostas-corpus.json");
+  const st=document.getElementById("statusHistorico");
+  if(st) st.textContent="Exportando...";
+  baixar(blob,"propostas-corpus.json","arquivo").then(pasta=>{
+    if(st) st.textContent=propostas.length+" propostas exportadas em "
+      +"propostas-corpus.json"+(pasta?(" (pasta "+pasta+")"):" — procure em Downloads.");
+  }).catch(e=>{ if(st) st.textContent="Não deu pra exportar: "+(e.message||e); });
 }
 function importarPropostas(input){
   const arq=input.files&&input.files[0]; if(!arq)return;
@@ -7241,8 +7250,19 @@ async function recomprimirImagensDoModelo(zip){
   }
 }
 // tipo: "proposta" ou "aceite" — cada um tem a própria pasta de destino
+/* Onde o arquivo vai parar.
+
+   As pastas escolhidas em "Downloads padrão" são para os DOCUMENTOS: a
+   proposta e o aceite em .docx, que o Léo quer encontrar já separados. Backup e
+   exportações não são documento — e mandá-los pra lá custou caro: ele clicava
+   em "Exportar tudo", nada aparecia em Downloads, e a conclusão natural era que
+   a exportação estava quebrada. Os arquivos estavam lá o tempo todo, dentro da
+   pasta "Propostas Geradas", sem ninguém avisar.
+
+   Agora só documento vai pra pasta escolhida. Backup e exportação usam o
+   download normal do navegador, que é onde quem procura um backup procura. */
 async function baixar(blob,nome,tipo){
-  const alca=(tipo==="aceite")?pastaAceite:pastaHandle;
+  const alca=(tipo==="aceite")?pastaAceite:(tipo==="arquivo"?null:pastaHandle);
   if(alca){
     try{
       let perm=await alca.queryPermission({mode:"readwrite"});
@@ -9342,7 +9362,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.04-14";
+const APP_VERSION="2026.09.04-15";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
