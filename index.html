@@ -184,6 +184,35 @@
     border-top:1px solid var(--card-borda);padding:10px 12px;box-shadow:0 -4px 10px rgba(0,0,0,.05);}
   .rodape .wrap{padding:0;}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  /* Faixa de versão nova. Fica no rodapé da tela, acima da barra de abas, e só
+     aparece quando existe versão instalada esperando. Discreta de propósito: é
+     um convite, não um alarme — mas visível o bastante pra não passar meses
+     gerando documento com uma versão velha em cache sem saber. */
+  .faixa-versao{position:fixed;left:12px;right:12px;z-index:60;
+    bottom:calc(var(--alt-abas,64px) + 12px);
+    background:var(--verde);color:#fff;border-radius:12px;padding:10px 14px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:.82rem;}
+  html[data-tema="escuro"] .faixa-versao{color:#0B1710;}
+  .faixa-versao button{background:rgba(255,255,255,.22);color:inherit;
+    border-radius:9px;padding:6px 12px;font-size:.8rem;font-weight:700;
+    font-family:inherit;white-space:nowrap;}
+  .faixa-versao .fechar{background:none;padding:6px 4px;font-weight:400;opacity:.75;}
+  /* As etapas dentro do card de MTR */
+  .apoio-sec{border-top:1px solid var(--card-borda);margin-top:10px;padding-top:4px;}
+  .apoio-sec:first-child{border-top:none;margin-top:2px;}
+  .apoio-sec h3{font-size:.92rem;color:var(--verde);margin:6px 0;cursor:pointer;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;}
+  .apoio-sec h3 .seta{font-size:.75rem;color:var(--suave);}
+  .quadro{border:1px solid var(--card-borda);border-radius:10px;padding:8px;margin-bottom:8px;
+    background:var(--campo);}
+  .quadro .quadro-titulo{font-weight:700;font-size:.82rem;margin-bottom:6px;
+    background:none;border:none;border-bottom:1px dashed var(--campo-borda);border-radius:0;padding:2px 0;}
+  .quadro textarea.instrutivo{width:100%;min-height:70px;resize:vertical;}
+  .quadro-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+  .quadro-acoes button{font-size:.72rem;padding:5px 10px;border-radius:8px;
+    background:var(--campo);border:1px solid var(--campo-borda);color:inherit;font-family:inherit;}
+  .quadro-acoes .perigo{color:#C0392B;}
   .status{font-size:.78rem;text-align:center;margin-top:7px;min-height:15px;color:var(--suave);}
   .badge{display:inline-block;background:var(--verde);color:#fff;border-radius:999px;
     font-size:.7rem;padding:1px 8px;margin-left:5px;font-weight:700;}
@@ -997,48 +1026,23 @@
      vivia em arquivos soltos no WhatsApp; aqui vira texto pronto pra copiar e
      uma tabela de resíduos que se filtra e se manda. -->
 <section class="aba-conteudo" id="aba-apoio" hidden>
+  <!-- Um card só, com as três etapas dentro. Eram três cards soltos na aba, e a
+       relação entre eles (é tudo o mesmo passo a passo de MTR) só existia na
+       cabeça de quem já sabia. Cada etapa abre e fecha, o texto é editável e
+       aceita quadros novos — o Léo tem explicação diferente pra clínica pequena
+       de RSS e pra obra, e antes não tinha onde guardar as duas. -->
   <div class="card">
-    <h2 class="clicavel" onclick="toggleCard('mtrCadastro')">1. Cadastro no portal do IEMA<span class="seta" id="seta-mtrCadastro">▾</span></h2>
-    <div id="corpo-mtrCadastro">
-      <div class="sub">O texto abaixo é o que você manda pro cliente que ainda não
-        tem cadastro. Toque em copiar e cole no WhatsApp ou no e-mail.</div>
-      <a class="link-portal" href="https://mtr.iema.es.gov.br/" target="_blank" rel="noopener">
-        Abrir o portal do IEMA &nbsp;↗</a>
-      <div class="instrutivo" id="txtCadastro"></div>
-      <button class="btn-sec btn-full" onclick="copiarInstrutivo('txtCadastro',this)">Copiar este texto</button>
-      <label style="margin-top:12px">Seus dados, pra entrar no texto como usuário 2</label>
-      <div class="sub">O cliente precisa cadastrar você como usuário pra você emitir
-        MTR por ele. Fica só neste aparelho — não vai pro repositório do app nem
-        pra sincronia.</div>
-      <div class="apoio-eu">
-        <input type="text" id="euNome" placeholder="Nome" oninput="guardarMeusDados()">
-        <input type="text" id="euCpf" placeholder="CPF" inputmode="numeric" oninput="mascaraCPFApoio(this);guardarMeusDados()">
-        <input type="text" id="euCargo" placeholder="Cargo" oninput="guardarMeusDados()">
-        <input type="text" id="euEmail" placeholder="E-mail" oninput="guardarMeusDados()">
-      </div>
+    <h2 class="clicavel" onclick="toggleCard('mtrGuia')">Como Emitir MTRs — ES<span class="seta" id="seta-mtrGuia">▾</span></h2>
+    <div id="corpo-mtrGuia">
+      <div class="sub">O passo a passo que você manda pro cliente. Todo texto aqui
+        é editável e fica guardado neste aparelho — e cada etapa aceita quadros
+        novos, pra você ter uma explicação geral e outra para casos específicos.</div>
+      <div id="apoioSecoes"></div>
     </div>
   </div>
 
   <div class="card">
-    <h2 class="clicavel" onclick="toggleCard('mtrModelo')">2. Criar um modelo de MTR<span class="seta" id="seta-mtrModelo">▾</span></h2>
-    <div id="corpo-mtrModelo">
-      <div class="sub">Modelo serve pra MTR repetitivo: o que muda de um envio pro
-        outro é quantidade, tecnologia e data.</div>
-      <div class="instrutivo" id="txtModelo"></div>
-      <button class="btn-sec btn-full" onclick="copiarInstrutivo('txtModelo',this)">Copiar este texto</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleCard('mtrEmitir')">3. Emitir o MTR<span class="seta" id="seta-mtrEmitir">▾</span></h2>
-    <div id="corpo-mtrEmitir">
-      <div class="instrutivo" id="txtEmitir"></div>
-      <button class="btn-sec btn-full" onclick="copiarInstrutivo('txtEmitir',this)">Copiar este texto</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleCard('mtrResiduos')">4. Tabela de resíduos <span class="badge" id="badgeMTR">0</span><span class="seta" id="seta-mtrResiduos">▾</span></h2>
+    <h2 class="clicavel" onclick="toggleCard('mtrResiduos')">Tabela de resíduos para MTR <span class="badge" id="badgeMTR">0</span><span class="seta" id="seta-mtrResiduos">▾</span></h2>
     <div id="corpo-mtrResiduos">
       <div class="sub">Marque os resíduos que o cliente pediu e copie só eles —
         com código, classe, ONU e tecnologia, que é o que o portal cobra.</div>
@@ -1057,7 +1061,7 @@
   </div>
 
   <div class="card">
-    <h2 class="clicavel" onclick="toggleCard('mtrArquivos')">5. Meus arquivos de apoio <span class="badge" id="badgeApoio">0</span><span class="seta" id="seta-mtrArquivos">▾</span></h2>
+    <h2 class="clicavel" onclick="toggleCard('mtrArquivos')">Meus arquivos de apoio <span class="badge" id="badgeApoio">0</span><span class="seta" id="seta-mtrArquivos">▾</span></h2>
     <div id="corpo-mtrArquivos">
       <div class="sub">Os PDFs do manual, o vídeo do portal, o que você quiser ter
         à mão pra reenviar. Ficam <strong>neste aparelho</strong>, não sobem pro
@@ -2268,7 +2272,7 @@ const ABAS={
   destinacoes:()=>{renderDest();renderPrecosReci();},
   equipamentos:()=>{renderPrecosEquip();renderFrota();renderPrecosCargos();},
   carteira:()=>{renderHistorico();listarClientes();},
-  apoio:()=>{carregarApoio();pintarInstrutivos();renderResiduosMTR();renderArquivosApoio();},
+  apoio:()=>{carregarApoio();carregarApoioQuadros();pintarInstrutivos();renderResiduosMTR();renderArquivosApoio();},
   ajustes:null
 };
 let abaAtual="proposta";
@@ -2283,7 +2287,7 @@ let abaAtual="proposta";
 const LS_CARDS="corpus_cards_v1";
 const CARDS_PADRAO={dest:true, reci:false, salvas:true, clientes:false,
   equip:true, frota:false, cargos:false,
-  mtrCadastro:true, mtrModelo:false, mtrEmitir:false, mtrResiduos:false, mtrArquivos:false};
+  mtrGuia:true, mtrResiduos:false, mtrArquivos:false};
 let cardsAbertos={};
 function carregarCards(){
   try{
@@ -7573,7 +7577,14 @@ function guardarMeusDados(){
     if(el) meusDadosApoio[k]=el.value;
   });
   try{localStorage.setItem(LS_APOIO,JSON.stringify(meusDadosApoio));}catch(e){}
-  pintarInstrutivos();
+  /* Repintar a seção inteira aqui tiraria o foco do campo no meio da digitação.
+     Só o texto do quadro de cadastro depende destes dados: atualiza ele, e só
+     se ninguém estiver escrevendo dentro dele. */
+  const et=ETAPAS_APOIO[0];
+  const ta=document.querySelector("#apoioSecoes .quadro textarea.instrutivo");
+  if(ta&&document.activeElement!==ta&&apoioAberta===et.id){
+    ta.value=textoEtapa(et); ajustarAltura(ta);
+  }
 }
 function mascaraCPFApoio(el){
   const d=so(el.value).slice(0,11);
@@ -7588,16 +7599,181 @@ function blocoMeusDados(){
   if(!linhas.length) return "   (preencha seus dados em Apoio ao Cliente pra entrarem aqui)";
   return linhas.map(l=>"   "+l).join("\n");
 }
+/* ---- as três etapas do MTR, editáveis ----
+   O texto de fábrica continua no código e é o que aparece enquanto ninguém
+   mexer. Editar guarda uma versão sua por cima, e "restaurar" devolve a de
+   fábrica — assim uma correção no texto original ainda chega pra quem nunca
+   editou, sem apagar o que alguém escreveu.
+
+   Os quadros extras existem por um caso concreto: clínica pequena de RSS pede
+   um tipo de explicação, obra pede outro. Antes cabia um texto só por etapa, e
+   o segundo caso não tinha onde morar. */
+const LS_APOIO_QUADROS="corpus_apoio_quadros_v1";
+const ETAPAS_APOIO=[
+  {id:"cadastro", titulo:"Cadastro no portal do IEMA", padrao:()=>TXT_CADASTRO, portal:true, eu:true,
+   ajuda:"O texto que você manda pro cliente que ainda não tem cadastro."},
+  {id:"modelo", titulo:"Criar um modelo de MTR", padrao:()=>TXT_MODELO,
+   ajuda:"Modelo serve pra MTR repetitivo: o que muda de um envio pro outro é quantidade, tecnologia e data."},
+  {id:"emitir", titulo:"Emitir o MTR pelo modelo", padrao:()=>TXT_EMITIR, ajuda:""}
+];
+let apoioQuadros={}, apoioAberta="cadastro";
+function carregarApoioQuadros(){
+  try{ apoioQuadros=JSON.parse(localStorage.getItem(LS_APOIO_QUADROS))||{}; }catch(e){ apoioQuadros={}; }
+}
+function gravarApoioQuadros(){
+  try{ localStorage.setItem(LS_APOIO_QUADROS,JSON.stringify(apoioQuadros)); }catch(e){}
+}
+function dadosEtapa(id){
+  if(!apoioQuadros[id]) apoioQuadros[id]={texto:null,extras:[]};
+  if(!Array.isArray(apoioQuadros[id].extras)) apoioQuadros[id].extras=[];
+  return apoioQuadros[id];
+}
+// O {EU} vale pro texto de fábrica E pro editado: quem mantiver o marcador
+// continua tendo os próprios dados entrando no lugar certo.
+const comMeusDados=t=>String(t||"").replace("{EU}",blocoMeusDados());
+function textoEtapa(et){
+  const d=dadosEtapa(et.id);
+  return comMeusDados(d.texto===null||d.texto===undefined?et.padrao():d.texto);
+}
+function toggleApoio(id){
+  apoioAberta=(apoioAberta===id)?null:id;
+  pintarInstrutivos();
+}
+function editarEtapa(id,valor){ dadosEtapa(id).texto=valor; gravarApoioQuadros(); }
+function restaurarEtapa(id){
+  dadosEtapa(id).texto=null; gravarApoioQuadros(); pintarInstrutivos();
+}
+function novoQuadro(id){
+  dadosEtapa(id).extras.push({id:"q"+Date.now(),titulo:"Novo quadro",texto:""});
+  gravarApoioQuadros(); apoioAberta=id; pintarInstrutivos();
+}
+function editarQuadro(id,qid,campo,valor){
+  const q=dadosEtapa(id).extras.find(x=>x.id===qid);
+  if(q){ q[campo]=valor; gravarApoioQuadros(); }
+}
+async function removerQuadro(id,qid){
+  if(!await perguntar("Remover este quadro?","O texto dele some e não dá pra desfazer.",
+    {emoji:"🗑️",sim:"Remover",nao:"Cancelar",perigo:true})) return;
+  const d=dadosEtapa(id);
+  d.extras=d.extras.filter(x=>x.id!==qid);
+  gravarApoioQuadros(); pintarInstrutivos();
+}
 function pintarInstrutivos(){
-  const el=document.getElementById("txtCadastro");
-  if(!el) return;
-  el.textContent=TXT_CADASTRO.replace("{EU}",blocoMeusDados());
-  document.getElementById("txtModelo").textContent=TXT_MODELO;
-  document.getElementById("txtEmitir").textContent=TXT_EMITIR;
-  ["nome","cpf","cargo","email"].forEach(k=>{
-    const c=document.getElementById("eu"+k.charAt(0).toUpperCase()+k.slice(1));
-    if(c&&document.activeElement!==c) c.value=meusDadosApoio[k]||"";
+  const alvo=document.getElementById("apoioSecoes");
+  if(!alvo) return;
+  alvo.innerHTML="";
+  ETAPAS_APOIO.forEach(et=>{
+    const d=dadosEtapa(et.id);
+    const aberta=apoioAberta===et.id;
+    const sec=document.createElement("div");
+    sec.className="apoio-sec";
+    const h=document.createElement("h3");
+    h.innerHTML='<span></span><span class="seta">'+(aberta?"▴":"▾")+'</span>';
+    h.querySelector("span").textContent=et.titulo;
+    h.onclick=()=>toggleApoio(et.id);
+    sec.appendChild(h);
+    if(!aberta){ alvo.appendChild(sec); return; }
+
+    const corpo=document.createElement("div");
+    if(et.ajuda){
+      const a=document.createElement("div"); a.className="sub"; a.textContent=et.ajuda;
+      corpo.appendChild(a);
+    }
+    if(et.portal){
+      const l=document.createElement("a");
+      l.className="link-portal"; l.href="https://mtr.iema.es.gov.br/";
+      l.target="_blank"; l.rel="noopener";
+      l.innerHTML="Abrir o portal do IEMA &nbsp;↗";
+      corpo.appendChild(l);
+    }
+    corpo.appendChild(quadroDOM({
+      texto:textoEtapa(et),
+      aoEditar:v=>editarEtapa(et.id,v),
+      editado:d.texto!==null&&d.texto!==undefined,
+      aoRestaurar:()=>restaurarEtapa(et.id)
+    }));
+    d.extras.forEach(q=>{
+      corpo.appendChild(quadroDOM({
+        titulo:q.titulo, texto:comMeusDados(q.texto),
+        aoEditarTitulo:v=>editarQuadro(et.id,q.id,"titulo",v),
+        aoEditar:v=>editarQuadro(et.id,q.id,"texto",v),
+        aoRemover:()=>removerQuadro(et.id,q.id)
+      }));
+    });
+    const mais=document.createElement("button");
+    mais.className="btn-sec btn-full"; mais.textContent="+ incluir quadro";
+    mais.onclick=()=>novoQuadro(et.id);
+    corpo.appendChild(mais);
+
+    if(et.eu) corpo.appendChild(camposDoUsuario2());
+    sec.appendChild(corpo);
+    alvo.appendChild(sec);
   });
+}
+/* Um quadro: título (só nos extras), texto editável e as ações que fazem
+   sentido pra ele — restaurar, no de fábrica; remover, nos que o Léo criou. */
+function quadroDOM(o){
+  const div=document.createElement("div");
+  div.className="quadro";
+  if(o.aoEditarTitulo!==undefined){
+    const t=document.createElement("input");
+    t.className="quadro-titulo"; t.value=o.titulo||"";
+    t.placeholder="Título do quadro (ex.: clínicas de RSS)";
+    t.oninput=()=>o.aoEditarTitulo(t.value);
+    div.appendChild(t);
+  }
+  const ta=document.createElement("textarea");
+  ta.className="instrutivo"; ta.value=o.texto||"";
+  ta.placeholder="Escreva aqui a explicação que você manda pro cliente.";
+  ta.oninput=()=>{ o.aoEditar(ta.value); ajustarAltura(ta); };
+  div.appendChild(ta);
+  const acoes=document.createElement("div");
+  acoes.className="quadro-acoes";
+  const cop=document.createElement("button");
+  cop.textContent="Copiar este texto";
+  cop.onclick=async()=>{
+    const ok=await copiarTexto(ta.value);
+    const antes=cop.textContent;
+    cop.textContent=ok?"Copiado":"Não deu — selecione e copie à mão";
+    setTimeout(()=>{cop.textContent=antes;},2200);
+  };
+  acoes.appendChild(cop);
+  if(o.editado&&o.aoRestaurar){
+    const r=document.createElement("button");
+    r.textContent="restaurar o de fábrica"; r.onclick=o.aoRestaurar;
+    acoes.appendChild(r);
+  }
+  if(o.aoRemover){
+    const x=document.createElement("button");
+    x.className="perigo"; x.textContent="remover quadro"; x.onclick=o.aoRemover;
+    acoes.appendChild(x);
+  }
+  div.appendChild(acoes);
+  // a altura só é mensurável depois de entrar na tela
+  setTimeout(()=>ajustarAltura(ta),0);
+  return div;
+}
+function camposDoUsuario2(){
+  const w=document.createElement("div");
+  const t=document.createElement("label");
+  t.textContent="Seus dados, pra entrar no texto como usuário 2";
+  t.style.marginTop="12px";
+  const s=document.createElement("div");
+  s.className="sub";
+  s.textContent="O cliente precisa cadastrar você como usuário pra você emitir MTR por ele. "
+    +"Fica só neste aparelho — não vai pro repositório do app nem para a sincronia.";
+  const g=document.createElement("div");
+  g.className="apoio-eu";
+  [["euNome","Nome","nome"],["euCpf","CPF","cpf"],["euCargo","Cargo","cargo"],["euEmail","E-mail","email"]]
+    .forEach(([id,ph,k])=>{
+      const i=document.createElement("input");
+      i.type="text"; i.id=id; i.placeholder=ph; i.value=meusDadosApoio[k]||"";
+      if(k==="cpf") i.inputMode="numeric";
+      i.oninput=()=>{ if(k==="cpf") mascaraCPFApoio(i); guardarMeusDados(); };
+      g.appendChild(i);
+    });
+  w.appendChild(t); w.appendChild(s); w.appendChild(g);
+  return w;
 }
 async function copiarTexto(txt){
   try{ await navigator.clipboard.writeText(txt); return true; }
@@ -9362,7 +9538,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.05-16";
+const APP_VERSION="2026.09.05-17";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -9379,8 +9555,54 @@ async function buscarAtualizacao(){
   }catch(e){}
   location.reload();
 }
+/* ---- aviso de versão nova ----
+   O service worker já servia a versão nova na PRÓXIMA vez que o app abrisse.
+   O problema é que "próxima vez" pode demorar dias num app instalado que nunca
+   é fechado de verdade — e nesse meio tempo o documento sai com o modelo
+   antigo, sem ninguém suspeitar de nada. Foi exatamente o que aconteceu com a
+   proposta que saiu sem logotipo nem marca d'água.
+
+   Agora o app pergunta se existe versão nova (ao abrir e toda vez que volta
+   pra frente) e, quando existe uma já baixada e esperando, mostra a faixa. O
+   "Atualizar" manda o worker assumir na hora (ATIVAR_AGORA, que o sw.js já
+   entende) e recarrega a tela. */
+let regSW=null;
+function mostrarFaixaVersao(){
+  const f=document.getElementById("faixaVersao");
+  if(f) f.classList.remove("oculto");
+}
+async function aplicarVersaoNova(bt){
+  if(bt){ bt.disabled=true; bt.textContent="Atualizando..."; }
+  try{
+    const esperando=regSW&&(regSW.waiting||regSW.installing);
+    if(esperando) esperando.postMessage("ATIVAR_AGORA");
+    // dá um instante pro worker assumir antes de recarregar; se não assumir,
+    // o reload sozinho já pega a versão nova (o fetch é network-first)
+    await new Promise(r=>setTimeout(r,400));
+  }catch(e){}
+  location.reload();
+}
 if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+  window.addEventListener("load",async()=>{
+    try{
+      const reg=await navigator.serviceWorker.register("sw.js");
+      regSW=reg;
+      // já tem uma esperando de uma visita anterior
+      if(reg.waiting&&navigator.serviceWorker.controller) mostrarFaixaVersao();
+      reg.addEventListener("updatefound",()=>{
+        const novo=reg.installing;
+        if(!novo) return;
+        novo.addEventListener("statechange",()=>{
+          // "installed" com controller já ativo = existe versão nova esperando.
+          // Sem controller é a primeira instalação, e aí não há o que avisar.
+          if(novo.state==="installed"&&navigator.serviceWorker.controller) mostrarFaixaVersao();
+        });
+      });
+      const conferir=()=>{ if(!document.hidden) reg.update().catch(()=>{}); };
+      conferir();
+      document.addEventListener("visibilitychange",conferir);
+    }catch(e){}
+  });
 }
 
 /* A partida inteira acontece AQUI, no fim do arquivo, e só aqui. Neste ponto
@@ -9402,5 +9624,12 @@ window.addEventListener("pagehide",salvarRascunho);
 restaurarRascunho();
 
 </script>
+<div class="faixa-versao oculto" id="faixaVersao">
+  <span>Versão nova disponível.</span>
+  <span>
+    <button onclick="aplicarVersaoNova(this)">Atualizar</button>
+    <button class="fechar" onclick="document.getElementById('faixaVersao').classList.add('oculto')" title="Agora não">✕</button>
+  </span>
+</div>
 </body>
 </html>
