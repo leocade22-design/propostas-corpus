@@ -221,6 +221,9 @@
   .fd-valor{font-size:.82rem;color:var(--verde);white-space:nowrap;font-weight:700;}
   .fd-obs{font-size:.72rem;color:var(--suave);margin-top:2px;line-height:1.3;}
   textarea.fd-obs-edit{width:100%;min-height:46px;font-size:.8rem;resize:vertical;}
+  .reci-visao{margin-bottom:8px;}
+  .reci-melhor{background:var(--verde-claro);color:var(--verde);font-weight:700;}
+  .reci-vazio{color:var(--suave);}
   .status{font-size:.78rem;text-align:center;margin-top:7px;min-height:15px;color:var(--suave);}
   .badge{display:inline-block;background:var(--verde);color:#fff;border-radius:999px;
     font-size:.7rem;padding:1px 8px;margin-left:5px;font-weight:700;}
@@ -780,8 +783,19 @@
       sua. Dá pra usar um repasse diferente em algum material específico.
     </div>
 
+    <!-- Duas leituras da mesma tabela. A lista é onde se CADASTRA (cada material
+         com seus compradores, observações e repasse); a matriz é onde se
+         COMPARA — material por linha, comprador por coluna, que é a pergunta
+         que se faz na hora de decidir pra quem vender. É a mesma ideia da
+         tabela de destinadores, invertida: lá procura-se o menor custo, aqui o
+         maior preço de venda. -->
+    <div class="dest-visao reci-visao">
+      <button data-rv="lista" onclick="verReci('lista')">lista</button>
+      <button data-rv="matriz" onclick="verReci('matriz')">comparar</button>
+    </div>
     <input type="text" id="buscaReci" placeholder="Buscar material..." oninput="renderPrecosReci()">
     <div id="listaReci" style="margin-top:8px"></div>
+    <div id="matrizReci" class="oculto" style="margin-top:8px"></div>
     <button class="btn-sec btn-mini" style="width:100%;margin-top:8px" onclick="incluirMaterialReci()">+ incluir material</button>
     <div class="status" id="statusReci"></div>
     </div>
@@ -5880,9 +5894,96 @@ function guardarReci(nome,dados){
   else delete precos.reci[nome];
   gravarPrecos(); atualizarBadgesPrecos(); renderLinhasValores();
 }
+/* ---- Recicláveis: a visão de comparar ----
+   Material por linha, comprador por coluna. A pergunta que essa tela responde
+   é a que a lista não respondia: "quem paga mais por este material?" — com
+   mais de um parceiro comprando o mesmo plástico, isso estava espalhado por
+   vários cartões abertos.
+
+   Mostra o preço de VENDA (o que o comprador paga à Corpus), que é o número
+   que decide pra quem vender. O preço ao cliente é derivado dele pelo repasse
+   e continua na lista, junto de onde se cadastra. */
+let reciVisao="lista";
+function verReci(v){
+  reciVisao=v;
+  document.getElementById("listaReci").classList.toggle("oculto",v!=="lista");
+  document.getElementById("matrizReci").classList.toggle("oculto",v!=="matriz");
+  document.querySelectorAll(".reci-visao button[data-rv]").forEach(b=>{
+    b.className=(b.dataset.rv===v)?"ativa":"";
+  });
+  renderPrecosReci();
+}
+function compradoresReci(){
+  const nomes=new Set();
+  listaReciclaveis().forEach(x=>precosReci(x.n).forEach(l=>{
+    nomes.add(l.parceiro.trim()||"sem parceiro");
+  }));
+  return [...nomes].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+}
+function renderMatrizReci(){
+  const el=document.getElementById("matrizReci");
+  if(!el) return;
+  const busca=semAc(document.getElementById("buscaReci").value.trim());
+  const compradores=compradoresReci();
+  const materiais=listaReciclaveis()
+    .filter(x=>!busca||semAc(x.n).includes(busca))
+    .filter(x=>precosReci(x.n).length);
+  el.innerHTML="";
+  if(!compradores.length||!materiais.length){
+    el.innerHTML='<span class="sub">Nenhum preço cadastrado ainda. Use a <strong>lista</strong> '
+      +'pra cadastrar quem compra cada material — a comparação aparece aqui depois.</span>';
+    return;
+  }
+  const rolagem=document.createElement("div");
+  rolagem.className="dest-rolagem";
+  const tab=document.createElement("table");
+  tab.className="dest-tab compacta";
+  const thead=document.createElement("thead");
+  const trh=document.createElement("tr");
+  trh.appendChild(Object.assign(document.createElement("th"),{textContent:"Material"}));
+  compradores.forEach(c=>{
+    const th=document.createElement("th");
+    th.className="col-parc"; th.textContent=c;
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh); tab.appendChild(thead);
+  const tb=document.createElement("tbody");
+  materiais.forEach(m=>{
+    const linhas=precosReci(m.n);
+    const melhor=melhorPrecoReci(linhas);
+    const tr=document.createElement("tr");
+    const th=document.createElement("th");
+    th.className="dest-rot"; th.textContent=m.n; th.title=m.n;
+    // tocar no material leva pra lista já aberto nele, que é onde se edita
+    th.style.cursor="pointer";
+    th.onclick=()=>{ reciAberto=m.n; verReci("lista"); };
+    tr.appendChild(th);
+    compradores.forEach(c=>{
+      const td=document.createElement("td");
+      const achado=linhas.find(l=>(l.parceiro.trim()||"sem parceiro")===c);
+      if(!achado){ td.textContent="—"; td.className="reci-vazio"; }
+      else{
+        td.textContent="R$ "+fmtDinheiro(achado.venda)+(achado.unidade?("/"+achado.unidade):"");
+        if(melhor&&achado.venda===melhor.venda&&linhas.length>1) td.className="reci-melhor";
+        td.title=m.n+" · "+c+" — ao cliente R$ "+fmtDinheiro(achado.cliente);
+      }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  tab.appendChild(tb);
+  rolagem.appendChild(tab);
+  el.appendChild(rolagem);
+  const nota=document.createElement("div");
+  nota.className="sub";
+  nota.textContent="Preço de venda — o que o comprador paga à Corpus. O verde é o melhor de cada "
+    +"material. Toque no nome do material pra editar na lista.";
+  el.appendChild(nota);
+}
 function renderPrecosReci(){
   const el=document.getElementById("listaReci");
   if(!el) return;
+  if(reciVisao==="matriz"){ renderMatrizReci(); }
   const rep=document.getElementById("repasseReci");
   if(rep&&document.activeElement!==rep) rep.value=repassePadrao();
   renderExemploRepasse();
@@ -9569,7 +9670,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.05-18";
+const APP_VERSION="2026.09.05-19";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
