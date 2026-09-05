@@ -222,6 +222,8 @@
   .fd-obs{font-size:.72rem;color:var(--suave);margin-top:2px;line-height:1.3;}
   textarea.fd-obs-edit{width:100%;min-height:46px;font-size:.8rem;resize:vertical;}
   .reci-visao{margin-bottom:8px;}
+  .reci-grupo{background:var(--verde-claro);color:var(--verde);text-align:left;font-weight:700;}
+  .reci-var{padding-left:14px;font-weight:400;}
   .reci-melhor{background:var(--verde-claro);color:var(--verde);font-weight:700;}
   .reci-vazio{color:var(--suave);}
   .status{font-size:.78rem;text-align:center;margin-top:7px;min-height:15px;color:var(--suave);}
@@ -5920,14 +5922,47 @@ function compradoresReci(){
   }));
   return [...nomes].sort((a,b)=>a.localeCompare(b,"pt-BR"));
 }
+/* Uma linha por VARIAÇÃO, não por material.
+
+   Cada preço cadastrado já tem um campo "variação" — é onde "Sucata Metálica"
+   vira inox, cobre, alumínio, e onde "Plástico" vira stretch e cristal. A
+   primeira versão desta matriz ignorava isso: cruzava material x comprador e,
+   quando um comprador tinha dois preços no mesmo material, mostrava só o
+   primeiro e escondia o resto — calada. Comparar preço escondendo preço é pior
+   do que não comparar.
+
+   Agora a linha é a variação, que é o que de fato se vende e se cota. O
+   material vira o agrupador acima delas quando tem mais de uma; quando tem só
+   uma, a linha leva o nome do material e nada muda na leitura. */
+function variacoesReci(nome){
+  const grupos=new Map();
+  precosReci(nome).forEach(l=>{
+    const v=(l.rotulo||"").trim();
+    // sem variação escrita, a linha é o próprio material
+    const chave=v&&semAc(v)!==semAc(nome)?v:nome;
+    if(!grupos.has(chave)) grupos.set(chave,[]);
+    grupos.get(chave).push(l);
+  });
+  return [...grupos.entries()].map(([rotulo,linhas])=>({rotulo,linhas}));
+}
 function renderMatrizReci(){
   const el=document.getElementById("matrizReci");
   if(!el) return;
   const busca=semAc(document.getElementById("buscaReci").value.trim());
   const compradores=compradoresReci();
+  // a busca vale pro nome do material E pro da variação: procurar "cobre" tem
+  // que achar a linha do cobre mesmo estando dentro de "Sucata Metálica"
   const materiais=listaReciclaveis()
-    .filter(x=>!busca||semAc(x.n).includes(busca))
-    .filter(x=>precosReci(x.n).length);
+    .filter(x=>precosReci(x.n).length)
+    .map(x=>{ const vars=variacoesReci(x.n); return {nome:x.n, vars, total:vars.length}; })
+    // `total` guarda quantas variações o material TEM; `vars` fica com as que a
+    // busca deixou passar. A diferença importa: filtrando "cobre" sobra uma
+    // variação só, e sem o total ela voltaria a se chamar "Sucata Metálica" —
+    // justamente o nome que não é o dela.
+    .map(m=>busca?{nome:m.nome, total:m.total,
+                   vars:semAc(m.nome).includes(busca)?m.vars
+                        :m.vars.filter(v=>semAc(v.rotulo).includes(busca))}:m)
+    .filter(m=>m.vars.length);
   el.innerHTML="";
   if(!compradores.length||!materiais.length){
     el.innerHTML='<span class="sub">Nenhum preço cadastrado ainda. Use a <strong>lista</strong> '
@@ -5948,28 +5983,45 @@ function renderMatrizReci(){
   });
   thead.appendChild(trh); tab.appendChild(thead);
   const tb=document.createElement("tbody");
+  const abrirNaLista=nome=>{ reciAberto=nome; verReci("lista"); };
   materiais.forEach(m=>{
-    const linhas=precosReci(m.n);
-    const melhor=melhorPrecoReci(linhas);
-    const tr=document.createElement("tr");
-    const th=document.createElement("th");
-    th.className="dest-rot"; th.textContent=m.n; th.title=m.n;
-    // tocar no material leva pra lista já aberto nele, que é onde se edita
-    th.style.cursor="pointer";
-    th.onclick=()=>{ reciAberto=m.n; verReci("lista"); };
-    tr.appendChild(th);
-    compradores.forEach(c=>{
-      const td=document.createElement("td");
-      const achado=linhas.find(l=>(l.parceiro.trim()||"sem parceiro")===c);
-      if(!achado){ td.textContent="—"; td.className="reci-vazio"; }
-      else{
-        td.textContent="R$ "+fmtDinheiro(achado.venda)+(achado.unidade?("/"+achado.unidade):"");
-        if(melhor&&achado.venda===melhor.venda&&linhas.length>1) td.className="reci-melhor";
-        td.title=m.n+" · "+c+" — ao cliente R$ "+fmtDinheiro(achado.cliente);
-      }
-      tr.appendChild(td);
+    const desmembrado=m.total>1;
+    if(desmembrado){
+      // cabeçalho do material: só agrupa, não carrega preço
+      const trg=document.createElement("tr");
+      const thg=document.createElement("th");
+      thg.className="dest-rot reci-grupo";
+      thg.colSpan=compradores.length+1;
+      thg.textContent=m.nome;
+      thg.style.cursor="pointer";
+      thg.onclick=()=>abrirNaLista(m.nome);
+      trg.appendChild(thg);
+      tb.appendChild(trg);
+    }
+    m.vars.forEach(v=>{
+      const melhor=melhorPrecoReci(v.linhas);
+      const tr=document.createElement("tr");
+      const th=document.createElement("th");
+      th.className="dest-rot"+(desmembrado?" reci-var":"");
+      th.textContent=desmembrado?v.rotulo:m.nome;
+      th.title=desmembrado?(m.nome+" · "+v.rotulo):m.nome;
+      th.style.cursor="pointer";
+      th.onclick=()=>abrirNaLista(m.nome);
+      tr.appendChild(th);
+      compradores.forEach(c=>{
+        const td=document.createElement("td");
+        const achado=v.linhas.find(l=>(l.parceiro.trim()||"sem parceiro")===c);
+        if(!achado){ td.textContent="—"; td.className="reci-vazio"; }
+        else{
+          td.textContent="R$ "+fmtDinheiro(achado.venda)+(achado.unidade?("/"+achado.unidade):"");
+          if(melhor&&achado.venda===melhor.venda&&v.linhas.length>1) td.className="reci-melhor";
+          td.title=(desmembrado?(m.nome+" · "+v.rotulo):m.nome)+" · "+c
+                   +" — ao cliente R$ "+fmtDinheiro(achado.cliente);
+        }
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
     });
-    tb.appendChild(tr);
   });
   tab.appendChild(tb);
   rolagem.appendChild(tab);
@@ -5977,7 +6029,7 @@ function renderMatrizReci(){
   const nota=document.createElement("div");
   nota.className="sub";
   nota.textContent="Preço de venda — o que o comprador paga à Corpus. O verde é o melhor de cada "
-    +"material. Toque no nome do material pra editar na lista.";
+    +"linha. Material com mais de uma variação aparece desmembrado. Toque num nome pra editar na lista.";
   el.appendChild(nota);
 }
 function renderPrecosReci(){
@@ -9670,7 +9722,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.05-19";
+const APP_VERSION="2026.09.05-20";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
