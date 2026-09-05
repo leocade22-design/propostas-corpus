@@ -213,6 +213,14 @@
   .quadro-acoes button{font-size:.72rem;padding:5px 10px;border-radius:8px;
     background:var(--campo);border:1px solid var(--campo-borda);color:inherit;font-family:inherit;}
   .quadro-acoes .perigo{color:#C0392B;}
+  /* Ficha do parceiro: linha enxuta, abre pra editar */
+  .fd-linha.aberta{border-color:var(--verde-borda);background:var(--verde-claro);}
+  .fd-resumo{cursor:pointer;padding:2px 0;}
+  .fd-topo{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .fd-nome{font-size:.86rem;font-weight:600;}
+  .fd-valor{font-size:.82rem;color:var(--verde);white-space:nowrap;font-weight:700;}
+  .fd-obs{font-size:.72rem;color:var(--suave);margin-top:2px;line-height:1.3;}
+  textarea.fd-obs-edit{width:100%;min-height:46px;font-size:.8rem;resize:vertical;}
   .status{font-size:.78rem;text-align:center;margin-top:7px;min-height:15px;color:var(--suave);}
   .badge{display:inline-block;background:var(--verde);color:#fff;border-radius:999px;
     font-size:.7rem;padding:1px 8px;margin-left:5px;font-weight:700;}
@@ -1170,24 +1178,11 @@
       <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
     </div>
   </div>
-  <!-- Um lugar só pras observações que saem na proposta. Elas nascem espalhadas
-       por seis editores de catálogo, e quem só quer trocar a frase não tem por
-       que saber em qual mexer. -->
-  <div class="card">
-    <h2 class="clicavel" onclick="toggleObsPadrao()">Observações padrão
-      <span class="badge" id="badgeObsP">0</span><span class="seta" id="setaObsP">▾</span></h2>
-    <div id="obsPadraoCorpo" class="oculto">
-      <div class="sub" style="margin-bottom:10px">
-        O texto que já vem preenchido na observação de cada linha da proposta.
-        Deixe vazio pra usar o de fábrica. Veículos ficam de fora daqui porque
-        têm uma frase por modalidade — essas duas se editam em
-        <strong>✎ editar lista</strong>, no passo dos veículos.
-      </div>
-      <input type="text" id="buscaObsP" placeholder="Buscar item..." oninput="renderObsPadrao()">
-      <div id="listaObsP" style="margin-top:8px"></div>
-      <div class="status" id="statusObsP"></div>
-    </div>
-  </div>
+  <!-- O card "Observações padrão" foi removido daqui. Ele juntava num lugar só
+       textos que pertencem a coisas diferentes, e obrigava a sair do catálogo
+       pra trocar a frase de um item. Cada observação passou a morar junto do
+       que ela descreve: resíduo, na ficha do destinador; reciclável, no card
+       dele; equipamento, na própria ficha. Um lugar só para cada coisa. -->
   <div class="card">
     <h2 class="clicavel" onclick="toggleDownloads()">Downloads <span class="badge" id="badgePasta">padrão</span><span class="seta" id="setaDownloads">▾</span></h2>
     <div id="downloadsCorpo" class="oculto">
@@ -5140,7 +5135,7 @@ function renderDest(){
    número que nunca esteve em contrato nenhum. */
 let fichaDestNome=null, fichaDestLinhas=null;
 function abrirFichaDest(nome){
-  fichaDestNome=nome;
+  fichaDestNome=nome; fdAberta=null;
   // Rascunho em memória: linha recém-criada nasce vazia e gravarDest() não
   // guarda linha sem valor — sem o rascunho ela sumiria ao ser criada.
   fichaDestLinhas=dest.precos
@@ -5156,6 +5151,45 @@ function fecharFichaDest(){
   fichaDestNome=null; fichaDestLinhas=null;
   document.getElementById("modalDest").classList.add("oculto");
 }
+/* Qual resíduo do CATÁLOGO esta linha do parceiro alimenta.
+
+   A ficha guarda o nome que o parceiro usa na planilha dele ("SÓLIDO
+   CONTAMINADO"); a proposta fala pelo nome do catálogo ("Sólidos Contaminados
+   - Classe I"). O vínculo entre os dois já existe — é o que a matriz usa pra
+   saber de quem é o preço — e é ele que diz onde a observação deve ser
+   guardada pra chegar na proposta. Sem vínculo, cai no próprio nome da linha:
+   quando ele coincide com um resíduo do catálogo (o caso comum), funciona
+   igual; quando não coincide, o aviso na tela diz que ainda não vai. */
+function residuoDoCatalogo(parceiro,nomeLinha){
+  const n=String(nomeLinha||"").trim();
+  if(!n) return null;
+  const achado=Object.keys(vinculos||{}).find(k=>{
+    const v=vinculos[k];
+    return v&&v.d===parceiro&&String(v.r||"").trim()===n;
+  });
+  return achado||n;
+}
+function obsDaLinhaDest(parceiro,nomeLinha){
+  const alvo=residuoDoCatalogo(parceiro,nomeLinha);
+  if(!alvo) return "";
+  const v=obsPadraoDe("res:"+alvo);
+  return v!==null?v:obsDeFabrica("res:"+alvo);
+}
+function gravarObsDaLinhaDest(parceiro,nomeLinha,texto){
+  const alvo=residuoDoCatalogo(parceiro,nomeLinha);
+  if(!alvo) return;
+  const t=String(texto||"").trim();
+  // Igual à de fábrica não vira customização: assim uma melhora no texto padrão
+  // ainda alcança quem nunca quis mudar nada.
+  if(!t||t===String(obsDeFabrica("res:"+alvo)||"").trim()) delete obsPadraoCustom["res:"+alvo];
+  else obsPadraoCustom["res:"+alvo]=t;
+  gravarObsPadrao();
+}
+/* A ficha do parceiro: uma linha por resíduo, enxuta — nome e custo na mesma
+   linha, observação pequena embaixo. Tocar abre a linha pra editar. Antes cada
+   resíduo ocupava três campos abertos e um bloco inteiro da tela, e uma lista
+   de 22 resíduos virava uma rolagem sem fim onde nada se achava. */
+let fdAberta=null;
 function pintarFichaDest(){
   const el=document.getElementById("fdLinhas");
   if(!el||!fichaDestLinhas) return;
@@ -5166,14 +5200,38 @@ function pintarFichaDest(){
     fichaDestLinhas.filter(l=>l.r.trim()).length+" resíduo(s)";
   if(!vistas.length){ el.innerHTML='<span class="sub">Nada encontrado.</span>'; return; }
   vistas.forEach(l=>{
+    const aberta=fdAberta===l;
     const d=document.createElement("div");
-    d.className="fd-linha";
+    d.className="fd-linha"+(aberta?" aberta":"");
+    if(!aberta){
+      const obs=obsDaLinhaDest(fichaDestNome,l.r);
+      const resumo=document.createElement("div");
+      resumo.className="fd-resumo";
+      const topo=document.createElement("div");
+      topo.className="fd-topo";
+      const nome=document.createElement("span");
+      nome.className="fd-nome";
+      nome.textContent=l.r.trim()||"(sem nome)";
+      const val=document.createElement("span");
+      val.className="fd-valor";
+      val.textContent=l.v?("R$ "+l.v+(l.u?("/"+l.u):"")):"sem custo";
+      topo.appendChild(nome); topo.appendChild(val);
+      resumo.appendChild(topo);
+      if(obs){
+        const o=document.createElement("div");
+        o.className="fd-obs"; o.textContent=obs;
+        resumo.appendChild(o);
+      }
+      resumo.onclick=()=>{ fdAberta=l; pintarFichaDest(); };
+      d.appendChild(resumo);
+      el.appendChild(d);
+      return;
+    }
     d.innerHTML=
       `<input type="text" class="fd-res" placeholder="nome do resíduo na planilha dele" data-k="r">
        <div class="fd-nums">
          <input type="text" inputmode="numeric" placeholder="custo 0,00" data-k="v">
          <input type="text" placeholder="unid." data-k="u">
-         <button type="button" class="mat-tira" title="Remover esta linha">✕</button>
        </div>`;
     el.appendChild(d);
     const ir=d.querySelector('[data-k="r"]'), iv=d.querySelector('[data-k="v"]'),
@@ -5186,17 +5244,43 @@ function pintarFichaDest(){
       titulo:"Unidade", opcoes:["TON","KG","UN","M³"], escolha:iu.value.trim()||null, multi:false,
       onPick:u=>{iu.value=u;l.u=u;}
     });
-    d.querySelector(".mat-tira").onclick=()=>{
+    const rot=document.createElement("label");
+    rot.textContent="Observação que vai na proposta";
+    rot.style.marginTop="8px";
+    d.appendChild(rot);
+    const ta=document.createElement("textarea");
+    ta.className="fd-obs-edit";
+    ta.value=obsDaLinhaDest(fichaDestNome,l.r);
+    ta.placeholder="ex.: Valor por kg destinado. Tratamento: Autoclave.";
+    ta.oninput=()=>{ gravarObsDaLinhaDest(fichaDestNome,l.r,ta.value); ajustarAltura(ta); };
+    d.appendChild(ta);
+    const nota=document.createElement("div");
+    nota.className="sub";
+    nota.textContent="Vale para este resíduo em qualquer proposta — não é só deste parceiro.";
+    d.appendChild(nota);
+    const acoes=document.createElement("div");
+    acoes.className="quadro-acoes";
+    const ok=document.createElement("button");
+    ok.textContent="pronto";
+    ok.onclick=()=>{ fdAberta=null; pintarFichaDest(); };
+    const tira=document.createElement("button");
+    tira.className="perigo"; tira.textContent="excluir esta linha de custo";
+    tira.onclick=()=>{
       fichaDestLinhas.splice(fichaDestLinhas.indexOf(l),1);
       if(!fichaDestLinhas.length) fichaDestLinhas.push({i:null,r:"",v:"",u:"",cl:""});
-      pintarFichaDest();
+      fdAberta=null; pintarFichaDest();
     };
+    acoes.appendChild(ok); acoes.appendChild(tira);
+    d.appendChild(acoes);
+    setTimeout(()=>ajustarAltura(ta),0);
   });
 }
 function novaLinhaDest(){
   if(!fichaDestLinhas) return;
-  fichaDestLinhas.push({i:null,r:"",v:"",u:"",cl:""});
+  const nova={i:null,r:"",v:"",u:"",cl:""};
+  fichaDestLinhas.push(nova);
   document.getElementById("fdBusca").value="";
+  fdAberta=nova;              // já nasce aberta: foi criada pra ser preenchida
   pintarFichaDest();
 }
 /* Grava a ficha inteira de uma vez. Reconstrói só as linhas DESTE parceiro e
@@ -5255,91 +5339,10 @@ function alternarVinculo(nomeResiduo,p){
   gravarVinculos(); renderDest(); renderLinhasValores();
 }
 /* ---- Vínculo customizado: a ponte manual entre nomenclaturas ---- */
-/* ---- Editor das observações padrão (aba Ajustes) ---- */
-let obsPAberta=false, obsPItemAberto=null;
-function toggleObsPadrao(){
-  obsPAberta=!obsPAberta;
-  document.getElementById("obsPadraoCorpo").classList.toggle("oculto",!obsPAberta);
-  document.getElementById("setaObsP").classList.toggle("aberta",obsPAberta);
-  if(obsPAberta) renderObsPadrao();
-}
-function abrirItemObsP(chave){
-  obsPItemAberto=(obsPItemAberto===chave)?null:chave;
-  renderObsPadrao();
-}
-/* Todos os itens que têm UMA observação, agrupados pela origem. Veículo fica de
-   fora de propósito: lá são duas frases (por coleta e por equipamento), e
-   espremer as duas num campo só apagaria a distinção que existe justamente
-   porque o texto muda com a modalidade. */
-function itensObsPadrao(){
-  const g=[];
-  g.push({titulo:"Resíduos — Classe II", itens:listaResiduos("CLASSE II").map(x=>"res:"+x.n)});
-  g.push({titulo:"Resíduos — Classe I",  itens:listaResiduos("CLASSE I").map(x=>"res:"+x.n)});
-  g.push({titulo:"Recicláveis",          itens:listaReciclaveis().map(x=>"reci:"+x.n)});
-  g.push({titulo:"Equipamentos",         itens:listaLocacoes().map(x=>"loc:"+x.n)});
-  g.push({titulo:"Mão de obra",          itens:listaCargos().map(n=>"cargo:"+n)});
-  return g;
-}
-function renderObsPadrao(){
-  const el=document.getElementById("listaObsP");
-  if(!el) return;
-  document.getElementById("badgeObsP").textContent=Object.keys(obsPadraoCustom).length;
-  const busca=semAc(document.getElementById("buscaObsP").value.trim());
-  el.innerHTML="";
-  let achou=0;
-  itensObsPadrao().forEach(grupo=>{
-    const vis=grupo.itens.filter(k=>!busca||semAc(k.slice(k.indexOf(":")+1)).includes(busca));
-    if(!vis.length) return;
-    achou+=vis.length;
-    const t=document.createElement("div");
-    t.className="titulinho-ficha"; t.textContent=grupo.titulo;
-    el.appendChild(t);
-    vis.forEach(chave=>{
-      const nome=chave.slice(chave.indexOf(":")+1);
-      const custom=obsPadraoDe(chave);
-      const fabrica=obsDeFabrica(chave);
-      const aberto=obsPItemAberto===chave;
-      const div=document.createElement("div");
-      div.className="mat-linha"+(aberto?" aberto":"")+(custom?" tem-preco":"");
-      div.innerHTML='<div class="mat-cab"><span class="mat-nome"></span><span class="mat-resumo"></span></div>'+
-                    (aberto?'<div class="mat-corpo"></div>':'');
-      el.appendChild(div);
-      div.querySelector(".mat-nome").textContent=nome;
-      const pintarResumo=()=>{
-        const c=obsPadraoDe(chave);
-        div.querySelector(".mat-resumo").textContent=
-          c?"sua":(fabrica?"de fábrica":"sem texto");
-        div.classList.toggle("tem-preco",!!c);
-      };
-      pintarResumo();
-      div.querySelector(".mat-cab").onclick=()=>abrirItemObsP(chave);
-      if(!aberto) return;
-      const corpo=div.querySelector(".mat-corpo");
-      const ta=document.createElement("textarea");
-      ta.rows=2;
-      ta.value=custom||"";
-      ta.placeholder=fabrica||"nenhum texto de fábrica — escreva o seu";
-      corpo.appendChild(ta);
-      const nota=document.createElement("div");
-      nota.className="sub";
-      nota.textContent=fabrica
-        ? "De fábrica: "+fabrica
-        : "Este item não tem texto de fábrica.";
-      corpo.appendChild(nota);
-      ta.oninput=()=>{
-        ajustarAltura(ta);
-        const v=ta.value.trim();
-        if(v) obsPadraoCustom[chave]=ta.value; else delete obsPadraoCustom[chave];
-        gravarObsPadrao();
-        document.getElementById("badgeObsP").textContent=Object.keys(obsPadraoCustom).length;
-        pintarResumo();
-        renderLinhasValores();
-      };
-      ajustarAltura(ta);
-    });
-  });
-  if(!achou) el.innerHTML='<span class="sub">Nada encontrado.</span>';
-}
+/* O editor que ficava em Ajustes saiu junto com o card. O que ele guardava
+   continua valendo — a mesma chave, o mesmo obsPadraoDe() — só que agora quem
+   escreve são os catálogos, cada um no seu item: resíduo na ficha do
+   destinador, reciclável no card dele, equipamento na própria ficha. */
 function carregarObsPadrao(){
   try{
     const s=localStorage.getItem(LS_OBSP);
@@ -6001,6 +6004,34 @@ function renderPrecosReci(){
     // Só redesenha: a linha nova nasce vazia e ainda não tem o que gravar.
     mais.onclick=()=>{ linhas.push({r:"",v:"",u:"",rep:""}); renderPrecosReci(); };
     corpo.appendChild(mais);
+
+    /* Duas observações, e a diferença entre elas é o cliente ver ou não.
+
+       A interna é anotação de operação ("vai em fardo, 180 kg") e não pode
+       escorregar pro documento. A outra é o texto que o cliente lê na linha da
+       proposta — e antes ela só existia num card à parte, em Ajustes, longe do
+       material a que se refere. Agora as duas moram no mesmo lugar: aqui. */
+    const rotP=document.createElement("label");
+    rotP.textContent="Observação que vai na proposta";
+    corpo.appendChild(rotP);
+    const ip=document.createElement("textarea");
+    ip.rows=1; ip.className="obs-proposta";
+    const chaveObs="reci:"+x.n;
+    const deFabrica=String(obsDeFabrica(chaveObs)||"");
+    const salva=obsPadraoDe(chaveObs);
+    ip.value=salva!==null?salva:deFabrica;
+    ip.placeholder=deFabrica||"ex.: Valor por kg pago ao cliente.";
+    ip.oninput=()=>{
+      ajustarAltura(ip);
+      const t=ip.value.trim();
+      // igual à de fábrica não vira customização — assim uma melhora no texto
+      // padrão ainda alcança quem nunca quis mudar nada
+      if(!t||t===deFabrica.trim()) delete obsPadraoCustom[chaveObs];
+      else obsPadraoCustom[chaveObs]=t;
+      gravarObsPadrao();
+    };
+    corpo.appendChild(ip);
+    ajustarAltura(ip);
 
     const rot=document.createElement("label");
     rot.textContent="Observação interna (não vai pra proposta)";
@@ -9538,7 +9569,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.05-17";
+const APP_VERSION="2026.09.05-18";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
