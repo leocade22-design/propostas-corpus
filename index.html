@@ -154,6 +154,15 @@
   .chip.ativo{background:var(--verde);border-color:var(--verde);
     color:#fff;}
   html[data-tema="escuro"] .chip.ativo{color:#0B1710;}
+  /* Chip que se repete (veículo): o chip marca/desmarca, e o − / + do lado
+     tira ou põe mais uma linha do MESMO veículo. Grudados num bloco só pra não
+     parecerem opções soltas da lista. */
+  .chip-rep{display:inline-flex;align-items:stretch;}
+  .chip-rep.ativo .chip{border-radius:20px 0 0 20px;}
+  .chip-rep .rep{background:var(--verde);border:1.5px solid var(--verde);color:#fff;
+    font-size:1rem;font-weight:700;padding:0 12px;line-height:1;border-left:1px solid rgba(255,255,255,.35);}
+  .chip-rep .rep:last-child{border-radius:0 20px 20px 0;}
+  html[data-tema="escuro"] .chip-rep .rep{color:#0B1710;border-left-color:rgba(0,0,0,.25);}
   /* Alternância Empresa/Pessoa física no cabeçalho do card de cliente — mesmo
      desenho da alternância de Destinações (dest-visao), compacto o bastante
      pra caber ao lado do título sem empurrar ele pra baixo. */
@@ -700,6 +709,9 @@
   .alerta-caixa .motivo{font-size:.85rem;color:var(--suave);line-height:1.45;margin-bottom:14px;
     white-space:pre-line;word-break:break-word;text-align:left;}
   .alerta-caixa .motivo.centro{text-align:center;}
+  /* a prévia da importação pode ser longa: rola por dentro em vez de empurrar
+     os botões pra fora da tela do celular */
+  #modalPergunta .motivo{max-height:55vh;overflow-y:auto;}
 
   .resultado-ok{background:var(--verde-claro);border:1px solid var(--verde-borda);
     border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:.82rem;text-align:left;}
@@ -1139,93 +1151,48 @@
        marcarSuja() é chamado de uma dúzia de lugares e arrancar isso agora
        mexeria em todo canto que grava dado — inclusive no backup, que é
        justamente o que ele passou a depender. -->
-  <!-- Backup de tudo num arquivo só. Existia exportação de três coisas em três
-       lugares diferentes (custos, propostas, clientes) e nenhuma levava catálogos,
-       frota, preços, vínculos nem a base rápida de clientes. -->
+  <!-- Backup e planilha: UM exportar e UM importar.
+
+       Chegou a ter sete botões aqui (backup em JSON, planilha de destinadores,
+       modelo em branco, propostas em JSON e uma lista de planilhas por base) — e
+       o Léo, com razão, não soube por onde começar. Agora é um arquivo só, em
+       Excel: uma aba por base pra editar, e uma aba escondida com o backup
+       completo do app. O mesmo arquivo serve pra atualizar valores no Excel e
+       pra levar tudo pro celular. O Importar reconhece sozinho o que recebeu:
+       esse arquivo, a planilha de preços do parceiro, um .csv, ou um backup
+       .json antigo. -->
   <div class="card">
-    <h2 class="clicavel" onclick="toggleBackup()">Backup completo
+    <h2 class="clicavel" onclick="toggleBackup()">Backup e planilha
       <span class="badge" id="badgeBackup">0</span><span class="seta" id="setaBackup">▾</span></h2>
     <div id="backupCorpo" class="oculto">
       <div class="sub" style="margin-bottom:10px">
-        <strong>Um arquivo com tudo</strong>: propostas, clientes, custos dos
-        destinadores, preços, catálogos (veículos, resíduos, equipamentos,
-        funções), frota, vínculos, observações padrão e o contador de numeração.
-        As exportações soltas espalhadas pelo app levam só um pedaço cada uma.
+        <strong>Um arquivo do Excel com tudo</strong>: uma aba por base —
+        clientes, destinadores, recicláveis, equipamentos, mão de obra, frota,
+        catálogo, observações e propostas — e, escondido, o backup completo do app.
       </div>
       <div class="row2">
-        <button class="btn-sec" onclick="exportarTudo()">Exportar tudo</button>
-        <button class="btn-sec" onclick="document.getElementById('arqTudo').click()">Restaurar</button>
+        <button class="btn-principal" onclick="exportarTudo()">Exportar tudo</button>
+        <button class="btn-sec" onclick="document.getElementById('arqTudo').click()">Importar</button>
       </div>
-      <input type="file" id="arqTudo" accept="application/json" class="oculto" onchange="importarTudo(this)">
-      <div class="sub aviso-sigilo">Fora do arquivo, porque não cabem em JSON:
-        as <strong>informações da atividade</strong> (anotação e fotos) e os
-        arquivos da aba Apoio — esses vivem só no aparelho.</div>
+      <input type="file" id="arqTudo" accept=".xlsx,.csv,.json" class="oculto" onchange="importarArquivo(this)">
       <div class="status" id="statusBackup"></div>
-
-      <!-- Estes dois controles moraram nas abas Destinações e Propostas e
-           Clientes. Vieram pra cá porque são backup — só que de um formato
-           diferente do resto: a planilha do parceiro é .xlsx, o Backup
-           completo é um JSON próprio. Juntar os dois debaixo do mesmo rótulo
-           fingiria que são a mesma coisa; separados aqui dentro, cada um
-           continua sendo o que é, e o Léo só olha num lugar quando pensa
-           "backup". -->
-      <div class="titulo-secao"><span>Planilha de destinadores</span></div>
-      <div class="sub" style="margin-bottom:10px">
-        O que cada parceiro <strong>cobra da Corpus</strong> pra destinar cada
-        resíduo. É custo: a proposta sai com o preço de venda, que é esse valor
-        mais o BDI. Tudo fica só neste aparelho.
+      <div class="sub" style="margin-top:10px">
+        <strong>Pra atualizar valores:</strong> exporte, mude o que precisar no
+        Excel e importe de volta. Entra só o que você mudou na planilha; antes de
+        gravar o app mostra o que vai mudar. Apagar a linha da planilha
+        <strong>não</strong> apaga do app — pra excluir, escreva SIM na coluna EXCLUIR.
       </div>
-      <div class="row2">
-        <button class="btn-sec" onclick="document.getElementById('arqDest').click()">Importar planilha</button>
-        <button class="btn-sec" onclick="exportarDest()">Exportar</button>
+      <div class="sub" style="margin-top:8px">
+        <strong>Pra levar pro celular:</strong> importe o mesmo arquivo lá. Vindo
+        de outro aparelho, ele deixa o celular igual ao arquivo.
       </div>
-      <button class="btn-sec btn-full" style="margin-top:8px" onclick="baixarModeloPlanilha()">Baixar planilha modelo (em branco)</button>
-      <div class="sub">A planilha modelo já vem com os cabeçalhos que o app procura
-        e uma linha de exemplo. Preencher nela evita o erro mais comum da
-        importação: coluna com nome que o app não reconhece.</div>
-      <input type="file" id="arqDest" accept=".xlsx,.csv,.json" class="oculto" onchange="importarDest(this)">
-      <div class="sub">
-        Aceita a sua planilha em .xlsx ou .csv — colunas DESTINADOR, CLASSE, TIPO DE
-        RESÍDUO, VALOR UNIT. (R$) e UNID. As colunas são procuradas pelo título,
-        então a ordem delas não importa. Importar de novo substitui a tabela
-        inteira, mas as junções de resíduo que você fez continuam valendo.
+      <div class="sub" style="margin-top:8px">
+        O Importar também aceita a planilha de preços que o parceiro manda
+        (.xlsx ou .csv) e backups antigos (.json).
       </div>
-
-      <div class="titulo-secao"><span>Propostas salvas</span></div>
-      <div class="sub" style="margin-bottom:10px">Um arquivo só com as propostas
-        — mais estreito que o Backup completo, útil pra levar só o histórico
-        pra outro aparelho sem mexer no resto.</div>
-      <div class="row2">
-        <button class="btn-sec" onclick="document.getElementById('arqPropostas').click()">Importar</button>
-        <button class="btn-sec" onclick="exportarPropostas()">Exportar</button>
-      </div>
-      <input type="file" id="arqPropostas" accept="application/json" class="oculto" onchange="importarPropostas(this)">
-    </div>
-  </div>
-  <!-- Editar fora do app. O Backup completo é um arquivo pra MÁQUINA ler; isto
-       aqui é pra PESSOA ler: uma planilha por base, cada uma indo pra quem
-       cuida dela, e voltando sem atropelar o resto.
-       Os botões podiam morar dentro do card de cada base, espalhados por quatro
-       abas. Só que a hora de usar isso é a hora de MANDAR os arquivos pra
-       alguém — e aí vale um lugar só, com a lista toda à vista. -->
-  <div class="card">
-    <h2 class="clicavel" onclick="togglePlanilhas()">Planilhas — editar fora do app
-      <span class="seta" id="setaPlanilhas">▾</span></h2>
-    <div id="planilhasCorpo" class="oculto">
-      <div class="sub" style="margin-bottom:12px">
-        Cada base sai numa planilha <strong>separada</strong>, abre no Excel e
-        volta por aqui. Três coisas valem pra todas:
-        <strong>o que não está na planilha continua aqui</strong> (sumir da
-        planilha não apaga nada), <strong>célula vazia é “não mexi”</strong>, e
-        excluir só acontece escrevendo <strong>SIM</strong> na coluna EXCLUIR.
-        As colunas são procuradas pelo <strong>título</strong>, então a ordem
-        delas não importa e coluna a mais é ignorada. Antes de gravar, o app
-        mostra o que vai acontecer e pergunta.
-      </div>
-      <div id="listaPlanilhas"></div>
-      <div class="sub aviso-sigilo" style="margin-top:12px">Fora daqui, de
-        propósito: os <strong>dados de apoio</strong>, que têm CPF. Dado pessoal
-        não viaja em arquivo — é a mesma regra que já vale pro backup.</div>
+      <div class="sub aviso-sigilo">Fora do arquivo: os <strong>dados de
+        apoio</strong> (têm CPF — dado pessoal não viaja em arquivo), a anotação e
+        as fotos da atividade, e os arquivos da aba Apoio.</div>
     </div>
   </div>
   <!-- O card "Observações padrão" foi removido daqui. Ele juntava num lugar só
@@ -1829,6 +1796,7 @@ function renderPasso(idAlvo,titulo,opcoes,escolha,onPick,opts){
     const cont=document.createElement("div");
     cont.className="chips";
     opcoes.forEach(op=>{
+      if(opts.repetir){ cont.appendChild(chipRepetivel(op,marcados,onPick,opts.repetir,null)); return; }
       const b=document.createElement("button");
       b.className="chip"+(marcados.includes(op)?" ativo":"");
       b.textContent=op;
@@ -1862,12 +1830,15 @@ function renderPasso(idAlvo,titulo,opcoes,escolha,onPick,opts){
     ab.className="abrir mais"; ab.textContent="+";
     card.title="Toque para abrir a lista de "+String(titulo).toLowerCase();
   }else{
-    // Mostra os primeiros e resume o resto: a lista inteira estouraria a linha
-    val.textContent=marcados.slice(0,2).join(", ")+(marcados.length>2?" +"+(marcados.length-2):"");
+    // Mostra os primeiros e resume o resto: a lista inteira estouraria a linha.
+    // Repetido sai uma vez com a contagem ("Caminhão Compactador ×2"), senão
+    // o resumo gastaria as duas vagas com o mesmo nome.
+    const rot=comContagem(marcados);
+    val.textContent=rot.slice(0,2).join(", ")+(rot.length>2?" +"+(rot.length-2):"");
     card.querySelector(".abrir").textContent="alterar";
-    card.title=marcados.join("  ·  ");
+    card.title=rot.join("  ·  ");
   }
-  card.onclick=()=>abrirSelecao({titulo,opcoes,escolha,onPick,multi,gerenciar:opts.gerenciar});
+  card.onclick=()=>abrirSelecao({titulo,opcoes,escolha,onPick,multi,gerenciar:opts.gerenciar,repetir:opts.repetir});
   el.appendChild(card);
 }
 
@@ -1905,6 +1876,10 @@ function pintarSelecao(){
                                :(selAtual.escolha?[selAtual.escolha]:[]);
   cx.innerHTML="";
   selAtual.opcoes.filter(op=>!busca||semAc(op).includes(busca)).forEach(op=>{
+    if(selAtual.repetir){
+      cx.appendChild(chipRepetivel(op,marcados,selAtual.onPick,selAtual.repetir,pintarSelecao));
+      return;
+    }
     const b=document.createElement("button");
     b.className="chip"+(marcados.includes(op)?" ativo":"");
     b.textContent=op;
@@ -1929,6 +1904,9 @@ function pintarSelecao(){
     cx.appendChild(g);
   }
   document.getElementById("selDica").textContent= !selAtual.multi ? "Toque na opção que vale."
+    : selAtual.repetir
+      ? (marcados.length?marcados.length+" linha(s) de serviço. O + ao lado repete o mesmo veículo em outra linha."
+                        :"Pode marcar vários. Depois de marcar, o + repete o mesmo veículo em outra linha.")
     : marcados.length?marcados.length+" selecionado(s) — sai uma linha de serviço pra cada."
                      :"Pode marcar vários — sai uma linha de serviço pra cada.";
 }
@@ -1941,6 +1919,62 @@ function alternar(lista,valor){
   const i=lista.indexOf(valor);
   if(i>=0) lista.splice(i,1); else lista.push(valor);
   return lista;
+}
+/* ---- Seleção que aceita o MESMO item mais de uma vez ----
+   Veículo é o caso: o mesmo Caminhão Compactador sai em duas linhas, uma de
+   15 m³ e outra de 19 m³, ou uma por coleta e outra por equipamento. O item
+   entra repetido na própria lista (["Compactador","Compactador"]) e cada cópia
+   vira uma linha de serviço.
+
+   Tudo aqui MUTA a lista em vez de trocar por outra: o popup guarda a
+   referência do array (selAtual.escolha) e se redesenha a partir dela. */
+function alternarTodos(lista,valor){
+  if(!lista.includes(valor)){ lista.push(valor); return lista; }
+  for(let i=lista.length-1;i>=0;i--) if(lista[i]===valor) lista.splice(i,1);
+  return lista;
+}
+// A cópia entra colada na última do mesmo nome, e não no fim da lista: as
+// linhas do mesmo veículo aparecem juntas, na tela e na proposta.
+function repetirNaLista(lista,valor){
+  const i=lista.lastIndexOf(valor);
+  if(i<0) lista.push(valor); else lista.splice(i+1,0,valor);
+  return lista;
+}
+function tirarUmaVez(lista,valor){
+  const i=lista.lastIndexOf(valor);
+  if(i>=0) lista.splice(i,1);
+  return lista;
+}
+function comContagem(lista){
+  const n=new Map();
+  lista.forEach(x=>n.set(x,(n.get(x)||0)+1));
+  return [...n].map(([x,q])=>q>1?x+" ×"+q:x);
+}
+function chipRepetivel(op,marcados,onPick,rep,depois){
+  const qtd=marcados.filter(x=>x===op).length;
+  const caixa=document.createElement("span");
+  caixa.className="chip-rep"+(qtd?" ativo":"");
+  const b=document.createElement("button");
+  b.className="chip"+(qtd?" ativo":"");
+  b.textContent=op+(qtd>1?" ×"+qtd:"");
+  b.title=qtd?"Tirar "+op+" da proposta":"Marcar "+op;
+  b.onclick=()=>{ onPick(op); if(depois) depois(); };
+  caixa.appendChild(b);
+  if(qtd){
+    if(qtd>1){
+      const m=document.createElement("button");
+      m.className="rep"; m.type="button"; m.textContent="−";
+      m.title="Uma linha a menos de "+op;
+      m.onclick=()=>{ rep.menos(op); if(depois) depois(); };
+      caixa.appendChild(m);
+    }
+    const mais=document.createElement("button");
+    mais.className="rep"; mais.type="button"; mais.textContent="+";
+    mais.title="Mais uma linha de "+op;
+    mais.onclick=()=>{ rep.mais(op); if(depois) depois(); };
+    caixa.appendChild(mais);
+  }
+  return caixa;
 }
 
 /* ============ MÁSCARAS ============ */
@@ -2865,8 +2899,10 @@ function fluxo(){
       v=>{sel.mod=v;fluxo();});
     else esconderPassos(3);
     if(sel.classe&&sel.mod) renderPasso("passo4","Veículos",listaVeiculos().map(v=>v.n),sel.veics,
-      v=>{alternar(sel.veics,v);fluxo();},
-      {multi:true,gerenciar:()=>abrirCatalogo("veiculos")});
+      v=>{alternarTodos(sel.veics,v);fluxo();},
+      {multi:true,gerenciar:()=>abrirCatalogo("veiculos"),
+       repetir:{mais:v=>{repetirNaLista(sel.veics,v);fluxo();},
+                menos:v=>{tirarUmaVez(sel.veics,v);fluxo();}}});
     else esconderPassos(4);
 
   } else if(c==="DESTINAÇÃO FINAL DE RESÍDUOS"){
@@ -2987,12 +3023,21 @@ function montarLinhasBase(){
   if(c==="COLETA DE RESÍDUOS"||c==="COLETA E DESTINAÇÃO FINAL DE RESÍDUOS"){
     if(!sel.classe||!sel.mod||!sel.veics||!sel.veics.length) return [];
     const cl=sel.classe==="CLASSE I"?"CLASSE I":"CLASSE II";
+    const vez={};
     return sel.veics.map(nome=>{
       const v=listaVeiculos().find(x=>x.n===nome)||{n:nome,c:"",e:null};
+      /* O mesmo veículo pode vir repetido. A `chave` continua sendo a do
+         catálogo ("veic:Nome") — é ela que acha observação, ficha e unidade —,
+         e o `id` separa uma cópia da outra no que é da LINHA: valor, unidade e
+         observação digitados. Sem isso as duas linhas dividiriam o mesmo campo
+         de valor e sairiam iguais. */
+      const n=vez[nome]=(vez[nome]||0)+1;
+      const total=sel.veics.filter(x=>x===nome).length;
       // Três linhas fixas: serviço / classificação+modalidade / veículo. Sem isso
       // é a largura da coluna no Word que decide onde o texto quebra, e aí cada
       // proposta sai com um desenho diferente.
-      return {chave:"veic:"+nome, nome,
+      return {chave:"veic:"+nome, id:"veic:"+nome+(n>1?"#"+n:""), nome,
+        rotulo:total>1?nome+" ("+n+" de "+total+")":undefined,
         descricao:`${nomeCategoria(c)}\n${cl} - ${sel.mod} -\n${nome}`, residuo:"-",
         unidade:UNI_MOD[sel.mod]||"",
         obsBase:(sel.mod==="POR EQUIPAMENTO"&&v.e)?v.e:(v.c||"")};
@@ -3338,6 +3383,9 @@ function renderLinhasValores(){
   const alvo=document.getElementById("linhasValores");
   alvo.innerHTML="";
   linhas.forEach(l=>{
+    // O que foi DIGITADO nesta linha vai pelo id (cópias do mesmo veículo têm
+    // id próprio); o que vem do CATÁLOGO continua pela chave.
+    const k=l.id||l.chave;
     const div=document.createElement("div");
     div.className="linha-valor";
     div.innerHTML=
@@ -3393,11 +3441,11 @@ function renderLinhasValores(){
     const lkPreco=custoVinculado(l.chave);
     if(lkPreco) salvo={v:fmtDinheiro(lkPreco.preco), u:lkPreco.u||salvo.u||""};
     const iv=div.querySelector('[data-campo="valor"]');
-    iv.value=valorPorChave[l.chave]!==undefined?valorPorChave[l.chave]:(salvo.v||"");
-    iv.oninput=()=>{mascaraValor(iv);valorPorChave[l.chave]=iv.value;};
+    iv.value=valorPorChave[k]!==undefined?valorPorChave[k]:(salvo.v||"");
+    iv.oninput=()=>{mascaraValor(iv);valorPorChave[k]=iv.value;};
     div.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
     const iu=div.querySelector('[data-campo="unidade"]');
-    iu.value=unidadePorChave[l.chave]!==undefined?unidadePorChave[l.chave]
+    iu.value=unidadePorChave[k]!==undefined?unidadePorChave[k]
             :(salvo.u||l.unidade);
     const io=div.querySelector('[data-campo="obs"]');
 
@@ -3405,27 +3453,27 @@ function renderLinhasValores(){
     // app escreveu. Texto ajustado à mão fica como está.
     const aplicarObs=()=>{
       const nova=comporObs(l.chave,iu.value,l.obsBase);
-      const atual=obsPorChave[l.chave];
-      if(atual===undefined||atual===obsAutoPorChave[l.chave]){
-        io.value=nova; obsPorChave[l.chave]=nova; ajustarAltura(io);
+      const atual=obsPorChave[k];
+      if(atual===undefined||atual===obsAutoPorChave[k]){
+        io.value=nova; obsPorChave[k]=nova; ajustarAltura(io);
       }
-      obsAutoPorChave[l.chave]=nova;
+      obsAutoPorChave[k]=nova;
     };
     // O custo sugerido depende da unidade (TON vira KG), então acompanha ela.
     const custos=div.querySelector('[data-campo="custos"]');
     const aplicarCustos=()=>montarSugestoesCusto(custos,l,iv,()=>iu.value,iu);
     // Trocar KG↔Tonelada refaz o valor junto — ver ligarConversaoMassa()
-    const converter=ligarConversaoMassa(iv,iu.value,novo=>{valorPorChave[l.chave]=novo;});
+    const converter=ligarConversaoMassa(iv,iu.value,novo=>{valorPorChave[k]=novo;});
     const trocouUnidade=u=>{
       converter(u);
-      unidadePorChave[l.chave]=u;aplicarObs();aplicarCustos();
+      unidadePorChave[k]=u;aplicarObs();aplicarCustos();
     };
     iu.oninput=()=>{trocouUnidade(iu.value);};
     montarChipsUnidade(iu,l.chave,trocouUnidade,l.descricao);
     aplicarCustos();
     aplicarObs();
-    if(obsPorChave[l.chave]!==undefined) io.value=obsPorChave[l.chave];
-    io.oninput=()=>{obsPorChave[l.chave]=io.value;};
+    if(obsPorChave[k]!==undefined) io.value=obsPorChave[k];
+    io.oninput=()=>{obsPorChave[k]=io.value;};
     ajustarAltura(io);
   });
 }
@@ -4583,7 +4631,10 @@ function renderExemploBDI(){
 /* Leitor de .xlsx. O JSZip já está aqui por causa do .docx, e uma planilha é um
    zip com XML dentro igual — então dá pra ler sem trazer mais biblioteca. Só o
    necessário: a primeira aba, as strings compartilhadas e o valor de cada célula. */
-async function lerXlsx(arquivo){
+/* Lê TODAS as abas, na ordem do arquivo, com nome e se está escondida. O
+   arquivo do Exportar tudo tem uma aba por base (e o backup numa escondida);
+   a planilha do parceiro costuma ter uma só. */
+async function lerXlsxAbas(arquivo){
   const zip=await JSZip.loadAsync(arquivo);
   const texto=async n=>{const f=zip.file(n);return f?await f.async("string"):"";};
   const dp=new DOMParser();
@@ -4597,25 +4648,43 @@ async function lerXlsx(arquivo){
       compart.push(s);
     });
   }
-  // A primeira aba nem sempre é sheet1.xml — o workbook diz qual é qual pelo r:id
-  let nomeAba="xl/worksheets/sheet1.xml";
+  // O nome do arquivo de cada aba não é o nome da aba — o workbook liga um ao
+  // outro pelo r:id. A primeira aba nem sempre é sheet1.xml.
   const wbXml=await texto("xl/workbook.xml"), relXml=await texto("xl/_rels/workbook.xml.rels");
+  const abas=[];
   if(wbXml&&relXml){
     const wb=dp.parseFromString(wbXml,"application/xml");
     const rels=dp.parseFromString(relXml,"application/xml");
-    const primeira=wb.querySelector("sheets > sheet");
-    const rid=primeira&&(primeira.getAttribute("r:id")||primeira.getAttribute("id"));
-    if(rid){
-      const rel=[...rels.querySelectorAll("Relationship")].find(r=>r.getAttribute("Id")===rid);
-      const alvo=rel&&rel.getAttribute("Target");
-      if(alvo) nomeAba="xl/"+String(alvo).replace(/^\/?xl\//,"").replace(/^\//,"");
-    }
+    const alvos={};
+    rels.querySelectorAll("Relationship").forEach(r=>{ alvos[r.getAttribute("Id")]=r.getAttribute("Target"); });
+    wb.querySelectorAll("sheets > sheet").forEach(sh=>{
+      const rid=sh.getAttribute("r:id")||sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id");
+      const alvo=alvos[rid];
+      if(!alvo) return;
+      abas.push({nome:sh.getAttribute("name")||"",
+                 oculta:/hidden/i.test(sh.getAttribute("state")||""),
+                 caminho:alvo.startsWith("/")?alvo.slice(1):"xl/"+alvo.replace(/^\.?\//,"")});
+    });
   }
-  const shXml=await texto(nomeAba);
-  if(!shXml) throw new Error("planilha sem aba legível");
-  const sh=dp.parseFromString(shXml,"application/xml");
+  if(!abas.length) abas.push({nome:"",oculta:false,caminho:"xl/worksheets/sheet1.xml"});
+  const saida=[];
+  for(const a of abas){
+    const shXml=await texto(a.caminho);
+    if(!shXml) continue;
+    saida.push({nome:a.nome,oculta:a.oculta,linhas:linhasDaAba(dp.parseFromString(shXml,"application/xml"),compart)});
+  }
+  if(!saida.length) throw new Error("planilha sem aba legível");
+  return saida;
+}
+function linhasDaAba(sh,compart){
   const linhas=[];
   sh.querySelectorAll("row").forEach(row=>{
+    /* Linha em branco não existe no XML — o arquivo pula da 1 pra 3. Sem
+       respeitar o número que vem escrito na linha, tudo abaixo de uma linha
+       vazia ficava uma posição acima, e a prévia mandava procurar o erro na
+       linha errada do Excel. */
+    const r=Number(row.getAttribute("r"));
+    if(r>0) while(linhas.length<r-1) linhas.push({});
     const celulas={};
     row.querySelectorAll("c").forEach(c=>{
       const ref=(c.getAttribute("r")||"").replace(/\d+/g,"");  // "B7" → "B"
@@ -4623,12 +4692,18 @@ async function lerXlsx(arquivo){
       let v=c.querySelector("v")?c.querySelector("v").textContent:"";
       if(tipo==="s"&&v!=="") v=compart[Number(v)]||"";
       else if(tipo==="inlineStr"){ const is=c.querySelector("is"); v=is?is.textContent:""; }
+      /* Célula numérica sai como NÚMERO, não como texto. No XML o Excel grava
+         sempre com ponto e sem milhar ("1234.5", "1.234") — lido como texto,
+         "1.234" é ambíguo (mil e tanto ou um e pouco); como número, não é. */
+      else if((!tipo||tipo==="n")&&v!==""&&isFinite(Number(v))) v=Number(v);
       celulas[ref]=v;
     });
     linhas.push(celulas);
   });
   return linhas;
 }
+// A primeira aba, pra quem só precisa de uma.
+async function lerXlsx(arquivo){ return (await lerXlsxAbas(arquivo))[0].linhas; }
 /* Célula numérica de .xlsx guarda o número cru, sempre com PONTO decimal e sem
    separador de milhar ("1234.5") — independente de como o Excel mostra na tela.
    Só quando o valor foi digitado como texto é que aparece no formato brasileiro
@@ -4660,92 +4735,8 @@ function numeroPlanilha(s){
   const ehMilhar=(ultima.length===3)&&!(partes.length===2&&partes[0]==="0");
   return Number(ehMilhar?t.replace(/\./g,""):t);
 }
-/* Encaixa a planilha do Léo no formato do app. As colunas são procuradas pelo
-   TÍTULO, não pela posição — assim mexer a ordem das colunas na planilha não
-   quebra a importação. */
-function planilhaParaPrecos(linhas){
-  const norm=s=>semAc(String(s||"")).replace(/[^a-z0-9]/g,"");
-  const achaCabecalho=()=>{
-    for(let i=0;i<Math.min(linhas.length,30);i++){
-      const l=linhas[i], mapa={};
-      Object.entries(l).forEach(([col,val])=>{
-        const n=norm(val);
-        if(n==="destinador") mapa.d=col;
-        else if(n==="classe") mapa.cl=col;
-        else if(n.startsWith("tipoderesiduo")||n==="residuo") mapa.r=col;
-        else if(n.startsWith("valorunit")) mapa.v=col;
-        else if(n==="unid"||n==="unidade") mapa.u=col;
-      });
-      if(mapa.d&&mapa.r&&mapa.v) return {linha:i,mapa};
-    }
-    return null;
-  };
-  const cab=achaCabecalho();
-  if(!cab) throw new Error("não achei as colunas DESTINADOR / TIPO DE RESÍDUO / VALOR UNIT.");
-  const precos=[];
-  for(let i=cab.linha+1;i<linhas.length;i++){
-    const l=linhas[i];
-    const d=String(l[cab.mapa.d]||"").trim();
-    const r=String(l[cab.mapa.r]||"").trim();
-    const v=numeroPlanilha(l[cab.mapa.v]);
-    if(!d||!r||!isFinite(v)||v<=0) continue;   // linha em branco, separador, subtotal
-    precos.push({d, cl:String(l[cab.mapa.cl]||"").trim(),
-                 r, v, u:String(l[cab.mapa.u]||"").trim().toUpperCase()});
-  }
-  return precos;
-}
-async function importarDest(input){
-  const arq=input.files&&input.files[0];
-  input.value="";
-  if(!arq) return;
-  const st=document.getElementById("statusDest");
-  st.textContent="Lendo...";
-  try{
-    let novos;
-    if(/\.json$/i.test(arq.name)){
-      // Backup do próprio app: volta inteiro, inclusive as junções feitas à mão.
-      // Sem isso, restaurar um backup devolvia os preços mas jogava fora o
-      // trabalho de casar as nomenclaturas dos parceiros.
-      const j=JSON.parse(await arq.text());
-      novos=Array.isArray(j)?j:(j.precos||[]);
-      if(j&&!Array.isArray(j)){
-        if(j.bdi!==undefined) dest.bdi=Number(j.bdi)||dest.bdi;
-        if(Array.isArray(j.juntas)) dest.juntas=j.juntas;
-        if(Array.isArray(j.separadas)) dest.separadas=j.separadas;
-        if(Array.isArray(j.ordem)) dest.ordem=j.ordem;
-        if(j.rotulos&&typeof j.rotulos==="object") dest.rotulos=j.rotulos;
-      }
-    }else{
-      // Planilha nova do parceiro: os preços são substituídos, mas as junções
-      // continuam valendo — elas são por NOME de resíduo, então sobrevivem a um
-      // reajuste de preço sem precisar refazer nada.
-      novos=/\.csv$/i.test(arq.name)
-        ? planilhaParaPrecos(lerCsv(await arq.text()))
-        : planilhaParaPrecos(await lerXlsx(arq));
-    }
-    if(!novos.length){ st.textContent="Nenhuma linha de preço encontrada no arquivo."; return; }
-    dest.precos=novos;
-    gravarDest();
-    document.getElementById("bdiDest").value=dest.bdi;
-    renderExemploBDI(); renderDest(); renderLinhasValores();
-    const parceiros=new Set(novos.map(p=>p.d)).size;
-    st.textContent=`${novos.length} preços de ${parceiros} destinadores importados.`;
-  }catch(e){
-    st.textContent="Não deu pra ler: "+(e.message||e);
-  }
-}
-/* Planilha modelo pra importação.
-
-   O erro mais comum na importação não é dado errado: é cabeçalho com outro nome.
-   O app procura DESTINADOR, CLASSE, TIPO DE RESÍDUO, VALOR UNIT. (R$) e UNID.,
-   e quem monta a planilha do zero escreve "Fornecedor", "Preço", "Un" — e a
-   importação falha sem que ninguém entenda por quê. Baixar o modelo pronto
-   resolve isso antes de acontecer.
-
-   Sai em .csv com BOM: abre no Excel com acento certo, é uma linha de código em
-   vez de montar um .xlsx na mão, e o próprio importador já lê os dois. */
-/* Leitor de CSV. O modelo sai em .csv, então tem que voltar em .csv — dar um
-   modelo que o próprio app não lê de volta seria pior que não dar modelo.
+/* Leitor de CSV. O Exportar tudo sai em .xlsx, mas planilha de parceiro e
+   aba copiada do Google Planilhas chegam muitas vezes em .csv.
 
    Aspas duplas e ponto e vírgula dentro do campo são tratados porque nome de
    parceiro tem vírgula ("SÓLIDOS, LODOS E AFINS") e o Excel em português salva
@@ -4768,38 +4759,13 @@ function lerCsv(texto){
     else campo+=c;
   }
   if(campo!==""||linha.length){ linha.push(campo); linhas.push(linha); }
-  // planilhaParaPrecos espera objetos {coluna: valor}, como o leitor de xlsx entrega
+  // Mesmo formato do leitor de xlsx, {A: valor, B: valor, ...}: o resto do
+  // caminho não precisa saber de qual dos dois a linha veio.
   return linhas.map(l=>{
     const o={};
-    l.forEach((v,j)=>{ o[String.fromCharCode(65+j)]=v; });
+    l.forEach((v,j)=>{ o[letraDaColuna(j)]=v; });
     return o;
   });
-}
-function baixarModeloPlanilha(){
-  const linhas=[
-    ["DESTINADOR","CLASSE","TIPO DE RESÍDUO","VALOR UNIT. (R$)","UNID."],
-    ["NOME DO PARCEIRO","CLASSE II","MADEIRA","89,65","TON"],
-    ["NOME DO PARCEIRO","CLASSE I","SÓLIDOS CONTAMINADOS","1.200,00","TON"],
-    ["OUTRO PARCEIRO","CLASSE II","ENTULHO","154,04","M³"],
-    ["","","","",""]
-  ];
-  // ponto e vírgula: é o separador que o Excel em português assume sozinho
-  const csv=linhas.map(l=>l.map(c=>{
-    const t=String(c);
-    return /[;"\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
-  }).join(";")).join("\r\n");
-  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
-  baixar(blob,"modelo-destinadores-corpus.csv");
-  const st=document.getElementById("statusDest");
-  if(st) st.textContent="Modelo baixado. Preencha e traga de volta em Importar planilha.";
-}
-function exportarDest(){
-  const blob=new Blob([JSON.stringify(dest,null,1)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="destinadores-corpus.json";
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 /* ---- Agrupamento de resíduos entre destinadores ----
    Cada parceiro batiza o resíduo do seu jeito: o que num é "SÓLIDO
@@ -6864,7 +6830,10 @@ async function excluirProposta(id){
    que nascer amanhã entra sozinha no backup. Uma lista escrita à mão é a que
    esquece justamente a coisa nova — foi assim que catálogos, frota, preços e
    vínculos nunca entraram em exportação nenhuma. */
-const FORA_DO_BACKUP=["corpus_sync_sujas_v1","corpus_snapshots_v1"];
+// corpus_aparelho_v1 é a identidade DESTE aparelho: copiada pro celular, os
+// dois passariam a se achar o mesmo, e o arquivo do PC seria tratado no celular
+// como se tivesse saído dele.
+const FORA_DO_BACKUP=["corpus_sync_sujas_v1","corpus_snapshots_v1","corpus_aparelho_v1"];
 function chavesDoApp(){
   const fora=[];
   for(let i=0;i<localStorage.length;i++){
@@ -6884,82 +6853,6 @@ function toggleBackup(){
   document.getElementById("setaBackup").classList.toggle("aberta",backupAberto);
   contarBackup();
 }
-function exportarTudo(){
-  const dados={};
-  chavesDoApp().forEach(k=>{ dados[k]=localStorage.getItem(k); });
-  const pacote={app:"propostas-corpus", versao:APP_VERSION,
-                em:new Date().toISOString(), chaves:Object.keys(dados).length, dados};
-  const blob=new Blob([JSON.stringify(pacote,null,1)],{type:"application/json"});
-  const nome="corpus-backup-"+new Date().toISOString().slice(0,10)+".json";
-  const st=document.getElementById("statusBackup");
-  st.textContent="Exportando...";
-  // "arquivo": vai pro download do navegador, não pra pasta dos documentos
-  baixar(blob,nome,"arquivo").then(pasta=>{
-    st.textContent=pacote.chaves+" conjuntos de dados exportados em "+nome
-      +(pasta?(" (pasta "+pasta+")"):" — procure em Downloads.");
-  }).catch(e=>{ st.textContent="Não deu pra exportar: "+(e.message||e); });
-}
-async function importarTudo(input){
-  const arq=(input.files||[])[0];
-  input.value="";
-  if(!arq) return;
-  const st=document.getElementById("statusBackup");
-  let pacote;
-  try{ pacote=JSON.parse(await arq.text()); }
-  catch(e){ st.textContent="Arquivo ilegível — não parece um backup do app."; return; }
-  if(!pacote||pacote.app!=="propostas-corpus"||!pacote.dados||typeof pacote.dados!=="object"){
-    st.textContent="Esse arquivo não é um backup completo do Propostas CORPUS.";
-    return;
-  }
-  const n=Object.keys(pacote.dados).length;
-  const quando=pacote.em?new Date(pacote.em).toLocaleString("pt-BR"):"data desconhecida";
-  if(!await perguntar("Restaurar o backup?",
-      "Backup de "+quando+", com "+n+" conjuntos de dados.\n\n"+
-      "Isto SUBSTITUI o que está neste aparelho. O app recarrega em seguida.",
-      {emoji:"⏪",sim:"Restaurar",nao:"Cancelar",perigo:true})) return;
-  try{
-    Object.entries(pacote.dados).forEach(([k,v])=>{
-      if(typeof v==="string"&&k.startsWith("corpus_")) localStorage.setItem(k,v);
-    });
-  }catch(e){
-    st.textContent="Não deu pra gravar tudo — armazenamento cheio. Nada foi perdido do arquivo; libere espaço e tente de novo.";
-    return;
-  }
-  st.textContent="Restaurado. Recarregando...";
-  setTimeout(()=>location.reload(),700);
-}
-function exportarPropostas(){
-  const blob=new Blob([JSON.stringify(propostas,null,2)],{type:"application/json"});
-  const st=document.getElementById("statusHistorico");
-  if(st) st.textContent="Exportando...";
-  baixar(blob,"propostas-corpus.json","arquivo").then(pasta=>{
-    if(st) st.textContent=propostas.length+" propostas exportadas em "
-      +"propostas-corpus.json"+(pasta?(" (pasta "+pasta+")"):" — procure em Downloads.");
-  }).catch(e=>{ if(st) st.textContent="Não deu pra exportar: "+(e.message||e); });
-}
-function importarPropostas(input){
-  const arq=input.files&&input.files[0]; if(!arq)return;
-  const st=document.getElementById("statusHistorico");
-  const leitor=new FileReader();
-  leitor.onload=()=>{
-    try{
-      const lista=JSON.parse(leitor.result);
-      if(!Array.isArray(lista)) throw new Error("formato");
-      let novas=0,atualizadas=0;
-      lista.forEach(p=>{
-        if(!p||!p.id)return;
-        const i=propostas.findIndex(x=>x.id===p.id);
-        if(i>=0){propostas[i]=p;atualizadas++;} else {propostas.push(p);novas++;}
-      });
-      propostas.sort((a,b)=>String(b.salvoEm||"").localeCompare(String(a.salvoEm||"")));
-      gravarPropostas(); atualizarBadgeHistorico(); renderHistorico();
-      st.textContent=`Importadas: ${novas} novas, ${atualizadas} atualizadas.`;
-    }catch(e){ st.textContent="Arquivo inválido — esperava uma lista JSON de propostas."; }
-    input.value="";
-  };
-  leitor.readAsText(arq);
-}
-
 /* ============ BASE EDITÁVEL EM PLANILHA (ida e volta) ============
 
    Toda base que o app guarda sai em planilha, é editada no Excel e volta — sem
@@ -6992,39 +6885,33 @@ const COL_EXCLUIR="EXCLUIR";
 function normCol(s){ return semAc(String(s??"")).replace(/[^a-z0-9]/g,""); }
 function txt(v){ return String(v??"").trim(); }
 
-/* Excel come o zero à esquerda de qualquer coisa que pareça número: um CEP
-   "01310-000" sobrevive porque tem traço, mas um CNPJ só de dígitos vira outro
-   número. O ="..." é o jeito que o Excel entende como "isto é texto, não
-   encoste". Só entra quando faz falta — e volta a sair na leitura. */
-function travarTexto(v){
-  const t=String(v??"");
-  return /^0\d+$/.test(t)?'="'+t+'"':t;
-}
+/* O CSV antigo (e quem copiou de lá) trava o zero à esquerda com ="0123" —
+   é o jeito que o Excel entende "isto é texto". Na volta, a trava sai. */
 function destravarTexto(v){
   const t=String(v??"").trim();
   const m=/^="(.*)"$/.exec(t);
   return m?m[1]:t;
 }
-function celulaCsv(v){
-  const t=String(v??"");
-  return /[;",\n\r]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
-}
-/* CSV com BOM e ponto e vírgula: é o que o Excel em português abre com acento
-   certo e coluna separada, sem tela de importação nenhuma. */
-function csvDe(titulos,linhas){
-  const corpo=[titulos].concat(linhas).map(l=>l.map(celulaCsv).join(";")).join("\r\n");
-  return new Blob(["﻿"+corpo],{type:"text/csv;charset=utf-8"});
-}
 
 /* ---- Valor de célula, na ida e na volta ---- */
-function celulaDeSaida(col,valor){
-  if(valor===undefined||valor===null) return "";
-  if(col.num) return (valor==="")?"":fmtDinheiro(valor);
-  return travarTexto(valor);
-}
 // null = a célula veio preenchida e não dá pra ler. "" = vazia ("não mexi").
 function celulaDeEntrada(col,bruto){
+  /* Célula numérica do .xlsx chega como número de verdade. Passar ela por texto
+     de novo seria jogar fora a única forma sem ambiguidade: 1.234 (um real e
+     vinte e três centavos e meio) virava "1.234", que a leitura de texto
+     entende como mil duzentos e trinta e quatro. */
+  if(typeof bruto==="number"){
+    if(!isFinite(bruto)) return null;
+    if(col.data) return dataDaPlanilha(bruto);
+    if(col.num) return bruto;
+    if(col.dinheiro) return fmtDinheiro(bruto);
+    // numTexto é guardado do jeito que se digita no app, com vírgula — ponto ali
+    // o numeroBR() leria como milhar
+    if(col.numTexto) return String(bruto).replace(".",",");
+    return String(bruto);
+  }
   const t=destravarTexto(bruto);
+  if(col.data&&t) return dataDaPlanilha(t);
   if(t==="") return "";
   if(col.num||col.dinheiro||col.numTexto){
     const n=numeroPlanilha(t);
@@ -7033,6 +6920,24 @@ function celulaDeEntrada(col,bruto){
     if(col.dinheiro) return fmtDinheiro(n);
     return t;
   }
+  return t;
+}
+/* Data vai e volta como texto AAAA-MM-DD, que é o que o app guarda. Mas quem
+   redigita a célula no Excel faz ela virar data de verdade (número de série,
+   46.289) ou escreve do jeito brasileiro (23/09/2026) — os dois voltam aqui pro
+   formato do app em vez de gravar lixo no campo. */
+function dataDaPlanilha(v){
+  if(typeof v==="number"||/^\d{5}(\.\d+)?$/.test(String(v))){
+    const n=Number(v);
+    if(n>20000&&n<80000){
+      const d=new Date(Date.UTC(1899,11,30)+Math.floor(n)*86400000);
+      return d.toISOString().slice(0,10);
+    }
+    return String(v);
+  }
+  const t=String(v).trim();
+  const br=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+  if(br) return br[3]+"-"+br[2].padStart(2,"0")+"-"+br[1].padStart(2,"0");
   return t;
 }
 /* Comparar número como texto acusaria mudança onde não houve: "89,6" e "89,60"
@@ -7057,7 +6962,10 @@ function casarColunas(parte,linhas){
       const t=normCol(val);
       if(!t) return;
       if(t===normCol(COL_EXCLUIR)){ if(excluir===null) excluir=letra; return; }
-      const col=parte.colunas.find(c=>normCol(c.t)===t||(c.apelidos||[]).some(a=>normCol(a)===t));
+      // prefixos: planilha de parceiro escreve "VALOR UNIT. (R$) C/ IMPOSTOS",
+      // "TIPO DE RESÍDUO (CONFORME MTR)" — o começo do título é o que importa
+      const col=parte.colunas.find(c=>normCol(c.t)===t||(c.apelidos||[]).some(a=>normCol(a)===t)
+                                      ||(c.prefixos||[]).some(a=>t.startsWith(normCol(a))));
       if(col&&mapa[col.k]===undefined){ mapa[col.k]=letra; n++; }
     });
     if(!melhor||n>melhor.n) melhor={linha:i,mapa,excluir,n};
@@ -7071,8 +6979,16 @@ function casarColunas(parte,linhas){
   return melhor;
 }
 
-/* ---- O plano: o que ia acontecer, antes de acontecer ---- */
-function planoPlanilha(parte,linhas){
+/* ---- O plano: o que ia acontecer, antes de acontecer ----
+
+   Com `foto` (as linhas como estavam no momento da exportação), o plano é de
+   TRÊS vias: vale só o que a pessoa mudou NA PLANILHA em relação à foto. Sem
+   isso, a planilha exportada na segunda e importada na sexta desfaria tudo o
+   que mudou no app durante a semana — cada célula que ela não tocou ainda
+   carrega o valor de segunda, e compararia como "diferente" do de agora.
+   Sem foto (planilha do parceiro, .csv solto), é a comparação simples: a
+   planilha contra o que está no aparelho. */
+function planoPlanilha(parte,linhas,foto){
   const cab=casarColunas(parte,linhas);
   const atuais=parte.ler();
   const porChave=new Map();
@@ -7100,6 +7016,25 @@ function planoPlanilha(parte,linhas){
     if(marcado){
       if(atual) plano.excluir.push({chave,atual});
       else plano.ignoradas.push({n:nLinha,por:"marcada pra excluir, mas não existe aqui"});
+      continue;
+    }
+    const antes=foto?foto.get(chave):undefined;
+    if(antes){
+      const editados={};
+      parte.colunas.forEach(c=>{
+        if(campos[c.k]!==undefined&&!mesmoValor(c,campos[c.k],antes[c.k])) editados[c.k]=campos[c.k];
+      });
+      if(!Object.keys(editados).length){ plano.iguais++; continue; }
+      if(!atual){
+        // Existia na exportação, foi apagado aqui depois — e mesmo assim foi
+        // editado na planilha. A edição é o pedido mais recente: volta.
+        const recusa=parte.valida?parte.valida(campos):null;
+        if(recusa){ plano.ignoradas.push({n:nLinha,por:recusa}); continue; }
+        plano.novos.push({chave,campos}); continue;
+      }
+      const dif=parte.colunas.filter(c=>editados[c.k]!==undefined&&!mesmoValor(c,editados[c.k],atual[c.k]));
+      if(dif.length) plano.mudados.push({chave,campos:editados,atual,dif});
+      else plano.iguais++;
       continue;
     }
     if(!atual){
@@ -7159,7 +7094,7 @@ const BASES_PLANILHA=[
   id:"clientes", rotulo:"Clientes", dono:"uso interno",
   dica:"Razão social, documento, contato e endereço de quem já recebeu proposta.",
   partes:[{
-    arquivo:"clientes-corpus", teto:400, tetoNome:"clientes",
+    aba:"Clientes", arquivo:"clientes-corpus", teto:400, tetoNome:"clientes",
     rotuloChave:"CNPJ / CPF",
     colunas:[
       {t:"RAZÃO SOCIAL / NOME", k:"razaoSocial", apelidos:["RAZAO SOCIAL","NOME","CLIENTE"]},
@@ -7185,12 +7120,12 @@ const BASES_PLANILHA=[
   dica:"O que cada parceiro cobra da Corpus por resíduo. Fundir por planilha NÃO "
       +"desfaz os vínculos nem as junções de nomenclatura que você já fez.",
   partes:[{
-    arquivo:"destinadores-corpus", rotuloChave:"DESTINADOR e TIPO DE RESÍDUO",
+    aba:"Destinadores", arquivo:"destinadores-corpus", rotuloChave:"DESTINADOR e TIPO DE RESÍDUO",
     colunas:[
       {t:"DESTINADOR", k:"d", exigida:true},
       {t:"CLASSE", k:"cl"},
-      {t:"TIPO DE RESÍDUO", k:"r", exigida:true, apelidos:["RESÍDUO"]},
-      {t:"VALOR UNIT. (R$)", k:"v", exigida:true, num:true, apelidos:["VALOR UNIT","VALOR"]},
+      {t:"TIPO DE RESÍDUO", k:"r", exigida:true, apelidos:["RESÍDUO"], prefixos:["TIPO DE RESÍDUO"]},
+      {t:"VALOR UNIT. (R$)", k:"v", exigida:true, num:true, apelidos:["VALOR UNIT","VALOR"], prefixos:["VALOR UNIT"]},
       {t:"UNID.", k:"u", apelidos:["UNID","UNIDADE"]}
     ],
     chaveDe:r=>(normCol(r.d)&&normCol(r.r))?normCol(r.d)+"|"+normCol(r.r):"",
@@ -7211,7 +7146,7 @@ const BASES_PLANILHA=[
   dica:"Uma linha por variação: o material, o que ele vira (inox, cobre), quem "
       +"compra e por quanto. Material sem preço também sai, pra ser preenchido.",
   partes:[{
-    arquivo:"reciclaveis-corpus", rotuloChave:"MATERIAL",
+    aba:"Recicláveis", arquivo:"reciclaveis-corpus", rotuloChave:"MATERIAL",
     colunas:[
       {t:"MATERIAL", k:"mat", exigida:true},
       {t:"VARIAÇÃO", k:"r", apelidos:["VARIACAO","TIPO"]},
@@ -7264,7 +7199,7 @@ const BASES_PLANILHA=[
   id:"equipamentos", rotulo:"Equipamentos (locação)", dono:"uso interno",
   dica:"Preço de locação, unidade e as medidas de cada equipamento.",
   partes:[{
-    arquivo:"equipamentos-corpus", rotuloChave:"EQUIPAMENTO",
+    aba:"Equipamentos", arquivo:"equipamentos-corpus", rotuloChave:"EQUIPAMENTO",
     colunas:[
       {t:"EQUIPAMENTO", k:"nome", exigida:true, apelidos:["NOME"]},
       {t:"VALOR (R$)", k:"v", dinheiro:true, apelidos:["VALOR"]},
@@ -7305,7 +7240,7 @@ const BASES_PLANILHA=[
   id:"maodeobra", rotulo:"Mão de obra", dono:"uso interno",
   dica:"Uma linha por variação da função — normal, insalubridade, altura.",
   partes:[{
-    arquivo:"mao-de-obra-corpus", rotuloChave:"FUNÇÃO",
+    aba:"Mão de obra", arquivo:"mao-de-obra-corpus", rotuloChave:"FUNÇÃO",
     colunas:[
       {t:"FUNÇÃO", k:"nome", exigida:true, apelidos:["FUNCAO","CARGO"]},
       {t:"VARIAÇÃO", k:"r", apelidos:["VARIACAO"]},
@@ -7346,7 +7281,7 @@ const BASES_PLANILHA=[
   dica:"Capacidade e diária andam em par — um veículo com dois modelos ocupa "
       +"duas linhas. Valor por km e observação são do veículo inteiro.",
   partes:[{
-    arquivo:"frota-corpus", rotuloChave:"VEÍCULO",
+    aba:"Frota", arquivo:"frota-corpus", rotuloChave:"VEÍCULO",
     colunas:[
       {t:"VEÍCULO", k:"veic", exigida:true, apelidos:["VEICULO"]},
       {t:"CAPACIDADE", k:"c", apelidos:["CAP"]},
@@ -7396,7 +7331,7 @@ const BASES_PLANILHA=[
       +"observações que saem escritos na proposta. Cada tipo preenche as colunas "
       +"que lhe cabem; as outras ficam vazias.",
   partes:[{
-    arquivo:"catalogo-corpus", rotuloChave:"TIPO e NOME",
+    aba:"Catálogo", arquivo:"catalogo-corpus", rotuloChave:"TIPO e NOME",
     colunas:[
       {t:"TIPO", k:"tipo", exigida:true},
       {t:"NOME", k:"n", exigida:true},
@@ -7450,7 +7385,7 @@ const BASES_PLANILHA=[
   dica:"Só os textos que você mudou em relação ao de fábrica. A chave é a mesma "
       +"que o app usa internamente — \"res:Madeira - Classe II\", \"reci:Papel/Papelão\".",
   partes:[{
-    arquivo:"observacoes-corpus", rotuloChave:"CHAVE",
+    aba:"Observações padrão", arquivo:"observacoes-corpus", rotuloChave:"CHAVE",
     colunas:[
       {t:"CHAVE", k:"chave", exigida:true},
       {t:"OBSERVAÇÃO", k:"texto", apelidos:["OBS","TEXTO"]}
@@ -7471,14 +7406,14 @@ const BASES_PLANILHA=[
       +"reconhece qual é pelas colunas.",
   partes:[
   {
-    arquivo:"propostas-corpus", teto:300, tetoNome:"propostas",
+    aba:"Propostas", arquivo:"propostas-corpus", teto:300, tetoNome:"propostas",
     rotuloChave:"ID DA PROPOSTA", nome:"capa",
     colunas:[
       {t:"ID DA PROPOSTA", k:"id", exigida:true, apelidos:["ID"]},
       {t:"NÚMERO", k:"numero", apelidos:["NUMERO","PO"]},
       {t:"CLIENTE", k:"cliente", apelidos:["RAZÃO SOCIAL"]},
       {t:"CNPJ / CPF", k:"cnpj", apelidos:["CNPJ","CPF"]},
-      {t:"DATA", k:"data"},
+      {t:"DATA", k:"data", data:true},
       {t:"TIPO (PJ/PF)", k:"tipoPessoa", apelidos:["TIPO"]},
       {t:"SOLICITANTE", k:"solicitante"},
       {t:"TELEFONE", k:"telefone"},
@@ -7529,7 +7464,7 @@ const BASES_PLANILHA=[
     }
   },
   {
-    arquivo:"propostas-itens-corpus", rotuloChave:"ID DA PROPOSTA e Nº", nome:"itens",
+    aba:"Itens das propostas", arquivo:"propostas-itens-corpus", rotuloChave:"ID DA PROPOSTA e Nº", nome:"itens",
     colunas:[
       {t:"ID DA PROPOSTA", k:"idp", exigida:true, apelidos:["ID_PROPOSTA","ID"]},
       {t:"Nº", k:"n", exigida:true, apelidos:["N","ITEM","ORDEM"]},
@@ -7598,140 +7533,538 @@ function tipoCatDoRotulo(rotulo){
 }
 function baseDaPlanilha(id){ return BASES_PLANILHA.find(b=>b.id===id); }
 
-/* ============ EXPORTAR ============ */
-function statusPlanilha(id,texto){
-  const el=document.getElementById("st-pl-"+id);
-  if(el) el.textContent=texto;
-}
-function nomeDoArquivo(parte){
-  return parte.arquivo+"-"+new Date().toISOString().slice(0,10)+".csv";
-}
-async function exportarBasePlanilha(id){
-  const base=baseDaPlanilha(id);
-  if(!base) return;
-  statusPlanilha(id,"Exportando...");
+/* ============ UM ARQUIVO SÓ: EXPORTAR TUDO E IMPORTAR ============
+
+   Um botão pra sair, um pra voltar. O que sai é um .xlsx com uma aba por base
+   (é ali que se atualiza valor no Excel) e uma aba ESCONDIDA com o backup
+   completo do app — a "foto" de como tudo estava no momento da exportação.
+
+   A foto é o que torna a volta segura. Com ela o app sabe o que a pessoa mudou
+   NA PLANILHA (planilha ≠ foto) e separa isso do que mudou no APARELHO depois
+   da exportação (aparelho ≠ foto). Só o primeiro entra.
+
+   E ela resolve o outro uso do mesmo arquivo, que é levar tudo pro celular:
+   arquivo que veio de OUTRO aparelho deixa este igual a ele (a foto inteira),
+   mais o que tiver sido mudado nas abas. Cada aparelho tem um id próprio, que
+   não viaja no backup, e é por ele que o app sabe de onde o arquivo veio. */
+
+const ABA_BACKUP="_backup";
+const MARCA_BACKUP="CORPUS-BACKUP-1";
+const LS_APARELHO="corpus_aparelho_v1";
+// Dado pessoal não entra no arquivo: ele é feito pra circular (vai pro Excel,
+// pro e-mail, pro celular de outra pessoa), e o apoio tem CPF.
+const FORA_DO_ARQUIVO=[LS_APOIO];
+
+BASES_PLANILHA.forEach(b=>b.partes.forEach(p=>{ p.base=b; }));
+function todasAsPartes(){ return BASES_PLANILHA.flatMap(b=>b.partes); }
+
+function idDoAparelho(){
+  let id=null;
   try{
-    const feitos=[];
-    for(const parte of base.partes){
-      const titulos=parte.colunas.map(c=>c.t).concat([COL_EXCLUIR]);
-      const linhas=parte.ler().map(r=>parte.colunas.map(c=>celulaDeSaida(c,r[c.k])).concat([""]));
-      const nome=nomeDoArquivo(parte);
-      const pasta=await baixar(csvDe(titulos,linhas),nome,"arquivo");
-      feitos.push({nome,linhas:linhas.length,pasta});
+    id=localStorage.getItem(LS_APARELHO);
+    if(!id){
+      id=Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
+      localStorage.setItem(LS_APARELHO,id);
     }
-    statusPlanilha(id, feitos.map(f=>f.linhas+" linha"+(f.linhas===1?"":"s")+" em "+f.nome).join(" · ")
-      +(feitos[0].pasta?(" (pasta "+feitos[0].pasta+")"):" — procure em Downloads."));
+  }catch(e){}
+  return id||"sem-id";
+}
+function hojeLocal(d){
+  d=d||new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+
+/* ---- Olhar as bases como estavam em outro momento ----
+   parte.ler() lê as variáveis do app. Pra ler a FOTO, as variáveis são trocadas
+   pelas dela só durante a conta e voltam no finally — tudo síncrono, nenhuma
+   tela chega a ver o estado trocado. */
+function chavesDasBases(){ return [LS_RAPIDOS,LS_DEST,LS_PRECOS,LS_FICHAS,LS_CATALOGO,LS_OBSP,LS_PROPOSTAS]; }
+function estadoPadrao(k){
+  if(k===LS_RAPIDOS||k===LS_PROPOSTAS) return [];
+  if(k===LS_DEST) return {bdi:63,precos:[],juntas:[],separadas:[],ordem:[],rotulos:{},bdiOculto:false};
+  if(k===LS_PRECOS) return {reci:{},loc:{},repasse:35};
+  if(k===LS_CATALOGO) return {veiculos:[],residuos2:[],residuos1:[],reciclaveis:[],cargos:[],
+                              locacoes:[],ocultos:[],categorias:{ordem:[],nomes:{},ocultas:[]}};
+  return {};
+}
+function lerVariavel(k){
+  if(k===LS_RAPIDOS) return clientesRapidos;
+  if(k===LS_DEST) return dest;
+  if(k===LS_PRECOS) return precos;
+  if(k===LS_FICHAS) return fichas;
+  if(k===LS_CATALOGO) return catalogo;
+  if(k===LS_OBSP) return obsPadraoCustom;
+  if(k===LS_PROPOSTAS) return propostas;
+}
+function porVariavel(k,v){
+  if(k===LS_RAPIDOS) clientesRapidos=v;
+  else if(k===LS_DEST) dest=v;
+  else if(k===LS_PRECOS) precos=v;
+  else if(k===LS_FICHAS) fichas=v;
+  else if(k===LS_CATALOGO) catalogo=v;
+  else if(k===LS_OBSP) obsPadraoCustom=v;
+  else if(k===LS_PROPOSTAS) propostas=v;
+}
+function valorGuardado(k,texto){
+  const padrao=estadoPadrao(k);
+  let v=null;
+  try{ v=(typeof texto==="string")?JSON.parse(texto):null; }catch(e){ v=null; }
+  if(Array.isArray(padrao)) return Array.isArray(v)?v:padrao;
+  return (v&&typeof v==="object"&&!Array.isArray(v))?Object.assign(padrao,v):padrao;
+}
+// A foto como variáveis: uma leitura de JSON por base, e não uma por aba.
+function estadoDaFoto(dados){
+  const e={};
+  chavesDasBases().forEach(k=>{ e[k]=valorGuardado(k,dados[k]); });
+  return e;
+}
+function comEstado(estado,fn){
+  const guarda={};
+  chavesDasBases().forEach(k=>{ guarda[k]=lerVariavel(k); });
+  try{
+    chavesDasBases().forEach(k=>{ if(estado[k]!==undefined) porVariavel(k,estado[k]); });
+    return fn();
+  }finally{
+    chavesDasBases().forEach(k=>porVariavel(k,guarda[k]));
+  }
+}
+function linhasDaFoto(parte,estado){
+  return comEstado(estado,()=>{
+    const m=new Map();
+    parte.ler().forEach(r=>{ const k=parte.chaveDe(r); if(k&&!m.has(k)) m.set(k,r); });
+    return m;
+  });
+}
+
+/* ---- Backup dentro da planilha ----
+   Em base64 e fatiado: célula do Excel aceita 32.767 caracteres, e base64 é só
+   letra, número e + / = — nenhum caractere que o Excel ou o XML estraguem, nem
+   um emoji partido ao meio no corte entre duas células. A primeira célula diz
+   quantas fatias e o tamanho total, pra que um arquivo cortado seja recusado
+   em vez de restaurado pela metade. */
+function paraBase64(texto){
+  const bytes=new TextEncoder().encode(texto);
+  let s="";
+  for(let i=0;i<bytes.length;i+=0x8000) s+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+  return btoa(s);
+}
+function deBase64(b64){
+  const s=atob(b64), bytes=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) bytes[i]=s.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function lerAbaBackup(linhas){
+  const cab=String((linhas[0]||{}).A||"").trim().split(/\s+/);
+  if(cab[0]!==MARCA_BACKUP) throw new Error("não é o backup do app");
+  const n=Number(cab[1]), total=Number(cab[2]);
+  const b64=linhas.slice(1,1+n).map(l=>String((l||{}).A||"").trim()).join("");
+  if(!n||b64.length!==total) throw new Error("veio cortado");
+  const pacote=JSON.parse(deBase64(b64));
+  if(!pacote||pacote.app!=="propostas-corpus"||!pacote.dados||typeof pacote.dados!=="object")
+    throw new Error("conteúdo irreconhecível");
+  return pacote;
+}
+
+/* ---- Escrever .xlsx ----
+   O mínimo que o Excel, o LibreOffice e o Google Planilhas abrem sem pedir pra
+   "reparar": texto como inlineStr (sem tabela de texto compartilhado), número
+   como número. Estilos: 0 geral · 1 cabeçalho · 2 dinheiro 0,00 · 3 texto (@)
+   · 4 texto com quebra de linha. Coluna de texto vai formatada como "@" inteira,
+   não só nas células escritas: assim o CNPJ ou o CEP que a pessoa digitar numa
+   linha nova também não perde o zero da frente. */
+const XLSX_ESTILOS='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+  '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+  '<fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font>'+
+  '<font><b/><sz val="11"/><color rgb="FF1E6B3A"/><name val="Calibri"/><family val="2"/></font></fonts>'+
+  '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFE2EFD9"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+  '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'+
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+  '<cellXfs count="5">'+
+  '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+  '<xf numFmtId="49" fontId="1" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>'+
+  '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
+  '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1">'+
+  '<alignment vertical="top" wrapText="1"/></xf>'+
+  '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
+  '</styleSheet>';
+function xmlTexto(t){
+  return String(t??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,"")
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function letraDaColuna(i){
+  let s="";
+  for(let n=i+1;n>0;n=Math.floor((n-1)/26)) s=String.fromCharCode(65+(n-1)%26)+s;
+  return s;
+}
+function celulaXml(ref,c){
+  if(!c||c.v===""||c.v===null||c.v===undefined) return "";
+  if(c.num) return '<c r="'+ref+'" s="'+(c.s||0)+'"><v>'+c.v+'</v></c>';
+  return '<c r="'+ref+'" t="inlineStr" s="'+(c.s||0)+'"><is><t xml:space="preserve">'+xmlTexto(c.v)+'</t></is></c>';
+}
+function abaXml(linhas,o){
+  o=o||{};
+  const cols=(o.larguras||[]).map((w,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"'+
+    ((o.estilos&&o.estilos[i]!==undefined)?' style="'+o.estilos[i]+'"':'')+'/>').join("");
+  const rows=linhas.map((l,r)=>'<row r="'+(r+1)+'">'+
+    l.map((c,i)=>celulaXml(letraDaColuna(i)+(r+1),c)).join("")+'</row>').join("");
+  const pane=o.congelar
+    ?'<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>'
+    :'';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+    '<sheetViews><sheetView workbookViewId="0"'+(o.selecionada?' tabSelected="1"':'')+'>'+pane+'</sheetView></sheetViews>'+
+    '<sheetFormatPr defaultRowHeight="15"/>'+(cols?'<cols>'+cols+'</cols>':'')+
+    '<sheetData>'+rows+'</sheetData></worksheet>';
+}
+async function montarXlsx(abas){
+  const zip=new JSZip();
+  const tipoAba="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
+  zip.file("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+    '<Default Extension="xml" ContentType="application/xml"/>'+
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
+    abas.map((a,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="'+tipoAba+'"/>').join("")+
+    '</Types>');
+  zip.file("_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+
+    '</Relationships>');
+  zip.file("xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+    '<bookViews><workbookView activeTab="0"/></bookViews><sheets>'+
+    abas.map((a,i)=>'<sheet name="'+xmlTexto(a.nome)+'" sheetId="'+(i+1)+'"'+
+      (a.oculta?' state="hidden"':'')+' r:id="rId'+(i+1)+'"/>').join("")+
+    '</sheets></workbook>');
+  zip.file("xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+    abas.map((a,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+
+    '<Relationship Id="rId'+(abas.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+
+    '</Relationships>');
+  zip.file("xl/styles.xml",XLSX_ESTILOS);
+  abas.forEach((a,i)=>zip.file("xl/worksheets/sheet"+(i+1)+".xml",a.xml));
+  return zip.generateAsync({type:"blob",compression:"DEFLATE",
+    mimeType:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+
+/* ---- As abas ---- */
+function ehNumerica(c){ return !!(c.num||c.dinheiro||c.numTexto); }
+function abaDaParte(parte){
+  const titulos=parte.colunas.map(c=>c.t).concat([COL_EXCLUIR]);
+  // cabeçalho vai em negrito, que ocupa mais que o texto comum
+  const larg=titulos.map(t=>Math.max(12,Math.ceil(t.length*1.25)+3));
+  const linhas=[titulos.map(t=>({v:t,s:1}))];
+  parte.ler().forEach(r=>{
+    linhas.push(parte.colunas.map((c,i)=>{
+      const v=r[c.k];
+      if(v===undefined||v===null||v==="") return null;
+      if(ehNumerica(c)){
+        // Preço vai como NÚMERO: dá pra somar, ordenar e aplicar reajuste com
+        // fórmula no Excel. O que não for número (raro) segue como texto.
+        const n=c.num?Number(v):(/\d/.test(String(v))?numeroPlanilha(v):NaN);
+        if(isFinite(n)) return {v:n,num:true,s:c.numTexto?0:2};
+      }
+      const t=String(v);
+      larg[i]=Math.min(60,Math.max(larg[i],...t.split("\n").map(x=>x.length+2)));
+      return {v:t,s:t.includes("\n")?4:3};
+    }).concat([null]));
+  });
+  return abaXml(linhas,{larguras:larg,congelar:true,
+    estilos:parte.colunas.map(c=>ehNumerica(c)?(c.numTexto?0:2):3).concat([3])});
+}
+function abaLeiaMe(quando){
+  const t=[
+    ["PROPOSTAS CORPUS — dados do app",1],
+    ["Exportado em "+quando.toLocaleString("pt-BR")+" · versão "+APP_VERSION,0],
+    ["",0],
+    ["COMO ATUALIZAR VALORES",1],
+    ["1. Cada aba é uma base do app. Mude o que precisar e salve o arquivo (continua .xlsx).",0],
+    ["2. No app: Ajustes › Backup e planilha › Importar, e escolha este arquivo.",0],
+    ["3. O app mostra o que vai mudar e só grava depois que você confirma.",0],
+    ["",0],
+    ["REGRAS",1],
+    ["• Entra só o que você mudou na planilha. O resto fica como está no app.",0],
+    ["• Apagar a linha da planilha NÃO apaga do app. Pra excluir, escreva SIM na coluna EXCLUIR.",0],
+    ["• Célula vazia quer dizer \"não mexi\" — não apaga o que já está no app.",0],
+    ["• Pode filtrar, ordenar, mudar a ordem das colunas e criar colunas suas: o app ignora o que não conhece.",0],
+    ["• Não mude o título das colunas: é por ele que o app sabe o que é cada uma.",0],
+    ["• Linha nova: preencha pelo menos a primeira coluna (e a VARIAÇÃO/CAPACIDADE, onde houver).",0],
+    ["",0],
+    ["LEVAR PRO CELULAR",1],
+    ["Importe este mesmo arquivo no celular. Vindo de outro aparelho, ele deixa o celular igual ao arquivo.",0],
+    ["",0],
+    ["CUIDADO AO ENVIAR",1],
+    ["Este arquivo tem TODOS os dados: clientes, propostas e o custo de todos os parceiros — e uma aba",0],
+    ["escondida com o backup completo do app. Pra mandar só uma parte pra alguém, copie a aba pra um",0],
+    ["arquivo novo (botão direito na aba › Mover ou copiar › (novo livro)). A cópia volta pelo mesmo Importar.",0]
+  ];
+  return abaXml(t.map(([v,s])=>[{v,s:s?1:0}]),{larguras:[110],selecionada:true});
+}
+function abaDoBackup(pacote){
+  const b64=paraBase64(JSON.stringify(pacote));
+  const TAM=30000, pedacos=[];
+  for(let i=0;i<b64.length;i+=TAM) pedacos.push(b64.slice(i,i+TAM));
+  const linhas=[[{v:MARCA_BACKUP+" "+pedacos.length+" "+b64.length}]]
+    .concat(pedacos.map(p=>[{v:p}]));
+  return abaXml(linhas,{larguras:[40]});
+}
+
+/* ============ EXPORTAR TUDO ============ */
+async function exportarTudo(){
+  const st=document.getElementById("statusBackup");
+  st.textContent="Montando a planilha...";
+  try{
+    const agora=new Date();
+    const dados={};
+    chavesDoApp().forEach(k=>{ if(!FORA_DO_ARQUIVO.includes(k)) dados[k]=localStorage.getItem(k); });
+    const pacote={app:"propostas-corpus",versao:APP_VERSION,em:agora.toISOString(),
+                  origem:idDoAparelho(),chaves:Object.keys(dados).length,dados};
+    const abas=[{nome:"LEIA-ME",xml:abaLeiaMe(agora)}]
+      .concat(todasAsPartes().map(p=>({nome:p.aba,xml:abaDaParte(p)})))
+      .concat([{nome:ABA_BACKUP,xml:abaDoBackup(pacote),oculta:true}]);
+    const blob=await montarXlsx(abas);
+    const nome="corpus-"+hojeLocal(agora)+".xlsx";
+    // "arquivo": vai pro download do navegador, não pra pasta dos documentos
+    const pasta=await baixar(blob,nome,"arquivo");
+    st.textContent="Exportado: "+nome+" — "+todasAsPartes().length+" abas + o backup completo"
+      +(pasta?(" (pasta "+pasta+")."):". Procure em Downloads.");
   }catch(e){
-    statusPlanilha(id,"Não deu pra exportar: "+(e.message||e));
+    console.error(e);
+    st.textContent="Não deu pra exportar: "+(e.message||e);
   }
 }
 
 /* ============ IMPORTAR ============ */
-function resumoDoPlano(parte,plano){
-  const l=[];
-  if(plano.mudados.length) l.push(plano.mudados.length+" atualizado"+(plano.mudados.length===1?"":"s"));
-  if(plano.novos.length) l.push(plano.novos.length+" novo"+(plano.novos.length===1?"":"s"));
-  if(plano.excluir.length) l.push(plano.excluir.length+" marcado"+(plano.excluir.length===1?"":"s")+" para excluir");
-  if(plano.iguais) l.push(plano.iguais+" sem mudança");
-  if(plano.ignoradas.length) l.push(plano.ignoradas.length+" linha"+(plano.ignoradas.length===1?"":"s")+" ignorada"+(plano.ignoradas.length===1?"":"s"));
-  let texto=l.length?l.join(", ")+".":"nada a fazer.";
-  if(plano.ignoradas.length){
-    texto+="\n\nIgnoradas:\n"+plano.ignoradas.slice(0,6)
-      .map(i=>"• linha "+i.n+": "+i.por).join("\n")
-      +(plano.ignoradas.length>6?("\n• ... e mais "+(plano.ignoradas.length-6)+"."):"");
-  }
-  const depois=plano.total+plano.novos.length-plano.excluir.length;
-  if(parte.teto&&depois>parte.teto)
-    texto+="\n\nAtenção: a base fica com "+depois+" "+parte.tetoNome+", e o app trabalha com "
-      +parte.teto+". Nada é cortado agora, mas o corte acontece sozinho na próxima gravação.";
-  texto+="\n\nO que não está na planilha continua aqui. Célula vazia não apaga nada.";
-  return texto;
-}
-async function importarBasePlanilha(id,input){
+async function importarArquivo(input){
   const arq=input.files&&input.files[0];
   input.value="";
   if(!arq) return;
-  const base=baseDaPlanilha(id);
-  if(!base) return;
-  statusPlanilha(id,"Lendo "+arq.name+"...");
-  let linhas;
+  const st=document.getElementById("statusBackup");
+  st.textContent="Lendo "+arq.name+"...";
+  let abas;
   try{
-    linhas=/\.csv$/i.test(arq.name)?lerCsv(await arq.text()):await lerXlsx(arq);
+    if(/\.json$/i.test(arq.name)){ await importarJson(arq,st); return; }
+    abas=/\.csv$/i.test(arq.name)
+      ? [{nome:arq.name,oculta:false,linhas:lerCsv(await arq.text())}]
+      : await lerXlsxAbas(arq);
   }catch(e){
-    statusPlanilha(id,"Não deu pra ler o arquivo: "+(e.message||e)); return;
+    st.textContent="Não deu pra ler "+arq.name+": "+(e.message||e); return;
   }
-  /* Base de mais de uma planilha (propostas: capa e itens): descobre qual é
-     pelas COLUNAS do arquivo, em vez de fazer o Léo escolher num menu o que o
-     próprio arquivo já diz. Vence a parte que reconhece mais colunas — contar
-     linhas afetadas não serviria, porque a capa também reconhece ID e CLIENTE
-     dentro da planilha de itens. */
-  let parte=null, melhor=-1, erro=null;
-  base.partes.forEach(p=>{
-    try{
-      const cab=casarColunas(p,linhas);
-      if(cab.n>melhor){ melhor=cab.n; parte=p; }
-    }catch(e){ erro=erro||e; }
+  try{ await importarAbas(abas,arq.name,st); }
+  catch(e){ console.error(e); st.textContent="Não deu pra importar: "+(e.message||e); }
+}
+function resumoCurto(p){
+  const l=[];
+  const pl=(n,um,varios)=>n+" "+(n===1?um:varios);
+  if(p.mudados.length) l.push(pl(p.mudados.length,"atualizado","atualizados"));
+  if(p.novos.length) l.push(pl(p.novos.length,"novo","novos"));
+  if(p.excluir.length) l.push(pl(p.excluir.length,"para excluir","para excluir"));
+  if(p.ignoradas.length) l.push(pl(p.ignoradas.length,"linha ignorada","linhas ignoradas"));
+  return l.length?l.join(", "):"nada mudou";
+}
+function nomeDaParte(p){ return p.base.rotulo+(p.nome?" ("+p.nome+")":""); }
+async function importarAbas(abas,nomeArq,st){
+  // 1. A foto escondida, se o arquivo for do Exportar tudo
+  let foto=null, avisoFoto="";
+  const abaB=abas.find(a=>a.nome===ABA_BACKUP);
+  if(abaB){
+    try{ foto=lerAbaBackup(abaB.linhas); }
+    catch(e){ avisoFoto="A aba escondida de backup veio estragada ("+e.message+"): vale só o que está nas abas, comparado com este aparelho."; }
+  }
+  const deOutro=!!(foto&&foto.origem&&foto.origem!==idDoAparelho());
+
+  // 2. Cada aba com a sua base: pelo nome da aba e, se não bater, pelas colunas
+  const entradas=[], naoReconhecidas=[], problemas=[];
+  abas.forEach(a=>{
+    if(a.nome===ABA_BACKUP||normCol(a.nome)==="leiame") return;
+    if(!a.linhas.some(l=>Object.values(l).some(v=>String(v).trim()))) return;
+    let parte=todasAsPartes().find(p=>normCol(p.aba)===normCol(a.nome));
+    if(parte){
+      try{ casarColunas(parte,a.linhas); }
+      catch(e){ problemas.push("aba "+a.nome+": "+e.message); return; }
+    }else{
+      let melhor=-1;
+      todasAsPartes().forEach(p=>{
+        try{ const c=casarColunas(p,a.linhas); if(c.n>melhor){ melhor=c.n; parte=p; } }catch(e){}
+      });
+    }
+    if(!parte){ naoReconhecidas.push(a.nome); return; }
+    if(entradas.some(x=>x.parte===parte)){
+      problemas.push("aba "+a.nome+": repete "+nomeDaParte(parte)+" — ficou de fora"); return;
+    }
+    entradas.push({aba:a.nome,parte,linhas:a.linhas});
   });
-  if(!parte){ statusPlanilha(id,"Não deu pra ler: "+((erro&&erro.message)||erro)); return; }
-  let plano;
-  try{ plano=planoPlanilha(parte,linhas); }
-  catch(e){ statusPlanilha(id,"Não deu pra ler: "+(e.message||e)); return; }
-  const qual=parte.nome?(" ("+parte.nome+")"):"";
-  if(planoVazio(plano)){
-    statusPlanilha(id,"Conferido"+qual+": nada mudou. "+plano.iguais+" linha"
-      +(plano.iguais===1?"":"s")+" igual"+(plano.iguais===1?"":"is")+" ao que já está aqui"
-      +(plano.ignoradas.length?(", "+plano.ignoradas.length+" ignorada(s)"):"")+".");
+  if(!entradas.length&&!deOutro){
+    st.textContent=problemas[0]||("Não reconheci nenhuma base em "+nomeArq+". Os títulos das colunas "+
+      "precisam ser os que o app usa — exporte uma vez pra ver o modelo.");
     return;
   }
-  const segue=await perguntar("Importar "+base.rotulo.toLowerCase()+qual+"?",
-    resumoDoPlano(parte,plano),{emoji:"📥",sim:"Importar",nao:"Cancelar",
-      perigo:!!plano.excluir.length});
-  if(!segue){ statusPlanilha(id,"Importação cancelada — nada foi alterado."); return; }
-  try{
-    aplicarPlano(parte,plano);
-  }catch(e){
-    statusPlanilha(id,"Não deu pra gravar: "+(e.message||e)); return;
+
+  // 3. Os planos. Vindo de outro aparelho, a conta é feita em cima do estado
+  //    que ESTE aparelho vai ter depois de substituído: a foto (e, no que ela
+  //    não tiver, o que já está aqui).
+  const fotoEstado=foto?estadoDaFoto(foto.dados):null;
+  const estadoFinal={};
+  if(deOutro) chavesDasBases().forEach(k=>{
+    estadoFinal[k]=(typeof foto.dados[k]==="string")?valorGuardado(k,foto.dados[k]):lerVariavel(k);
+  });
+  const calcular=()=>entradas.map(e=>({e,plano:planoPlanilha(e.parte,e.linhas,
+    fotoEstado?linhasDaFoto(e.parte,fotoEstado):null)}));
+  const planos=deOutro?comEstado(estadoFinal,calcular):calcular();
+
+  // 4. A prévia
+  const comMudanca=planos.filter(x=>!planoVazio(x.plano));
+  const txt=[];
+  if(deOutro){
+    const quando=foto.em?new Date(foto.em).toLocaleString("pt-BR"):"data desconhecida";
+    txt.push("Este arquivo veio de OUTRO aparelho (exportado em "+quando+").",
+      "Importar deixa este aparelho igual a ele: propostas, clientes, preços, catálogos — "+
+      "o que está aqui é substituído pelo que está no arquivo.");
+    if(comMudanca.length) txt.push("","E entra o que foi mudado nas abas:");
+  }
+  comMudanca.forEach(x=>txt.push("• "+nomeDaParte(x.e.parte)+": "+resumoCurto(x.plano)));
+  const semMudanca=planos.filter(x=>planoVazio(x.plano)&&!x.plano.ignoradas.length);
+  if(!deOutro&&semMudanca.length&&comMudanca.length)
+    txt.push("Sem mudança: "+semMudanca.map(x=>x.e.parte.aba).join(", ")+".");
+  const ign=[];
+  planos.forEach(x=>x.plano.ignoradas.forEach(i=>ign.push(x.e.aba+", linha "+i.n+": "+i.por)));
+  if(ign.length) txt.push("","Linhas ignoradas:",...ign.slice(0,6).map(t=>"• "+t),
+    ...(ign.length>6?["• ... e mais "+(ign.length-6)+"."]:[]));
+  if(naoReconhecidas.length) txt.push("","Abas que não reconheci (ficam de fora): "+naoReconhecidas.join(", ")+".");
+  if(problemas.length) txt.push("",...problemas.map(p=>"• "+p));
+  if(avisoFoto) txt.push("",avisoFoto);
+  planos.forEach(({e,plano})=>{
+    const depois=plano.total+plano.novos.length-plano.excluir.length;
+    if(e.parte.teto&&depois>e.parte.teto)
+      txt.push("","Atenção: "+e.parte.tetoNome+" ficam em "+depois+", e o app trabalha com "+e.parte.teto+
+        ". Nada é cortado agora, mas o corte acontece sozinho na próxima gravação.");
+  });
+  if(deOutro) txt.push("","Ficam como estão: os seus dados de apoio.");
+  else txt.push("",foto
+    ?"Entra só o que você mudou na planilha. O que mudou neste aparelho depois da exportação fica como está."
+    :"O que não está na planilha continua aqui. Célula vazia não apaga nada.");
+
+  if(!deOutro&&!comMudanca.length){
+    st.textContent="Conferido: nada mudou em relação ao que já está aqui."+
+      (ign.length?(" "+ign.length+" linha(s) ignorada(s) — a primeira: "+ign[0]+"."):"")+
+      (naoReconhecidas.length?(" Abas que não reconheci: "+naoReconhecidas.join(", ")+"."):"");
+    return;
+  }
+  const exclui=planos.some(x=>x.plano.excluir.length);
+  const segue=await perguntar(deOutro?"Deixar este aparelho igual ao arquivo?":"Importar "+nomeArq+"?",
+    txt.join("\n"),
+    {emoji:deOutro?"⏪":"📥",sim:deOutro?"Substituir":"Importar",nao:"Cancelar",
+     perigo:deOutro||exclui,esquerda:true});
+  if(!segue){ st.textContent="Importação cancelada — nada foi alterado."; return; }
+
+  // 5. Gravar
+  if(deOutro){
+    try{ substituirPelaFoto(foto); }
+    catch(e){ st.textContent="Não deu pra substituir: "+e.message; return; }
+    // As variáveis passam a ser o estado substituído — é em cima dele que os
+    // planos foram feitos. Lido de novo, e não reaproveitado, pra que a conta
+    // da prévia e a gravação não dividam os mesmos objetos.
+    chavesDasBases().forEach(k=>porVariavel(k,(typeof foto.dados[k]==="string")
+      ?valorGuardado(k,foto.dados[k]):estadoFinal[k]));
+  }
+  const feitos=[];
+  let erro=null;
+  for(const {e,plano} of comMudanca){
+    try{ aplicarPlano(e.parte,plano); feitos.push(nomeDaParte(e.parte)+" ("+resumoCurto(plano)+")"); }
+    catch(err){ erro=nomeDaParte(e.parte)+": "+(err.message||err); break; }
+  }
+  if(deOutro){
+    st.textContent=(erro?("Substituído, mas as mudanças das abas pararam em "+erro+". "):"Pronto. ")+"Recarregando...";
+    setTimeout(()=>location.reload(),erro?2500:700);
+    return;
   }
   repintarDepoisDaPlanilha();
-  statusPlanilha(id,"Pronto: "+resumoDoPlano(parte,plano).split("\n")[0]);
+  st.textContent=erro
+    ?((feitos.length?"Gravado: "+feitos.join("; ")+". ":"")+"Parou em "+erro+" — o que faltava não foi alterado.")
+    :"Importado: "+feitos.join("; ")+".";
+}
+/* Grava a foto no lugar do que está aqui — tudo ou nada. Se o armazenamento
+   encher no meio, o que já tinha sido trocado volta ao que era. */
+function substituirPelaFoto(foto,comApoio){
+  const chaves=Object.keys(foto.dados).filter(k=>k.startsWith("corpus_")&&typeof foto.dados[k]==="string"
+    &&(comApoio||!FORA_DO_ARQUIVO.includes(k))&&k!==LS_APARELHO);
+  const antes={};
+  try{
+    chaves.forEach(k=>{ antes[k]=localStorage.getItem(k); localStorage.setItem(k,foto.dados[k]); });
+  }catch(e){
+    Object.entries(antes).forEach(([k,v])=>{
+      try{ if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(_){}
+    });
+    throw new Error("o armazenamento do navegador encheu. NADA foi alterado — libere espaço e tente de novo.");
+  }
 }
 
-/* ---- O cartão em Ajustes ----
-   As bases moram em quatro abas diferentes. O botão de exportar podia ficar
-   dentro de cada card, mas a hora de usar isso é a hora de MANDAR os arquivos
-   pra alguém — e aí é um lugar só, com a lista toda à vista, em vez de caçar
-   quatro botões por quatro telas. */
-let planilhasAberto=false;
-function togglePlanilhas(){
-  planilhasAberto=!planilhasAberto;
-  document.getElementById("planilhasCorpo").classList.toggle("oculto",!planilhasAberto);
-  document.getElementById("setaPlanilhas").classList.toggle("aberta",planilhasAberto);
-  if(planilhasAberto) montarPlanilhas();
+/* ---- Os .json de antes ----
+   Até esta versão existiam três exportações em JSON: o backup completo, a
+   lista de propostas e a tabela de destinadores. Quem tem esses arquivos
+   guardados continua conseguindo trazê-los de volta, pelo mesmo Importar. */
+async function importarJson(arq,st){
+  let j;
+  try{ j=JSON.parse(await arq.text()); }
+  catch(e){ st.textContent="Arquivo ilegível — não parece um arquivo do app."; return; }
+  if(j&&j.app==="propostas-corpus"&&j.dados&&typeof j.dados==="object") return restaurarPacoteJson(j,st);
+  if(Array.isArray(j)&&j.length&&j.every(p=>p&&p.id!==undefined&&Array.isArray(p.itens))) return juntarPropostasJson(j,st);
+  if(j&&!Array.isArray(j)&&Array.isArray(j.precos)) return restaurarDestJson(j,st);
+  st.textContent="Não reconheci esse .json: não é backup, nem lista de propostas, nem tabela de destinadores do app.";
 }
-function montarPlanilhas(){
-  const alvo=document.getElementById("listaPlanilhas");
-  if(!alvo||alvo.children.length) return;
-  BASES_PLANILHA.forEach(base=>{
-    const div=document.createElement("div");
-    div.className="pl-base";
-    div.innerHTML=
-      '<div class="pl-topo"><strong class="pl-nome"></strong><span class="pl-dono"></span></div>'+
-      '<div class="sub pl-dica"></div>'+
-      '<div class="row2">'+
-        '<button class="btn-sec pl-imp">Importar planilha</button>'+
-        '<button class="btn-sec pl-exp">Exportar planilha</button>'+
-      '</div>'+
-      '<input type="file" accept=".csv,.xlsx" class="oculto">'+
-      '<div class="status" id="st-pl-'+base.id+'"></div>';
-    div.querySelector(".pl-nome").textContent=base.rotulo;
-    div.querySelector(".pl-dono").textContent=base.dono;
-    div.querySelector(".pl-dica").textContent=base.dica;
-    const arq=div.querySelector('input[type="file"]');
-    div.querySelector(".pl-exp").onclick=()=>exportarBasePlanilha(base.id);
-    div.querySelector(".pl-imp").onclick=()=>arq.click();
-    arq.onchange=()=>importarBasePlanilha(base.id,arq);
-    alvo.appendChild(div);
+async function restaurarPacoteJson(pacote,st){
+  const n=Object.keys(pacote.dados).length;
+  const quando=pacote.em?new Date(pacote.em).toLocaleString("pt-BR"):"data desconhecida";
+  if(!await perguntar("Restaurar o backup?",
+      "Backup de "+quando+", com "+n+" conjuntos de dados.\n\n"+
+      "Isto SUBSTITUI o que está neste aparelho. O app recarrega em seguida.",
+      {emoji:"⏪",sim:"Restaurar",nao:"Cancelar",perigo:true})) return;
+  // O .json antigo é o backup do próprio aparelho e sempre trouxe tudo de
+  // volta, apoio inclusive — continua trazendo.
+  try{ substituirPelaFoto(pacote,true); }
+  catch(e){ st.textContent="Não deu pra restaurar: "+e.message; return; }
+  st.textContent="Restaurado. Recarregando...";
+  setTimeout(()=>location.reload(),700);
+}
+async function juntarPropostasJson(lista,st){
+  const ids=new Set(propostas.map(p=>String(p.id)));
+  const novas=lista.filter(p=>!ids.has(String(p.id))).length, iguais=lista.length-novas;
+  if(!await perguntar("Importar propostas?",
+      lista.length+" propostas no arquivo: "+novas+" novas e "+iguais+" que já existem aqui "+
+      "(essas são trocadas pela versão do arquivo). As outras propostas deste aparelho ficam como estão.",
+      {emoji:"📥",sim:"Importar",nao:"Cancelar",esquerda:true})) return;
+  const nova=propostas.slice();
+  lista.forEach(p=>{
+    const i=nova.findIndex(x=>String(x.id)===String(p.id));
+    if(i>=0) nova[i]=p; else nova.push(p);
   });
+  nova.sort((a,b)=>String(b.salvoEm||"").localeCompare(String(a.salvoEm||"")));
+  try{ gravarBaseAtomico(LS_PROPOSTAS,nova,()=>{ propostas=nova; }); }
+  catch(e){ st.textContent="Não deu pra gravar: "+e.message; return; }
+  repintarDepoisDaPlanilha();
+  st.textContent="Propostas importadas: "+novas+" novas, "+iguais+" atualizadas.";
+}
+async function restaurarDestJson(j,st){
+  const parceiros=new Set(j.precos.map(p=>p&&p.d)).size;
+  if(!await perguntar("Restaurar a tabela de destinadores?",
+      j.precos.length+" preços de "+parceiros+" destinadores, com as junções de nomenclatura.\n\n"+
+      "Isto SUBSTITUI a tabela de custos deste aparelho (os vínculos de resíduo continuam).",
+      {emoji:"⏪",sim:"Restaurar",nao:"Cancelar",perigo:true})) return;
+  const novo=Object.assign({},dest,{precos:j.precos});
+  if(j.bdi!==undefined) novo.bdi=Number(j.bdi)||dest.bdi;
+  ["juntas","separadas","ordem"].forEach(k=>{ if(Array.isArray(j[k])) novo[k]=j[k]; });
+  if(j.rotulos&&typeof j.rotulos==="object") novo.rotulos=j.rotulos;
+  try{ gravarBaseAtomico(LS_DEST,novo,()=>{ dest=novo; }); }
+  catch(e){ st.textContent="Não deu pra gravar: "+e.message; return; }
+  const bdi=document.getElementById("bdiDest"); if(bdi) bdi.value=dest.bdi;
+  try{ renderExemploBDI(); }catch(e){}
+  repintarDepoisDaPlanilha();
+  st.textContent="Tabela de destinadores restaurada: "+j.precos.length+" preços.";
 }
 
 /* ============ NOVA PROPOSTA ============ */
@@ -9406,6 +9739,8 @@ function perguntar(titulo,texto,opcoes){
     document.getElementById("perguntaEmoji").textContent=opcoes.emoji||"❓";
     document.getElementById("perguntaTitulo").textContent=titulo;
     document.getElementById("perguntaTexto").textContent=texto||"";
+    // Lista (a prévia da importação) se lê melhor alinhada à esquerda
+    document.getElementById("perguntaTexto").classList.toggle("centro",!opcoes.esquerda);
     const sim=document.getElementById("perguntaSim");
     const nao=document.getElementById("perguntaNao");
     sim.textContent=opcoes.sim||"Confirmar";
@@ -10530,7 +10865,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.05-21";
+const APP_VERSION="2026.09.23-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
