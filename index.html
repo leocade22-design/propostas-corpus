@@ -3911,7 +3911,7 @@ function converterMassa(valorTexto,de,para){
   if(!fDe||!fPara||fDe===fPara) return null;
   const n=numeroBR(valorTexto);
   if(!n) return null;
-  return fmtDinheiro(n*(fPara/fDe));
+  return fmtDinheiro(centavoAcima(n*(fPara/fDe)));
 }
 /* Preço do vínculo na unidade da linha.
 
@@ -3925,7 +3925,14 @@ function precoNaUnidade(preco,de,para){
   if(!para||String(de||"").trim().toLowerCase()===String(para).trim().toLowerCase()) return n;
   const fDe=fatorMassa(de), fPara=fatorMassa(para);
   if(!fDe||!fPara) return null;
-  return n*fPara/fDe;
+  return centavoAcima(n*fPara/fDe);
+}
+/* Conversão de unidade sempre arredonda PRA CIMA, no centavo: R$ 154,85/TON
+   é R$ 0,15485/KG, e sai R$ 0,16 — arredondar pro mais próximo (0,15) dava
+   R$ 150/TON, abaixo do preço do parceiro com BDI. O arredondamento interno
+   (1e6) só limpa o ruído de ponto flutuante, pra 0,15 exato não virar 0,16. */
+function centavoAcima(v){
+  return Math.ceil(Math.round(v*100*1e6)/1e6)/100;
 }
 // "R$ 0,15/KG (parceiro: R$ 154,85/TON)" quando a linha está em outra unidade
 // de massa; senão, só o preço do parceiro, como sempre.
@@ -11128,7 +11135,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.24-01";
+const APP_VERSION="2026.09.24-02";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
