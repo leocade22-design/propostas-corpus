@@ -4099,6 +4099,10 @@ const FRASE_POR_UNIDADE={
    que descreve a operação de verdade. Em Destinação Final a frase continua,
    porque lá ela está certa. */
 FRASE_POR_UNIDADE.reci={};
+/* Destinação também deixou de ter a frase ("Valor por quilo destinado."): a
+   unidade já está na coluna ao lado, e a observação fica só com o tratamento
+   e os detalhes do resíduo. Mão de obra continua com a dela. */
+FRASE_POR_UNIDADE.res={};
 function fraseDaUnidade(chave,unidade){
   const tabela=FRASE_POR_UNIDADE[tipoLinha(chave)];
   if(!tabela) return "";
@@ -11327,7 +11331,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.26-01";
+const APP_VERSION="2026.09.26-02";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
