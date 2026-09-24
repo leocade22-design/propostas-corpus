@@ -387,7 +387,16 @@
     gap:8px;margin-top:8px;}
   .foto-item{position:relative;border:1px solid var(--card-borda);border-radius:10px;
     overflow:hidden;background:var(--campo);}
+  .prop-dados{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:4px 0 0;font-size:.84rem;}
+  .prop-dados dt{color:var(--suave);font-size:.76rem;padding-top:1px;}
+  .prop-dados dd{margin:0;white-space:pre-line;word-break:break-word;}
+  .prop-nota{font-size:.84rem;white-space:pre-line;background:var(--campo);border:1px solid var(--campo-borda);
+    border-radius:10px;padding:8px 10px;margin-top:4px;}
   .foto-item img{display:block;width:100%;height:64px;object-fit:cover;cursor:pointer;}
+  .foto-item.arquivo .arq-ext{height:40px;display:flex;align-items:center;justify-content:center;
+    font-size:.78rem;font-weight:700;color:var(--verde);letter-spacing:.04em;cursor:pointer;}
+  .foto-item.arquivo .arq-nome{height:24px;padding:0 5px;font-size:.62rem;line-height:1.2;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;cursor:pointer;color:var(--texto);}
   .foto-item .mat-tira{position:absolute;top:3px;right:3px;width:22px;height:22px;padding:0;
     border:none;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:.8rem;line-height:1;}
   .foto-item .foto-tam{display:block;font-size:.66rem;color:var(--suave);
@@ -1087,14 +1096,14 @@
     <h2 title="Fica só neste aparelho, junto desta proposta. Não vai para o documento do cliente.">Informações da atividade
       <span class="badge" id="contagemAtividade">0</span></h2>
     <textarea id="notaAtividade" rows="3" oninput="ajustarAltura(this);agendarNotaAtividade()"
-      placeholder="Detalhes do serviço, acesso, com quem falar… Print de tela: cole aqui mesmo (Ctrl+V)."></textarea>
+      placeholder="Detalhes do serviço, acesso, com quem falar… Print ou arquivo: cole aqui mesmo (Ctrl+V)."></textarea>
     <div class="fotos-grade" id="gradeFotos"></div>
-    <input type="file" id="arqFotos" accept="image/*" multiple class="oculto" onchange="guardarFotos(this)">
+    <input type="file" id="arqFotos" multiple class="oculto" onchange="guardarFotos(this)">
     <!-- tabindex: sem foco não existe evento de colar. Clicar abre o seletor
          de arquivo (é o caminho do celular); arrastar também vale. -->
     <div class="caixa-fotos" id="caixaFotos" tabindex="0"
          onclick="document.getElementById('arqFotos').click()">
-      <button class="btn-sec btn-full btn-anexar" type="button" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="1.7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Anexar fotos</button>
+      <button class="btn-sec btn-full btn-anexar" type="button" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="1.7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Anexar arquivos</button>
     </div>
     <div class="status" id="statusFotos"></div>
   </div>
@@ -1330,10 +1339,23 @@
     <div class="titulinho-ficha">Linhas de custo</div>
     <div class="prop-itens" id="propItens"></div>
 
-    <div class="titulinho-ficha">Dados do cliente</div>
-    <div class="sub">Corrigir aqui grava direto na proposta salva, sem precisar
-      abrir ela inteira no formulário.</div>
-    <div class="prop-form" id="propForm"></div>
+    <!-- O que acompanha a proposta: a anotação e os anexos do cartão
+         Informações da atividade. Só leitura; mexer é abrindo a proposta. -->
+    <div id="propAtividade" class="oculto">
+      <div class="titulinho-ficha">Informações da atividade</div>
+      <div class="prop-nota" id="propNota"></div>
+      <div class="fotos-grade" id="propAnexos"></div>
+    </div>
+
+    <!-- Dados do cliente em texto corrido: caixa de edição pra cada campo
+         deixava a ficha com cara de formulário e escondia o que importa.
+         "corrigir" abre os campos, pra quem precisa acertar sem abrir tudo. -->
+    <div class="rotulo-acao">
+      <div class="titulinho-ficha">Dados do cliente</div>
+      <button class="link-acao" id="propCorrigir" type="button">corrigir</button>
+    </div>
+    <dl class="prop-dados" id="propDados"></dl>
+    <div class="prop-form oculto" id="propForm"></div>
 
     <div class="row3" style="margin-top:14px">
       <button class="btn-principal" id="propEditar">Editar</button>
@@ -2705,11 +2727,34 @@ const RE_FONE=/(?:\(?\d{2}\)?[\s.-]?)?9?\d{4}[-\s.]?\d{4}/;
 // Solto no meio da conversa, exige DDD: um "Pedido 1234-5678" tem a mesma cara
 // de um fixo sem DDD, e chutar errado é pior do que deixar a Receita preencher.
 const RE_FONE_SOLTO=/(?:\(\d{2}\)|\b\d{2})[\s.-]?9?\d{4}[-\s.]?\d{4}\b/;
+/* O texto que o cliente manda chega de todo jeito: formulário de site com
+   "* Nome: Fábio", conversa de WhatsApp com " - Local da operação: Serra",
+   assinatura de e-mail. Antes de procurar rótulo, cada pedaço perde o
+   marcador da frente (*, -, •, 1.) e os itens colados na mesma linha com
+   " - " viram linhas próprias — era o "* " na frente que escondia o "Nome:". */
+function linhasDoTexto(t){
+  return String(t||"").split(/\r?\n|\s{2,}[-–•*]\s+/)
+    .map(l=>l.replace(/^\s*(?:[*•>▪◦·–-]+|\d{1,2}[.)])\s*/,"").trim())
+    .filter(Boolean);
+}
+/* Telefone de link do WhatsApp (wa.me/5511930349625) ou com +55: o código do
+   país sai, e sobra o número como se escreve aqui — 11 93034-9625. */
+function foneDeLink(t){
+  const m=String(t||"").match(/(?:wa\.me\/|api\.whatsapp\.com\/send\?phone=|\+)\s*(\d[\d\s().-]{9,17}\d)/i);
+  if(!m) return "";
+  let d=so(m[1]);
+  if(d.length>=12&&d.startsWith("55")) d=d.slice(2);
+  return (d.length===10||d.length===11)?d:"";
+}
 function telefoneDoTexto(t){
-  for(const l of String(t||"").split(/\r?\n/)){
-    const m=l.match(/^\s*(?:telefones?|fones?|celular(?:es)?|whats\s*app|tel)\s*:\s*(.+)$/i);
-    if(m){ const f=m[1].match(RE_FONE); if(f) return f[0]; }
+  for(const l of linhasDoTexto(t)){
+    const m=l.match(/^(?:telefones?|fones?|celular(?:es)?|whats\s*app|tel|contato telef[oô]nico)\s*:\s*(.+)$/i);
+    if(m){
+      const link=foneDeLink(m[1]); if(link) return link;
+      const f=m[1].match(RE_FONE); if(f) return f[0];
+    }
   }
+  const link=foneDeLink(t); if(link) return link;
   const limpo=String(t||"")
     .replace(/\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2}/g," ")   // CNPJ
     .replace(/\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}/g," ")               // CPF
@@ -2732,31 +2777,77 @@ function extrairDoTexto(){
     const mC=t.match(/\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/\s]?\d{4}[-\s]?\d{2}/);
     if(mC){const el=document.getElementById("cnpj");el.value=mC[0];mascaraDocumento(el);conferirDocumento();achados.push("CNPJ");}
   }
-  const mE=t.match(/[\w.+-]+@[\w-]+\.[\w.]+/);
-  if(mE){set("email",mE[0]);achados.push("e-mail");}
+  /* E-mail com letra acentuada ("expediçaoes@...") existe no texto do cliente
+     e não existe na vida real — servidor de e-mail não aceita. O padrão antigo
+     parava no "ç" e guardava só "aoes@...". Agora pega a palavra inteira e
+     tira o acento: "expedicaoes@...". */
+  const emailDe=v=>{
+    const m=String(v||"").match(/[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/u);
+    return m?m[0].normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase():"";
+  };
+  const linhas=linhasDoTexto(t);
+  const rotulada=linhas.map(l=>l.match(/^e-?mails?\s*(?:de contato)?\s*:\s*(.+)$/i)).find(Boolean);
+  const mE=emailDe(rotulada?rotulada[1]:"")||emailDe(t);
+  if(mE){set("email",mE);achados.push("e-mail");}
   const fone=telefoneDoTexto(t);
   if(fone){const el=document.getElementById("telefone");el.value=fone;mascaraTelefone(el);achados.push("telefone");}
 
   // "endereco" fica de fora do preenchimento direto: o cabeçalho tem que sair
   // igual ao Cartão CNPJ. O que o cliente escreveu é guardado à parte pra ser
   // comparado depois — divergência costuma ser ponto de coleta diferente.
-  const mapa={"nome do solicitante":"solicitante","solicitante":"solicitante","contato":"solicitante",
-    "razao social":"razaoSocial","razao":"razaoSocial","empresa":"razaoSocial",
-    "inscricao estadual":"ie","ie":"ie"};
+  const ROTULOS_NOME=["nome","nome completo","seu nome","nome do solicitante","solicitante","contato",
+    "nome do contato","responsavel","nome do responsavel","responsavel pela solicitacao","a/c","ac",
+    "aos cuidados","aos cuidados de","att","falar com","representante","cliente"];
+  const mapa={"razao social":"razaoSocial","razao":"razaoSocial","empresa":"razaoSocial",
+    "nome da empresa":"razaoSocial","inscricao estadual":"ie","ie":"ie"};
   enderecoInformado="";
-  t.split(/\r?\n/).forEach(l=>{
+  let nome="";
+  linhas.forEach(l=>{
     const m=l.match(/^([^:]{2,40}):\s*(.+)$/);
     if(!m)return;
-    const k=semAc(m[1]),v=m[2].trim();
-    if(k==="endereco"&&v){enderecoInformado=v;achados.push("endereço do cliente");return;}
+    const k=semAc(m[1]).replace(/\s+/g," "),v=m[2].trim();
+    if((k==="endereco"||k==="endereco da coleta")&&v){enderecoInformado=v;achados.push("endereço do cliente");return;}
+    if(ROTULOS_NOME.includes(k)){ const n=nomeDePessoa(v); if(n&&!nome) nome=n; return; }
     if(mapa[k]&&v){set(mapa[k],v);achados.push(m[1].trim());}
   });
+  if(!nome) nome=nomeNoMeioDoTexto(t);
+  if(nome){ set("solicitante",nome); achados.push("nome do contato"); }
   const rs=document.getElementById("razaoSocial");
   rs.value=rs.value.toUpperCase();
   conferirRazaoSocial();
   return [...new Set(achados)];
 }
 
+/* Um nome de pessoa, limpo: sem o cargo entre parênteses ou depois do traço
+   ("Fabio (Supervisor da Live)" → "Fabio"), e recusando o que claramente não
+   é nome — e-mail, número, frase comprida. "Contato: financeiro@..." não pode
+   virar o nome do contato. */
+function nomeDePessoa(v){
+  let n=String(v||"").replace(/\(.*?\)/g," ").split(/\s[-–|,]\s|\s\/\s(?=\S+@)/)[0].trim();
+  n=n.replace(/[.;:!]+$/,"").trim();
+  if(!n||/@|\d|https?:/i.test(n)) return "";
+  const palavras=n.split(/\s+/);
+  if(palavras.length>5||!/^\p{L}/u.test(n)) return "";
+  // Tudo minúsculo ou tudo maiúsculo vira Nome Próprio; o resto fica como veio
+  if(n===n.toLowerCase()||n===n.toUpperCase())
+    n=palavras.map(w=>/^(da|de|do|das|dos|e)$/i.test(w)?w.toLowerCase():w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(" ");
+  return n;
+}
+/* Sem rótulo, o nome ainda costuma estar lá: "meu nome é Fábio", "aqui é a
+   Rosângela", "Fabio (Supervisor da Live) solicitou...", ou na assinatura
+   logo depois de "Atenciosamente". */
+function nomeNoMeioDoTexto(t){
+  const NOME="(\\p{Lu}[\\p{L}'’]+(?:\\s+(?:d[aeo]s?\\s+)?\\p{Lu}[\\p{L}'’]+){0,3})";
+  const pads=[
+    new RegExp("\\b(?:meu nome [ée]|me chamo|aqui [ée] (?:o|a)|sou (?:o|a))\\s+"+NOME,"u"),
+    new RegExp(NOME+"\\s*\\([^)]{3,60}\\)\\s+(?:solicitou|pediu|precisa|gostaria|quer|entrou)","u")
+  ];
+  for(const re of pads){ const m=String(t||"").match(re); if(m){ const n=nomeDePessoa(m[1]); if(n) return n; } }
+  const ls=String(t||"").split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const i=ls.findIndex(l=>/^(?:atenciosamente|att\.?|abs\.?|abra[çc]os|obrigad[oa]|grat[oa])[,.!]?$/i.test(l));
+  if(i>=0&&ls[i+1]){ const n=nomeDePessoa(ls[i+1]); if(n&&n.split(/\s+/).length<=4) return n; }
+  return "";
+}
 /* O endereço que o cliente mandou não entra no cabeçalho — lá vale sempre o
    Cartão CNPJ. Mas se os dois divergem, ou a coleta é em outro lugar ou o
    cadastro da Receita está velho; nos dois casos é o Léo que precisa decidir. */
@@ -4613,6 +4704,8 @@ function iniciarApp(){
   fluxo();montarObjeto();montarChipsColeta();render();
   renderFotos();
   iniciarCaixaFotos();
+  fecharAoClicarFora("modalProposta",fecharFichaProposta);
+  fecharAoClicarFora("modalCliente",fecharCliente);
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
   medirAlturaVisivel();
@@ -6936,7 +7029,19 @@ function abrirFichaProposta(id){
      cabe num popup sem virar outro formulário. */
   const form=document.getElementById("propForm");
   form.innerHTML="";
+  form.classList.add("oculto");
   p.form=p.form||{};
+  pintarDadosFicha(p);
+  const bc=document.getElementById("propCorrigir");
+  bc.textContent="corrigir";
+  bc.onclick=()=>{
+    const abrir=form.classList.contains("oculto");
+    form.classList.toggle("oculto",!abrir);
+    document.getElementById("propDados").classList.toggle("oculto",abrir);
+    bc.textContent=abrir?"pronto":"corrigir";
+    if(!abrir) pintarDadosFicha(p);
+  };
+  pintarAtividadeFicha(id);
   camposFicha(p.tipoPessoa||"PJ").forEach(([campo,rotulo])=>{
     const lab=document.createElement("label"); lab.textContent=rotulo;
     const inp=document.createElement("input");
@@ -6965,6 +7070,47 @@ function abrirFichaProposta(id){
     await excluirProposta(id);
   };
   document.getElementById("modalProposta").classList.remove("oculto");
+}
+// Rótulo e valor, só do que está preenchido — campo vazio não ocupa linha.
+function pintarDadosFicha(p){
+  const dl=document.getElementById("propDados");
+  dl.innerHTML=""; dl.classList.remove("oculto");
+  const f=p.form||{};
+  const linhas=camposFicha(p.tipoPessoa||"PJ").map(([c,r])=>[r,c==="dataProposta"?dataBR(f[c]):f[c]]);
+  linhas.splice(6,0,["Endereço",f.enderecoUnico]);
+  const locais=[p.mesmoEnd===false?f.enderecoColetaUnico:"Mesmo do cliente"]
+    .concat(p.pontosColeta||[]).map(x=>String(x||"").trim()).filter(Boolean);
+  if(p.mesmoEnd===false||locais.length>1) linhas.splice(7,0,[locais.length>1?"Locais de coleta":"Local de coleta",locais.join("\n")]);
+  (p.contatosExtras||[]).forEach(c=>{ if(c.nome||c.fone) linhas.splice(4,0,["Outro contato",[c.nome,c.fone].filter(Boolean).join(" · ")]); });
+  linhas.filter(([,v])=>String(v||"").trim()&&v!=="sem data").forEach(([r,v])=>{
+    const dt=document.createElement("dt"); dt.textContent=r;
+    const dd=document.createElement("dd"); dd.textContent=v;
+    dl.appendChild(dt); dl.appendChild(dd);
+  });
+}
+async function pintarAtividadeFicha(id){
+  const caixa=document.getElementById("propAtividade");
+  const nota=await lerNotaAtividade(id);
+  let chaves=[];
+  try{ chaves=await idbListarPrefixo(prefixoFotos(id)); }catch(e){}
+  if(fichaPropostaId!==id) return;          // trocou de proposta no meio
+  caixa.classList.toggle("oculto",!nota&&!chaves.length);
+  const n=document.getElementById("propNota");
+  n.textContent=nota; n.classList.toggle("oculto",!nota);
+  const g=document.getElementById("propAnexos"); g.innerHTML="";
+  for(const k of chaves){
+    const reg=await idbGet(k);
+    if(reg&&reg.blob) g.appendChild(desenharAnexo(reg,null));
+  }
+}
+/* Clicar no fundo escuro fecha — além do ✕. Só o fundo: clicar dentro da
+   caixa (inclusive arrastar a seleção de um texto pra fora) não conta. */
+function fecharAoClicarFora(idModal,fechar){
+  const fundo=document.getElementById(idModal);
+  if(!fundo) return;
+  let comecouNoFundo=false;
+  fundo.addEventListener("mousedown",e=>{ comecouNoFundo=(e.target===fundo); });
+  fundo.addEventListener("click",e=>{ if(e.target===fundo&&comecouNoFundo) fechar(); comecouNoFundo=false; });
 }
 function fecharFichaProposta(){
   fichaPropostaId=null;
@@ -9596,6 +9742,10 @@ function nomeParaSaudacao(){
    Os três de continuação (cobrar retorno, revisada, aceite recebido) mantêm o
    assunto de "Proposta": é a mesma conversa, e assunto igual faz o e-mail cair
    na mesma thread em vez de abrir uma nova. */
+/* Assunto é sempre "Proposta <nº> - <RAZÃO SOCIAL>", em todo modelo: é pelo
+   assunto que a conversa com o cliente se agrupa no Outlook, e cada modelo
+   com um prefixo diferente ("Aceite ...", "Proposta e Aceite ...") abria uma
+   conversa nova para a mesma proposta. */
 function assuntoEmail(rotulo,a){
   const cli=String(a.cliente||"").trim();
   return rotulo+" "+a.numero+(cli?" - "+cli:"");
@@ -9608,13 +9758,13 @@ const MODELOS_EMAIL=[
 "Qualquer dúvida, estamos à disposição."},
 
   {id:"aceite", rot:"Aceite", quando:["aceite"],
-   assunto:a=>assuntoEmail("Aceite",a),
+   assunto:a=>assuntoEmail("Proposta",a),
    corpo:()=>
 "Gentileza conferir as informações do arquivo “Aceite de Proposta” e devolvê-lo devidamente assinado, para darmos andamento ao cadastro e à execução do serviço.\n\n"+
 "Fico à disposição para quaisquer dúvidas."},
 
   {id:"ambos", rot:"Proposta + Aceite", quando:["ambos"],
-   assunto:a=>assuntoEmail("Proposta e Aceite",a),
+   assunto:a=>assuntoEmail("Proposta",a),
    corpo:()=>
 "Encaminho, em anexo, a proposta comercial juntamente com o termo de aceite para sua avaliação.\n\n"+
 "Caso esteja de acordo com os valores, gentileza conferir as informações do arquivo “Aceite de Proposta” e devolvê-lo devidamente assinado, para darmos andamento ao cadastro e à execução do serviço.\n\n"+
@@ -9763,17 +9913,28 @@ async function lerNotaAtividade(id){
   try{ const r=await idbGet(chaveNota(id)); return (r&&r.texto)||""; }
   catch(e){ return ""; }
 }
+/* Qualquer arquivo entra — foto, print, PDF, planilha, .zip. Imagem é reduzida
+   antes de guardar (foto de celular tem 4 MB e aqui é registro, não original);
+   o resto é guardado do jeito que veio. O teto por arquivo existe porque tudo
+   mora no navegador deste aparelho, e um vídeo de 300 MB ocuparia o espaço de
+   todas as propostas juntas. */
+const ANEXO_MAX_MB=40;
 async function guardarFotos(input){
-  const arqs=[...(input.files||[])].filter(a=>/^image\//.test(a.type));
+  const todos=[...(input.files||[])];
   input.value="";
-  if(!arqs.length) return;
+  const grandes=todos.filter(a=>a.size>ANEXO_MAX_MB*1024*1024);
+  const arqs=todos.filter(a=>a.size<=ANEXO_MAX_MB*1024*1024);
   const st=document.getElementById("statusFotos");
+  if(!arqs.length){
+    if(grandes.length) st.textContent=grandes[0].name+" passa de "+ANEXO_MAX_MB+" MB — grande demais pra guardar no app.";
+    return;
+  }
   const id=idDaPropostaAtual();
-  st.textContent="Guardando "+arqs.length+" foto(s)...";
+  st.textContent="Guardando "+arqs.length+" arquivo(s)...";
   let n=0;
   for(const a of arqs){
     try{
-      const blob=await reduzirImagem(a);
+      const blob=/^image\//.test(a.type)?await reduzirImagem(a):a;
       await idbSet(prefixoFotos(id)+Date.now()+"-"+n+"-"+a.name,
         {nome:a.name,tipo:blob.type||a.type,tam:blob.size,blob,em:Date.now()});
       n++;
@@ -9783,7 +9944,8 @@ async function guardarFotos(input){
       return;
     }
   }
-  st.textContent=n+" foto(s) anexadas a esta proposta.";
+  st.textContent=n+" arquivo(s) anexado(s) a esta proposta."+
+    (grandes.length?" Ficou de fora (mais de "+ANEXO_MAX_MB+" MB): "+grandes.map(g=>g.name).join(", ")+".":"");
   setTimeout(()=>{ if(st.textContent.includes("anexadas")) st.textContent=""; },4000);
   await renderFotos();
 }
@@ -9812,9 +9974,9 @@ function iniciarCaixaFotos(){
   };
   const colar=e=>{
     const arquivos=[...(e.clipboardData?e.clipboardData.items:[])]
-      .filter(i=>/^image\//.test(i.type)).map(i=>i.getAsFile()).filter(Boolean);
-    // Só intercepta quando o que veio é imagem: colar texto na caixa de texto
-    // continua sendo colar texto, sem susto.
+      .filter(i=>i.kind==="file").map(i=>i.getAsFile()).filter(Boolean);
+    // Só intercepta quando o que veio é ARQUIVO (print, ou arquivo copiado no
+    // Explorer): colar texto na caixa de texto continua sendo colar texto.
     if(arquivos.length){ e.preventDefault(); guardarFotos({files:arquivos,value:""}); }
   };
   /* Um ouvinte só, no cartão inteiro. O evento de colar sobe de quem tem o
@@ -9863,22 +10025,41 @@ async function renderFotos(){
   for(const k of chaves){
     const reg=await idbGet(k);
     if(!reg||!reg.blob) continue;
-    const u=URL.createObjectURL(reg.blob); urlsFotos.push(u);
-    const d=document.createElement("div");
-    d.className="foto-item";
-    d.innerHTML='<img alt=""><button class="mat-tira" title="Remover foto">✕</button>'+
-                '<span class="foto-tam"></span>';
-    d.querySelector("img").src=u;
-    d.querySelector("img").alt=reg.nome||"foto da atividade";
-    d.querySelector(".foto-tam").textContent=tamanhoLegivel(reg.tam||0);
-    d.querySelector("img").onclick=()=>window.open(u,"_blank");
-    d.querySelector(".mat-tira").onclick=async()=>{
-      if(!await perguntar("Remover esta foto?","Ela sai desta proposta e não dá pra desfazer.",
+    el.appendChild(desenharAnexo(reg,async()=>{
+      if(!await perguntar("Remover este anexo?","Ele sai desta proposta e não dá pra desfazer.",
         {emoji:"🗑️",sim:"Remover",nao:"Cancelar",perigo:true})) return;
       await idbApagar(k); await renderFotos();
-    };
-    el.appendChild(d);
+    }));
   }
+}
+/* Um anexo na grade. Imagem: miniatura, e o toque abre inteira. Outro tipo:
+   um quadradinho com a extensão (ZIP, PDF, XLSX) e o nome, e o toque baixa o
+   arquivo com o nome original. Sem `aoRemover`, sai sem o ×: é a ficha da
+   proposta salva, que só mostra. */
+function desenharAnexo(reg,aoRemover){
+  const u=URL.createObjectURL(reg.blob); urlsFotos.push(u);
+  const img=/^image\//.test(reg.tipo||reg.blob.type||"");
+  const d=document.createElement("div");
+  d.className="foto-item"+(img?"":" arquivo");
+  d.innerHTML=(img?'<img alt="">':'<div class="arq-ext"></div><div class="arq-nome"></div>')+
+              (aoRemover?'<button class="mat-tira" title="Remover">✕</button>':'')+
+              '<span class="foto-tam"></span>';
+  const nome=reg.nome||"arquivo";
+  d.title=nome;
+  d.querySelector(".foto-tam").textContent=tamanhoLegivel(reg.tam||reg.blob.size||0);
+  const abrir=()=>{
+    if(img){ window.open(u,"_blank"); return; }
+    const a=document.createElement("a"); a.href=u; a.download=nome; document.body.appendChild(a); a.click(); a.remove();
+  };
+  if(img){ const im=d.querySelector("img"); im.src=u; im.alt=nome; im.onclick=abrir; }
+  else{
+    const ext=(nome.match(/\.([a-z0-9]{1,5})$/i)||[,"arq"])[1].toUpperCase();
+    d.querySelector(".arq-ext").textContent=ext;
+    d.querySelector(".arq-nome").textContent=nome;
+    d.querySelector(".arq-ext").onclick=abrir; d.querySelector(".arq-nome").onclick=abrir;
+  }
+  if(aoRemover) d.querySelector(".mat-tira").onclick=aoRemover;
+  return d;
 }
 /* Some com tudo que era daquela proposta: as fotos e a anotação. É chamada
    quando a proposta é excluída e quando um rascunho não salvo é abandonado —
@@ -11146,7 +11327,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.25-01";
+const APP_VERSION="2026.09.26-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
