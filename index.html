@@ -155,6 +155,9 @@
   .btn-principal{background:var(--verde);color:#fff;width:100%;}
   .btn-sec{background:var(--verde-claro);color:var(--verde);border:1px solid var(--verde-borda);}
   .btn-full{width:100%;margin-top:9px;}
+  /* Botão de tema: só o ícone (sol/lua de traço), quadrado, no cabeçalho */
+  .btn-mini.btn-tema{background:rgba(255,255,255,.18);color:#fff;width:40px;height:34px;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;align-self:flex-end;}
   .btn-mini{background:var(--verde-claro);color:var(--verde);padding:6px 10px;font-size:.78rem;}
   .btn-rem{background:var(--alerta-bg);color:var(--alerta);padding:6px 10px;font-size:.78rem;}
   .chips{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 4px;}
@@ -748,7 +751,7 @@
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;flex:0 0 auto">
       <button class="btn-mini" style="background:rgba(255,255,255,.18);color:#fff;white-space:nowrap" onclick="novaProposta()">↺ Nova proposta</button>
-      <button class="btn-mini" id="btnTema" style="background:rgba(255,255,255,.18);color:#fff;white-space:nowrap" onclick="alternarTema()">☾ Escuro</button>
+      <button class="btn-mini btn-tema" id="btnTema" onclick="alternarTema()" title="Tema escuro" aria-label="Tema escuro"></button>
     </div>
   </div>
 </header>
@@ -1477,8 +1480,6 @@
       <button class="btn-sec" onclick="copiarEmail(this)">Copiar texto</button>
       <button class="btn-sec" onclick="abrirNoCliente()">Abrir no e-mail</button>
     </div>
-    <button class="btn-principal btn-full" style="margin-top:8px" id="btnCompartilhar"
-            onclick="compartilharEmail(this)">Compartilhar com os anexos</button>
     <div class="status" id="statusEmail"></div>
   </div>
 </div>
@@ -9014,18 +9015,40 @@ function pintarEmail(reescrever){
   anx.textContent=ultimosGerados.length
     ? "Anexos: "+ultimosGerados.map(a=>a.nome).join("  ·  ")
     : "Nenhum arquivo gerado nesta sessão para anexar.";
-  const bt=document.getElementById("btnCompartilhar");
-  const podeAnexar=arquivosParaEnviar().length>0 && !!(navigator.canShare&&navigator.share);
-  bt.disabled=!podeAnexar;
-  bt.title=podeAnexar?"Abre a tela de compartilhamento do sistema com os arquivos"
-                     :"Este navegador não compartilha arquivos — use “Abrir no e-mail” e anexe da pasta";
 }
-function arquivosParaEnviar(){
-  return ultimosGerados.filter(a=>a.blob).map(a=>new File([a.blob],a.nome,
-    {type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}));
+/* O e-mail sai em Aptos 11, preto. O mailto: é texto puro — não existe jeito
+   de mandar fonte por ele, e o Outlook novo põe o corpo do mailto em Segoe UI
+   12 por conta própria. Então o corpo vai pela área de transferência como
+   HTML já formatado (cada linha com a fonte escrita nela, que é o que o
+   Outlook respeita ao colar), e o mailto abre só com destinatário e assunto. */
+function htmlDoEmail(texto){
+  const estilo="font-family:Aptos,Calibri,Arial,sans-serif;font-size:11pt;color:#000000;margin:0";
+  return String(texto||"").split("\n").map(l=>'<p style="'+estilo+'">'+(l.trim()?escXml(l):"&nbsp;")+"</p>").join("");
+}
+async function copiarEmailFormatado(texto){
+  const html=htmlDoEmail(texto);
+  try{
+    if(navigator.clipboard&&window.ClipboardItem){
+      await navigator.clipboard.write([new ClipboardItem({
+        "text/html":new Blob([html],{type:"text/html"}),
+        "text/plain":new Blob([texto],{type:"text/plain"})})]);
+      return true;
+    }
+  }catch(e){}
+  // Plano B: seleciona um bloco formatado fora da tela e usa o copiar antigo
+  try{
+    const d=document.createElement("div");
+    d.contentEditable="true"; d.style.cssText="position:fixed;left:-9999px;top:0";
+    d.innerHTML=html; document.body.appendChild(d);
+    const r=document.createRange(); r.selectNodeContents(d);
+    const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    const ok=document.execCommand("copy"); sel.removeAllRanges(); d.remove();
+    if(ok) return true;
+  }catch(e){}
+  return copiarTexto(texto);
 }
 function copiarEmail(botao){
-  copiarTexto(document.getElementById("emailCorpo").value).then(ok=>{
+  copiarEmailFormatado(document.getElementById("emailCorpo").value).then(ok=>{
     const antes=botao.textContent;
     botao.textContent=ok?"Copiado":"Não deu pra copiar";
     setTimeout(()=>{botao.textContent=antes;},1800);
@@ -9033,40 +9056,21 @@ function copiarEmail(botao){
 }
 /* mailto não leva anexo — nunca levou. Abre o Outlook com tudo escrito e diz
    onde estão os arquivos, que é o que dá pra fazer com honestidade. */
-function abrirNoCliente(){
+async function abrirNoCliente(){
   const para=encodeURIComponent(document.getElementById("emailPara").value.trim());
   const ass=encodeURIComponent(document.getElementById("emailAssunto").value);
-  const corpo=encodeURIComponent(document.getElementById("emailCorpo").value);
   const st=document.getElementById("statusEmail");
+  const copiou=await copiarEmailFormatado(document.getElementById("emailCorpo").value);
+  // Sem conseguir copiar, o corpo vai no próprio mailto (sem a formatação)
+  const corpo=copiou?"":encodeURIComponent(document.getElementById("emailCorpo").value);
   const onde=ultimosGerados.length
     ? (ultimosGerados[0].pasta?("na pasta "+ultimosGerados[0].pasta):"nos Downloads")
     : "";
-  st.textContent="Abrindo o e-mail. Anexo o mailto não carrega — os arquivos estão "+
-    (onde||"onde você salvou")+", é só arrastar pra mensagem.";
-  window.location.href="mailto:"+para+"?subject="+ass+"&body="+corpo;
-}
-/* Compartilhar COM anexo: aqui o arquivo vai de verdade. Em compensação o
-   sistema não aceita destinatário nem assunto, então o texto vai pra área de
-   transferência antes — é colar e mandar. */
-async function compartilharEmail(botao){
-  const arquivos=arquivosParaEnviar();
-  const st=document.getElementById("statusEmail");
-  if(!arquivos.length){ st.textContent="Não há arquivo desta sessão para anexar."; return; }
-  if(!(navigator.canShare&&navigator.canShare({files:arquivos}))){
-    st.textContent="Este navegador não compartilha arquivos. Use “Abrir no e-mail” e anexe da pasta.";
-    return;
-  }
-  await copiarTexto(document.getElementById("emailCorpo").value);
-  try{
-    await navigator.share({files:arquivos,
-      title:document.getElementById("emailAssunto").value,
-      text:document.getElementById("emailCorpo").value});
-    st.textContent="Enviado pro app que você escolheu. O texto também está copiado, se precisar colar.";
-  }catch(e){
-    // Cancelar no menu do sistema cai aqui e não é erro
-    if(e&&e.name==="AbortError"){ st.textContent=""; return; }
-    st.textContent="Não deu pra compartilhar ("+(e&&e.message?e.message:e)+"). O texto ficou copiado.";
-  }
+  st.textContent=(copiou
+      ?"Mensagem copiada em Aptos 11: clique no corpo do e-mail e cole (Ctrl+V). "
+      :"Não deu pra copiar a formatação — o texto foi direto pro e-mail. ")+
+    "Os arquivos estão "+(onde||"onde você salvou")+", é só arrastar pra mensagem.";
+  window.location.href="mailto:"+para+"?subject="+ass+(corpo?"&body="+corpo:"");
 }
 
 
@@ -10042,9 +10046,16 @@ function pedirTexto(titulo,ajuda,valor){
 
 /* ============ TEMA ============ */
 const LS_TEMA="corpus_tema";
+const ICONE_SOL='<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">'+
+  '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+const ICONE_LUA='<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">'+
+  '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
 function aplicarTema(t){
   document.documentElement.setAttribute("data-tema",t);
-  document.getElementById("btnTema").textContent=t==="escuro"?"☼ Claro":"☾ Escuro";
+  // Mostra o tema pra onde o toque leva: no escuro, o sol; no claro, a lua.
+  const bt=document.getElementById("btnTema");
+  bt.innerHTML=t==="escuro"?ICONE_SOL:ICONE_LUA;
+  bt.title=bt.ariaLabel=t==="escuro"?"Tema claro":"Tema escuro";
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta) meta.setAttribute("content",t==="escuro"?"#123322":"#1E6B3A");
 }
@@ -11135,7 +11146,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.24-02";
+const APP_VERSION="2026.09.25-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
