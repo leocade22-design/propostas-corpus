@@ -83,7 +83,16 @@
   .rotulo-acao{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
   .rotulo-acao label{flex:1;}
   .contato-extra{margin-top:6px;}
-  .ponto-extra{position:relative;margin-top:7px;}
+  .ponto-extra{position:relative;}
+  /* Os dois jeitos de informar a coleta lado a lado, metade cada: com o texto
+     longo de antes o segundo chip caía pra linha de baixo e parecia outra
+     pergunta. */
+  #chipsColeta{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  #chipsColeta .chip{text-align:center;padding-left:8px;padding-right:8px;}
+  .ponto-rotulo{font-size:.72rem;color:var(--suave);text-transform:uppercase;
+    letter-spacing:.04em;margin:10px 0 4px;}
+  .ponto-mesmo{background:var(--campo);border:1.5px dashed var(--campo-borda);border-radius:10px;
+    padding:9px 12px;font-size:.82rem;color:var(--suave);white-space:pre-line;}
   .ponto-extra input{padding-right:30px;width:100%;}
   .contato-fone{position:relative;}
   .contato-fone input{padding-right:30px;}
@@ -367,11 +376,15 @@
   /* Linha editável dos catálogos de preço (recicláveis, equipamentos) */
   /* Recicláveis: linha fechada que expande */
   .mat-linha{border:1px solid var(--card-borda);border-radius:10px;margin-bottom:7px;overflow:hidden;}
-  .fotos-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+  /* Miniaturas pequenas: é registro, não galeria — toque abre a foto inteira. */
+  .fotos-grade:empty{display:none;}
+  .btn-anexar{display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-anexar .ico{opacity:.7;flex:0 0 auto;}
+  .fotos-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));
     gap:8px;margin-top:8px;}
   .foto-item{position:relative;border:1px solid var(--card-borda);border-radius:10px;
     overflow:hidden;background:var(--campo);}
-  .foto-item img{display:block;width:100%;height:96px;object-fit:cover;cursor:pointer;}
+  .foto-item img{display:block;width:100%;height:64px;object-fit:cover;cursor:pointer;}
   .foto-item .mat-tira{position:absolute;top:3px;right:3px;width:22px;height:22px;padding:0;
     border:none;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:.8rem;line-height:1;}
   .foto-item .foto-tam{display:block;font-size:.66rem;color:var(--suave);
@@ -502,6 +515,13 @@
     text-overflow:ellipsis;white-space:nowrap;}
   .prop-linha .qtd{font-size:.72rem;color:var(--suave);margin-top:2px;}
   .prop-linha .marca{font-size:.7rem;color:var(--verde);font-weight:600;}
+  .busca-caixa{position:relative;}
+  .busca-caixa input{padding-right:30px;width:100%;}
+  /* Onde a busca achou o termo, quando não foi no nome nem no número: é o que
+     explica por que "munck" trouxe aquela proposta. */
+  .prop-linha .onde{font-size:.74rem;color:var(--suave);margin-top:3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .prop-linha mark{background:var(--verde-claro);color:inherit;border-radius:3px;padding:0 1px;}
   /* Ficha da proposta */
   .prop-itens{margin:6px 0 4px;}
   /* Aviso na confirmação de gerar: o que vai sair errado no documento */
@@ -728,7 +748,7 @@
     </div>
     <div style="display:flex;flex-direction:column;gap:6px;flex:0 0 auto">
       <button class="btn-mini" style="background:rgba(255,255,255,.18);color:#fff;white-space:nowrap" onclick="novaProposta()">↺ Nova proposta</button>
-      <button class="btn-mini" id="btnTema" style="background:rgba(255,255,255,.18);color:#fff;white-space:nowrap" onclick="alternarTema()">🌙 Escuro</button>
+      <button class="btn-mini" id="btnTema" style="background:rgba(255,255,255,.18);color:#fff;white-space:nowrap" onclick="alternarTema()">☾ Escuro</button>
     </div>
   </div>
 </header>
@@ -779,7 +799,7 @@
            colunas) viviam soltos em cima da tabela e tomavam mais espaço que
            ela. Ficam num menu só, fechado por padrão. -->
       <button type="button" class="dest-exib-abre" id="abreExibDest" onclick="toggleExibicaoDest()">
-        ⚙️ Exibição<span class="seta" id="setaExibDest">▾</span></button>
+        Exibição<span class="seta" id="setaExibDest">▾</span></button>
       <div id="exibicaoDest" class="oculto"></div>
       <div id="listaDest" style="margin-top:8px"></div>
       <div class="status" id="statusDest"></div>
@@ -836,7 +856,13 @@
         e gerar de novo. Fica só neste aparelho — e, diferente dos clientes,
         <strong>sem senha</strong>: quem abrir o app vê a lista.
       </div>
-      <input type="text" id="buscaProposta" placeholder="Buscar por cliente ou número..." oninput="renderHistorico()">
+      <div class="busca-caixa">
+        <input type="text" id="buscaProposta" enterkeyhint="search" autocomplete="off"
+          placeholder="Cliente, nº, CNPJ, serviço, veículo, resíduo, cidade…" oninput="renderHistorico()">
+        <button class="tira-contato oculto" id="limpaBusca" title="Limpar a busca"
+          onclick="const c=document.getElementById('buscaProposta');c.value='';renderHistorico();c.focus()">×</button>
+      </div>
+      <div class="sub oculto" id="contagemBusca" style="margin-top:5px"></div>
       <div id="listaHistorico" style="margin-top:8px"></div>
       <div class="status" id="statusHistorico"></div>
     </div>
@@ -983,6 +1009,13 @@
         <button class="link-acao" onclick="incluirPontoColeta()" title="Incluir outro ponto de coleta">+ ponto</button>
       </div>
       <div class="chips" id="chipsColeta"></div>
+      <!-- Com mais de um ponto, cada um ganha o seu número — inclusive o
+           primeiro, que é o único que tem os campos separados (é ele que vai
+           no Aceite). Sem o número, os pontos extras pareciam uma coisa à
+           parte, e o primeiro, com "mesmo endereço do cliente", nem aparecia
+           na conta. -->
+      <div class="ponto-rotulo oculto" id="rotuloPonto1">1º ponto</div>
+      <div class="ponto-mesmo oculto" id="pontoMesmo"></div>
       <div id="blocoColeta" class="oculto">
         <input type="text" id="enderecoColetaUnico" onblur="quebrarEnderecoColeta()" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">
         <div class="resumo-quebra" id="resumoEnderecoColeta" onclick="toggleQuebra('Coleta')"></div>
@@ -1039,27 +1072,26 @@
     <div class="vazio" id="listaVazia">Nenhum item adicionado ainda.</div>
     <div id="listaItensProposta"></div>
 
-    <!-- O que se sabe da atividade: um texto livre com os detalhes do serviço e
-         as fotos que o cliente mandou. Fica preso à proposta, no aparelho: não
-         entra no .docx nem na sincronia. -->
-    <div class="titulo-secao"><span>Informações da atividade <span class="badge" id="contagemAtividade">0</span></span></div>
-    <div class="sub">Os detalhes do serviço e o que o cliente mandou do local —
-      caçamba, área, resíduo. Fica guardado <strong>com esta proposta</strong>,
-      neste aparelho. Não vai pro documento do cliente nem para a sincronia.</div>
-    <!-- O texto é o lugar do que a foto não conta: horário que o portão abre, com
-         quem falar na portaria, por que o preço saiu daquele jeito. Some junto
-         com a proposta quando ela é apagada, como as fotos. -->
+  </div>
+
+  <!-- Informações da atividade: cartão próprio. Morava no fim do cartão da
+       linha de serviço, depois da lista de itens, com um parágrafo explicando o
+       que era — e passava despercebido. Aqui é o título e a caixa de texto.
+       Print de tela entra colando (Ctrl+V) dentro da própria caixa: o evento de
+       colar sobe até o cartão, que reconhece imagem e guarda como foto. Fica só
+       neste aparelho, preso à proposta; não vai pro documento do cliente. -->
+  <div class="card" id="cardAtividade">
+    <h2 title="Fica só neste aparelho, junto desta proposta. Não vai para o documento do cliente.">Informações da atividade
+      <span class="badge" id="contagemAtividade">0</span></h2>
     <textarea id="notaAtividade" rows="3" oninput="ajustarAltura(this);agendarNotaAtividade()"
-      placeholder="Ex.: caçamba fica no pátio dos fundos, acesso só até as 16h. Portão estreito, não entra caminhão grande. Falar com o Sr. Antônio na portaria."></textarea>
+      placeholder="Detalhes do serviço, acesso, com quem falar… Print de tela: cole aqui mesmo (Ctrl+V)."></textarea>
     <div class="fotos-grade" id="gradeFotos"></div>
     <input type="file" id="arqFotos" accept="image/*" multiple class="oculto" onchange="guardarFotos(this)">
-    <!-- tabindex: sem foco não existe evento de colar. Clicar continua abrindo
-         o seletor de arquivo; arrastar e colar são portas extras pro mesmo
-         guardarFotos(), que já sabe reduzir e gravar — nada muda lá dentro. -->
+    <!-- tabindex: sem foco não existe evento de colar. Clicar abre o seletor
+         de arquivo (é o caminho do celular); arrastar também vale. -->
     <div class="caixa-fotos" id="caixaFotos" tabindex="0"
          onclick="document.getElementById('arqFotos').click()">
-      <button class="btn-sec btn-full" type="button" tabindex="-1">📷 Anexar fotos</button>
-      <div class="caixa-fotos-dica">ou arraste o arquivo aqui — print de tela é só colar com Ctrl+V</div>
+      <button class="btn-sec btn-full btn-anexar" type="button" tabindex="-1"><svg class="ico" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="1.7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Anexar fotos</button>
     </div>
     <div class="status" id="statusFotos"></div>
   </div>
@@ -1415,7 +1447,7 @@
     <div class="emoji">✅</div>
     <div class="zoeira" id="prontoTitulo">Documento gerado</div>
     <div class="motivo" id="prontoDetalhe"></div>
-    <button class="btn-sec btn-full" style="margin-bottom:8px" onclick="abrirEmail()">✉️ Enviar por e-mail</button>
+    <button class="btn-sec btn-full" style="margin-bottom:8px" onclick="abrirEmail()">Enviar por e-mail</button>
     <button class="btn-principal" onclick="fecharPronto()">OK</button>
   </div>
 </div>
@@ -1446,7 +1478,7 @@
       <button class="btn-sec" onclick="abrirNoCliente()">Abrir no e-mail</button>
     </div>
     <button class="btn-principal btn-full" style="margin-top:8px" id="btnCompartilhar"
-            onclick="compartilharEmail(this)">📎 Compartilhar com os anexos</button>
+            onclick="compartilharEmail(this)">Compartilhar com os anexos</button>
     <div class="status" id="statusEmail"></div>
   </div>
 </div>
@@ -2325,6 +2357,12 @@ function renderResumoEndereco(sufixo){
   spanAcao.className="acao"; spanAcao.textContent=aberto?"ocultar":"ajustar";
   alvo.appendChild(spanTxt); alvo.appendChild(spanAcao);
   alvo.classList.toggle("incompleto",temAlgo&&faltando.length>0);
+  /* Vazio, a caixa só repetia "preencha o endereço acima" embaixo de um campo
+     que já diz isso no próprio placeholder — e no endereço de coleta, com
+     pontos extras abaixo, era o que fazia o 1º ponto parecer diferente dos
+     outros. Aparece quando há o que separar. */
+  alvo.classList.toggle("oculto",!temAlgo&&!aberto);
+  if(!sufixo) pintarRotulosColeta();
 }
 /* ============ ABAS ============
    Trocar de aba só esconde e mostra seções — não redesenha nem zera nada. É de
@@ -2522,12 +2560,14 @@ function renderPontosColeta(){
   const alvo=document.getElementById("pontosColetaExtras");
   if(!alvo) return;
   alvo.innerHTML="";
+  pintarRotulosColeta();
   pontosColeta.forEach((p,i)=>{
-    const div=document.createElement("div");
-    div.className="ponto-extra";
-    div.innerHTML='<input type="text" placeholder="Outro ponto: Rua, nº, Bairro, Cidade - UF, CEP">'+
-                  '<button class="tira-contato" title="Remover ponto de coleta">×</button>';
-    alvo.appendChild(div);
+    const caixa=document.createElement("div");
+    caixa.innerHTML='<div class="ponto-rotulo">'+(i+2)+'º ponto</div>'+
+      '<div class="ponto-extra"><input type="text" placeholder="Rua, nº, Bairro, Cidade - UF, CEP">'+
+      '<button class="tira-contato" title="Remover este ponto de coleta">×</button></div>';
+    const div=caixa.querySelector(".ponto-extra");
+    alvo.appendChild(caixa);
     const inp=div.querySelector("input");
     inp.value=p||"";
     inp.oninput=()=>{ pontosColeta[i]=inp.value; agendarRascunho(); };
@@ -2535,6 +2575,19 @@ function renderPontosColeta(){
       pontosColeta.splice(i,1); renderPontosColeta(); agendarRascunho();
     };
   });
+}
+// O 1º ponto só ganha número quando existe um 2º; sozinho ele é "o" endereço.
+// Sendo o do cliente, ele aparece escrito — senão a lista começava no "2º".
+function pintarRotulosColeta(){
+  const varios=pontosColeta.length>0;
+  const r1=document.getElementById("rotuloPonto1"), pm=document.getElementById("pontoMesmo");
+  if(r1) r1.classList.toggle("oculto",!varios);
+  if(!pm) return;
+  pm.classList.toggle("oculto",!(varios&&mesmoEnd));
+  if(varios&&mesmoEnd){
+    const end=(document.getElementById("enderecoUnico").value||"").trim();
+    pm.textContent="Mesmo endereço do cliente"+(end?"\n"+end.toUpperCase():" — preencha o endereço lá em cima");
+  }
 }
 /* Os endereços de coleta que vão pro documento, em ordem: o principal primeiro,
    depois os extras. Vazio nenhum entra — ponto em branco viraria um ";" solto
@@ -2621,12 +2674,13 @@ function toggleClientes(){
   irParaCard("carteira","clientes");
 }
 function montarChipsColeta(){
-  chips("chipsColeta",["Mesmo endereço do cliente","Endereço diferente"],
-    mesmoEnd?"Mesmo endereço do cliente":"Endereço diferente",op=>{
-      mesmoEnd=(op==="Mesmo endereço do cliente");
+  chips("chipsColeta",["Mesmo do cliente","Outro endereço"],
+    mesmoEnd?"Mesmo do cliente":"Outro endereço",op=>{
+      mesmoEnd=(op==="Mesmo do cliente");
       document.getElementById("blocoColeta").classList.toggle("oculto",mesmoEnd);
       montarChipsColeta();
     });
+  renderPontosColeta();
 }
 
 /* ============ EXTRAÇÃO TOLERANTE ============ */
@@ -3095,6 +3149,10 @@ let linkEscolhido={};
 // o texto na tela ainda é automático — e portanto pode ser refeito quando a
 // unidade muda — ou se foi escrito à mão e não se mexe mais nele.
 let obsAutoPorChave={};
+// O valor que o VÍNCULO escreveu no campo (e não a pessoa). Enquanto o campo
+// ainda tem esse número, trocar a unidade refaz a conta a partir do preço exato
+// do parceiro — e não do número já arredondado pra dois centavos.
+let valorAutoPorChave={};
 
 /* ---- Ligação entre a linha da proposta e a tabela de custos ----
    Os dois vocabulários não batem: no catálogo do app o resíduo é "Não
@@ -3290,8 +3348,8 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
       const nota=document.createElement("div");
       nota.className="titulo vinculado linkado";
       nota.innerHTML='<span></span><button type="button" class="solta">desfazer</button>';
-      nota.querySelector("span").textContent="🔗 Linkado a: "+nomeDe(v)+" — R$ "+
-        fmtDinheiro(v.preco)+(v.u?"/"+v.u:"")+(v.sumiu?"  (linha saiu da tabela)":"");
+      nota.querySelector("span").textContent="Linkado a: "+nomeDe(v)+" — "+
+        rotuloPrecoVinc(v,leUnidade?leUnidade():"")+(v.sumiu?"  (linha saiu da tabela)":"");
       nota.querySelector(".solta").onclick=()=>desligarVincCustom(linha.chave);
       alvo.appendChild(nota);
     }else{
@@ -3301,7 +3359,7 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
          e o preço de venda que ele põe no campo. */
       const t=document.createElement("div");
       t.className="titulo";
-      t.textContent="🔗 "+vincs.length+" destinadores linkados — escolha o desta proposta:";
+      t.textContent=vincs.length+" destinadores linkados — escolha o desta proposta:";
       alvo.appendChild(t);
       const box=document.createElement("div");
       box.className="opcoes";
@@ -3310,7 +3368,7 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
         b.type="button";
         if(i===escolhido) b.className="fixado";
         b.innerHTML='<b></b><span class="c"></span>';
-        b.querySelector("b").textContent=nomeDe(v)+" — R$ "+fmtDinheiro(v.preco)+(v.u?"/"+v.u:"");
+        b.querySelector("b").textContent=nomeDe(v)+" — "+rotuloPrecoVinc(v,leUnidade?leUnidade():"");
         b.querySelector(".c").textContent=(i===escolhido?"em uso nesta proposta":"tocar para usar este")+
           (v.rot?"  ·  sai como \u201C"+v.rot+"\u201D":"")+(v.sumiu?"  ·  linha saiu da tabela":"");
         b.onclick=()=>escolherVinc(linha.chave,i);
@@ -3323,7 +3381,7 @@ function montarSugestoesCusto(alvo,linha,campoValor,leUnidade,campoUnidade){
        aí — incluir um segundo parceiro parecia não existir, embora sempre
        tenha existido. Duas linhas, dois verbos, cada uma dizendo uma coisa.
        As duas abrem a mesma tela, que é onde as duas coisas acontecem. */
-    linhaAcao(alvo,"🔗 Incluir outro destinador nesta linha","incluir",
+    linhaAcao(alvo,"Incluir outro destinador nesta linha","incluir",
       ()=>abrirLink(linha.chave,linha.nome,"incluir"),
       "Um mesmo resíduo pode ter vários parceiros; a escolha de qual usar é feita em cada proposta");
     linhaAcao(alvo,vincs.length===1?"Trocar por outro destinador":"Remover destinadores desta linha",
@@ -3370,7 +3428,7 @@ function oferecerLink(alvo,linha){
   if(!linhasDeCusto().length) return;
   // Era "não achou? linke..." quando havia sugestão automática pra não achar.
   // Agora é o caminho e não a saída de emergência, e o texto tem que dizer isso.
-  linhaAcao(alvo,"🔗 De onde vem o preço desta linha?","escolher",
+  linhaAcao(alvo,"De onde vem o preço desta linha?","escolher",
     ()=>abrirLink(linha.chave,linha.nome),
     "Aponte à mão qual linha de Destinadores ou Recicláveis alimenta esta linha da proposta");
 }
@@ -3439,9 +3497,19 @@ function renderLinhasValores(){
     }
     // Link manual por último: é escolha explícita e vence qualquer sugestão.
     const lkPreco=custoVinculado(l.chave);
-    if(lkPreco) salvo={v:fmtDinheiro(lkPreco.preco), u:lkPreco.u||salvo.u||""};
+    if(lkPreco){
+      /* A unidade da linha é a que foi escolhida no passo (POR KG, na grande
+         maioria). Antes o vínculo trazia a dele junto, e a linha "POR KG" saía
+         com R$ 154,85/TON. Unidade de massa converte; o que não converte (M³,
+         unidade) continua como o parceiro cobra. */
+      const naLinha=fatorMassa(l.unidade)?precoNaUnidade(lkPreco.preco,lkPreco.u,l.unidade):null;
+      salvo=naLinha!==null
+        ? {v:fmtDinheiro(naLinha), u:l.unidade}
+        : {v:fmtDinheiro(lkPreco.preco), u:lkPreco.u||salvo.u||""};
+    }
     const iv=div.querySelector('[data-campo="valor"]');
     iv.value=valorPorChave[k]!==undefined?valorPorChave[k]:(salvo.v||"");
+    if(lkPreco&&valorPorChave[k]===undefined) valorAutoPorChave[k]=iv.value;
     iv.oninput=()=>{mascaraValor(iv);valorPorChave[k]=iv.value;};
     div.querySelector(".abre-calc").onclick=()=>abrirCalc(iv);
     const iu=div.querySelector('[data-campo="unidade"]');
@@ -3464,8 +3532,20 @@ function renderLinhasValores(){
     const aplicarCustos=()=>montarSugestoesCusto(custos,l,iv,()=>iu.value,iu);
     // Trocar KG↔Tonelada refaz o valor junto — ver ligarConversaoMassa()
     const converter=ligarConversaoMassa(iv,iu.value,novo=>{valorPorChave[k]=novo;});
+    let unidadeAntes=iu.value;
     const trocouUnidade=u=>{
-      converter(u);
+      // Número ainda é o que o vínculo pôs: refaz do preço exato do parceiro.
+      // Digitado à mão: converte o que está no campo, como sempre.
+      const doVinculo=lkPreco&&valorAutoPorChave[k]!==undefined&&iv.value===valorAutoPorChave[k];
+      const exato=doVinculo?precoNaUnidade(lkPreco.preco,lkPreco.u,u):null;
+      if(exato!==null&&fatorMassa(u)){
+        const antes=iv.value;
+        iv.value=fmtDinheiro(exato);
+        valorPorChave[k]=iv.value; valorAutoPorChave[k]=iv.value;
+        if(iv.value!==antes&&fatorMassa(unidadeAntes)) avisarConversao(iv,unidadeAntes,u,antes,iv.value);
+        converter.marcar(u);
+      }else converter(u);
+      if(fatorMassa(u)) unidadeAntes=u;
       unidadePorChave[k]=u;aplicarObs();aplicarCustos();
     };
     iu.oninput=()=>{trocouUnidade(iu.value);};
@@ -3485,16 +3565,25 @@ function adicionarItens(){
     const div=alvo.children[i];
     // a chave viaja junto: é por ela que o editor sabe se a linha é veículo,
     // resíduo ou função, e sugere a unidade certa
-    itens.push({chave:l.chave, descricao:l.descricao, residuo:l.residuo,
-      unidade:div?div.querySelector('[data-campo="unidade"]').value.trim():l.unidade,
+    const unidadeFinal=div?div.querySelector('[data-campo="unidade"]').value.trim():l.unidade;
+    itens.push({chave:l.chave, descricao:descricaoNaUnidade(l.descricao,unidadeFinal), residuo:l.residuo,
+      unidade:unidadeFinal,
       valor:div?div.querySelector('[data-campo="valor"]').value.trim():"",
       observacoes:div?div.querySelector('[data-campo="obs"]').value.trim()
                      :comporObs(l.chave,l.unidade,l.obsBase),
       obsBase:l.obsBase||"",
       sel:JSON.parse(JSON.stringify(sel))});
   });
-  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; linkEscolhido={};
+  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};linkEscolhido={};
   esconderPassos(2);fluxo();render();
+}
+/* "DESTINAÇÃO FINAL - CLASSE II – POR KG" com a unidade trocada pra Tonelada
+   na linha saía dizendo POR KG ao lado de um preço por tonelada. O título
+   segue a unidade que ficou — só massa, que é o par que se troca. */
+function descricaoNaUnidade(desc,unidade){
+  const f=fatorMassa(unidade);
+  if(!f) return desc;
+  return String(desc||"").replace(/– POR (KG|TON)\b/,"– POR "+(f===1000?"TON":"KG"));
 }
 function removerItem(i){itens.splice(i,1);render();}
 // Reordena a linha na proposta — a ordem aqui é a ordem na tabela do Word
@@ -3824,6 +3913,28 @@ function converterMassa(valorTexto,de,para){
   if(!n) return null;
   return fmtDinheiro(n*(fPara/fDe));
 }
+/* Preço do vínculo na unidade da linha.
+
+   O parceiro cobra por TON, e a proposta quase sempre sai por KG. A conta é
+   feita a partir do preço EXATO do parceiro, e não do número já arredondado no
+   campo: R$ 154,85/TON vira R$ 0,15/KG, e voltar pra TON tem que dar 154,85 de
+   novo, não 150,00. null = não tem conversão (M³, unidade, viagem). */
+function precoNaUnidade(preco,de,para){
+  const n=Number(preco);
+  if(!isFinite(n)) return null;
+  if(!para||String(de||"").trim().toLowerCase()===String(para).trim().toLowerCase()) return n;
+  const fDe=fatorMassa(de), fPara=fatorMassa(para);
+  if(!fDe||!fPara) return null;
+  return n*fPara/fDe;
+}
+// "R$ 0,15/KG (parceiro: R$ 154,85/TON)" quando a linha está em outra unidade
+// de massa; senão, só o preço do parceiro, como sempre.
+function rotuloPrecoVinc(v,unidadeLinha){
+  const orig="R$ "+fmtDinheiro(v.preco)+(v.u?"/"+v.u:"");
+  const conv=precoNaUnidade(v.preco,v.u,unidadeLinha);
+  if(conv===null||!fatorMassa(unidadeLinha)||!fatorMassa(v.u)||fatorMassa(v.u)===fatorMassa(unidadeLinha)) return orig;
+  return "R$ "+fmtDinheiro(conv)+"/"+unidadeLinha+" ("+orig+")";
+}
 /* Converter calado seria pior que não converter: o número muda sozinho e quem
    está preenchendo não sabe se foi ele ou o app. O aviso conta a conta feita e
    some sozinho. */
@@ -3844,7 +3955,7 @@ function avisarConversao(campo,de,para,antes,depois){
    letra por letra não perca a referência no meio do caminho. */
 function ligarConversaoMassa(campoValor,unidadeInicial,aoConverter){
   let ultima=fatorMassa(unidadeInicial)?unidadeInicial:"";
-  return u=>{
+  const conv=u=>{
     const f=fatorMassa(u);
     if(f&&ultima&&fatorMassa(ultima)!==f){
       const antes=campoValor.value;
@@ -3857,6 +3968,10 @@ function ligarConversaoMassa(campoValor,unidadeInicial,aoConverter){
     }
     if(f) ultima=u;
   };
+  // Quem já converteu por conta própria (a partir do preço exato do vínculo)
+  // só avisa a unidade nova, pra próxima conversão partir dela.
+  conv.marcar=u=>{ if(fatorMassa(u)) ultima=u; };
+  return conv;
 }
 
 /* ============ OBSERVAÇÃO QUE SEGUE A UNIDADE ============
@@ -6089,7 +6204,7 @@ function renderPrecosReci(){
          <div class="mat-parceiro">
            <input type="text" placeholder="parceiro (quem compra)" data-c="parceiro">
            <input type="text" inputmode="tel" placeholder="contato" data-c="contato">
-           <a class="mat-tel oculto" title="Ligar">📞</a>
+           <a class="mat-tel oculto" title="Ligar">☏</a>
          </div>
          <div class="mat-nums">
            <div class="campo-calc">
@@ -6309,7 +6424,7 @@ function renderPrecosCargos(){
       if(edit.length>1){
         const tira=document.createElement("button");
         tira.type="button"; tira.className="btn-mini"; tira.style.marginTop="6px";
-        tira.textContent="🗑 tirar esta variação";
+        tira.textContent="✕ tirar esta variação";
         tira.onclick=()=>{ edit.splice(i,1); guardarCargo(nome,edit); renderPrecosCargos(); };
         // guardarCargo já reescreveu o salvo; o rascunho continua sendo a verdade da tela
         bloco.appendChild(tira);
@@ -6633,29 +6748,130 @@ function salvarPropostaAtual(){
    do app, e inventar um aqui seria somar preços unitários de coisas que não se
    somam: R$/tonelada com R$/viagem com R$/mês. Daria um número com cara de
    certo que não significa nada. Fica a contagem de linhas, como antes. */
+/* ---- Busca nas propostas ----
+   Era só nome do cliente e número — e tinha um defeito que mostrava a lista
+   inteira pra qualquer busca sem dígito: o número era comparado pelos dígitos
+   da busca, e "munck" não tem dígito nenhum; texto vazio está contido em
+   qualquer número, então tudo passava.
+
+   Agora a busca olha a proposta inteira: cliente, número, CNPJ, contatos,
+   endereços, objeto e cada linha de serviço (veículo, resíduo, observação,
+   valor). Várias palavras valem juntas — "munck transporte" traz a proposta que
+   tem as duas —, "e", "de", "da" e companhia são ignoradas, acento e maiúscula
+   não contam, e palavra pela metade já acha ("transpor"). Número compara pelos
+   dígitos só quando a busca TEM dígito: "100921" acha o PO, "15.484" acha o CNPJ. */
+const PALAVRAS_VAZIAS=new Set(["e","de","da","do","das","dos","a","o","as","os","com","para",
+  "pra","em","no","na","nos","nas","por","um","uma","ou"]);
+function termosDaBusca(q){
+  return semAc(String(q||"")).split(/\s+/)
+    .map(t=>t.replace(/^[.,;:()"']+|[.,;:()"']+$/g,""))
+    .filter(t=>t&&!PALAVRAS_VAZIAS.has(t));
+}
+function rotuloDoItem(it){
+  const r=String(it.residuo||"").replace(/\n/g," ").trim();
+  if(r&&r!=="-") return r;
+  return String(it.descricao||"").split("\n").map(x=>x.trim()).filter(Boolean).pop()||"";
+}
+function indiceDeBusca(p){
+  const f=p.form||{};
+  const cabeca=[p.numero,f.proposalNumber,p.cliente,f.razaoSocial];
+  const resto=[f.cnpj,f.ie,f.solicitante,f.telefone,f.email,f.enderecoUnico,f.logradouro,f.bairro,
+    f.cidade,f.enderecoColetaUnico,f.logradouroColeta,f.bairroColeta,f.cidadeColeta,
+    (p.pontosColeta||[]).join(" "),(p.contatosExtras||[]).map(c=>(c.nome||"")+" "+(c.fone||"")).join(" "),
+    p.objetoSel,p.subObjetoSel,dataBR(p.data)];
+  const itens=(p.itens||[]).map(it=>({rotulo:rotuloDoItem(it),
+    texto:semAc([it.descricao,it.residuo,it.unidade,it.observacoes,it.valor].filter(Boolean).join(" "))}));
+  const numeros=[p.numero,f.proposalNumber,f.cnpj,f.telefone,f.cep,f.cepColeta]
+    .concat((p.contatosExtras||[]).map(c=>c.fone)).map(x=>so(String(x||""))).filter(Boolean);
+  return {cabeca:semAc(cabeca.filter(Boolean).join(" ")),
+          resto:semAc(resto.filter(Boolean).join(" ")), itens, numeros};
+}
+function termoCasa(termo,texto,numeros){
+  if(texto.includes(termo)) return true;
+  const d=so(termo);
+  // só compara dígito com dígito quando a busca é, de fato, um número
+  return d.length>=3&&d.length>=termo.replace(/[^a-z0-9]/g,"").length-1&&numeros.some(n=>n.includes(d));
+}
+function buscarPropostas(q){
+  const termos=termosDaBusca(q);
+  if(!termos.length) return propostas.map(p=>({p,onde:[]}));
+  const saida=[];
+  propostas.forEach(p=>{
+    const ix=indiceDeBusca(p);
+    const tudo=ix.cabeca+" "+ix.resto+" "+ix.itens.map(i=>i.texto).join(" ");
+    if(!termos.every(t=>termoCasa(t,tudo,ix.numeros))) return;
+    // Onde achou, quando não foi no número nem no cliente: as linhas de
+    // serviço que têm o termo — é o que a pessoa procurava ao buscar "munck".
+    const foraDaCabeca=termos.filter(t=>!termoCasa(t,ix.cabeca,ix.numeros));
+    const onde=foraDaCabeca.length
+      ? ix.itens.filter(i=>foraDaCabeca.some(t=>i.texto.includes(t))).map(i=>i.rotulo).filter(Boolean)
+      : [];
+    saida.push({p,onde:[...new Set(onde)]});
+  });
+  return saida;
+}
+// Escreve o texto com os termos marcados — sempre por textContent, nunca HTML
+// montado com o que veio da proposta.
+function comTermosMarcados(el,texto,termos){
+  el.textContent="";
+  // Sem o trim do semAc: aqui a posição de cada letra tem que bater com a do
+  // texto original, senão o destaque cai deslocado.
+  const t=String(texto||""), base=t.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const marcas=[];
+  termos.forEach(termo=>{
+    if(!termo) return;
+    let i=base.indexOf(termo);
+    while(i>=0){ marcas.push([i,i+termo.length]); i=base.indexOf(termo,i+termo.length); }
+  });
+  marcas.sort((a,b)=>a[0]-b[0]);
+  let pos=0;
+  marcas.forEach(([a,b])=>{
+    if(a<pos) return;
+    if(a>pos) el.appendChild(document.createTextNode(t.slice(pos,a)));
+    const m=document.createElement("mark"); m.textContent=t.slice(a,b); el.appendChild(m);
+    pos=b;
+  });
+  if(pos<t.length) el.appendChild(document.createTextNode(t.slice(pos)));
+}
 function renderHistorico(){
-  const q=semAc(document.getElementById("buscaProposta").value);
+  const campo=document.getElementById("buscaProposta");
+  const q=campo.value;
+  const termos=termosDaBusca(q);
   const alvo=document.getElementById("listaHistorico");
-  const visiveis=propostas.filter(p=>!q
-    ||semAc(p.cliente||"").includes(q)||so(p.numero||"").includes(so(q))
-    ||semAc(p.numero||"").includes(q));
+  const achadas=buscarPropostas(q);
+  const limpa=document.getElementById("limpaBusca");
+  if(limpa) limpa.classList.toggle("oculto",!q);
+  const cont=document.getElementById("contagemBusca");
+  if(cont){
+    cont.classList.toggle("oculto",!termos.length);
+    cont.textContent=termos.length
+      ? (achadas.length?achadas.length+" de "+propostas.length+" propostas":"")+
+        (achadas.length>60?" — mostrando as 60 mais recentes; acrescente uma palavra pra afinar.":"")
+      : "";
+  }
   alvo.innerHTML="";
-  if(!visiveis.length){
+  if(!achadas.length){
     alvo.innerHTML='<div class="vazio">'+(propostas.length?"Nenhuma proposta encontrada.":"Nenhuma proposta salva ainda — gere os arquivos de uma e ela aparece aqui.")+'</div>';
     return;
   }
-  visiveis.slice(0,60).forEach(p=>{
+  achadas.slice(0,60).forEach(({p,onde})=>{
     const div=document.createElement("div");
     div.className="prop-linha"+(p.id===propostaAtualId?" atual":"");
     div.innerHTML='<div class="po"><span class="num"></span><span class="quando"></span>'+
                   '<span class="marca"></span></div>'+
                   '<div class="cli"></div><div class="qtd"></div>';
-    div.querySelector(".num").textContent=p.numero||"sem número";
+    comTermosMarcados(div.querySelector(".num"),p.numero||"sem número",termos);
     div.querySelector(".quando").textContent=dataBR(p.data);
     div.querySelector(".marca").textContent=(p.id===propostaAtualId)?"← em edição":"";
-    div.querySelector(".cli").textContent=p.cliente||"Sem cliente";
+    comTermosMarcados(div.querySelector(".cli"),p.cliente||"Sem cliente",termos);
     const qtd=(p.itens||[]).length;
     div.querySelector(".qtd").textContent=qtd+" "+(qtd===1?"linha":"linhas")+" de serviço";
+    if(onde.length){
+      const o=document.createElement("div");
+      o.className="onde";
+      comTermosMarcados(o,"↳ "+onde.slice(0,3).join(" · ")+(onde.length>3?" +"+(onde.length-3):""),termos);
+      div.appendChild(o);
+    }
     div.onclick=()=>abrirFichaProposta(p.id);
     alvo.appendChild(div);
   });
@@ -6778,7 +6994,7 @@ async function abrirProposta(id,comoCopia){
   pontosColeta=Array.isArray(p.pontosColeta)?p.pontosColeta.slice():[];
   renderContatosExtras();
   renderPontosColeta();
-  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; unidadePorChave={}; linkEscolhido={}; 
+  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; valorAutoPorChave={};unidadePorChave={}; linkEscolhido={}; 
   limparResultado();
 
   if(comoCopia){
@@ -8082,7 +8298,7 @@ async function novaProposta(silencioso){
   }
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;
-  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; linkEscolhido={};
+  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};linkEscolhido={};
   restaurarTipoPessoa("PJ");
   enderecoInformado="";
   contatosExtras=[];renderContatosExtras();
@@ -8474,6 +8690,47 @@ function camposDaAssinatura(){
     assinaturaEmail:    meusDados.email||""
   };
 }
+/* Locais de Coleta, um por linha.
+
+   Com cinco pontos, a frase "Locais de Coleta: END 1; END 2; END 3..." virava
+   um bloco corrido de quatro linhas em que não dava pra achar onde um endereço
+   terminava e o outro começava. Com dois ou mais, o parágrafo do modelo vira
+   o título ("Locais de Coleta:") e cada endereço ganha o seu parágrafo com
+   marcador e recuo pendente — endereço longo que quebra de linha continua
+   alinhado ao próprio texto, e não volta pra debaixo do marcador. Pontuação
+   de lista, como nas condições logo abaixo: ";" em cada um, "." no último.
+
+   Um ponto só continua na mesma linha do rótulo, como sempre foi. */
+function listaDeColetaNoDocx(xml,lista){
+  if(!Array.isArray(lista)||lista.length<2) return xml;
+  const i=xml.indexOf("{locais_coleta}");
+  if(i<0) return xml;
+  const ini=Math.max(xml.lastIndexOf("<w:p ",i),xml.lastIndexOf("<w:p>",i));
+  const fim=xml.indexOf("</w:p>",i)+6;
+  if(ini<0||fim<6) return xml;
+  const par=xml.slice(ini,fim);
+  // O título é o próprio parágrafo, cortado logo depois do "Locais de Coleta:".
+  // O que vinha depois — o espaço, o {locais_coleta} e o ". " — sai.
+  const iLocais=par.lastIndexOf("<w:r>",par.indexOf("{locais_coleta}"));
+  const iEspaco=par.lastIndexOf("<w:r>",iLocais-1);
+  if(iLocais<0||iEspaco<0) return xml;
+  let titulo=par.slice(0,iEspaco)+"</w:p>";
+  // e fica preso ao primeiro endereço: título sozinho no pé da página, não
+  titulo=titulo.replace(/(<w:pPr>(?:<w:pStyle [^>]*\/>)?)/,"$1<w:keepNext/>");
+  const fonte='<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="18"/><w:szCs w:val="18"/>';
+  const itens=lista.map((end,n)=>{
+    const ultimo=n===lista.length-1;
+    // keepNext em todos menos o último: a lista (e o título) não se separa
+    return '<w:p><w:pPr>'+(ultimo?'':'<w:keepNext/>')+'<w:keepLines/>'+
+      '<w:tabs><w:tab w:val="left" w:pos="400"/></w:tabs>'+
+      '<w:spacing w:before="0" w:after="'+(ultimo?'120':'0')+'" w:line="276" w:lineRule="auto"/>'+
+      '<w:ind w:left="400" w:hanging="285"/><w:rPr>'+fonte+'</w:rPr></w:pPr>'+
+      '<w:r><w:rPr>'+fonte+'</w:rPr><w:t>•</w:t></w:r>'+
+      '<w:r><w:rPr>'+fonte+'</w:rPr><w:tab/><w:t xml:space="preserve">'+
+      escXml(String(end).trim()+(ultimo?".":";"))+'</w:t></w:r></w:p>';
+  }).join("");
+  return xml.slice(0,ini)+titulo+itens+xml.slice(fim);
+}
 async function preencherDocx(tpl,mapa,loop,opts){
   opts=opts||{};
   // A assinatura entra em todo documento sem que cada chamada precise lembrar
@@ -8481,7 +8738,12 @@ async function preencherDocx(tpl,mapa,loop,opts){
   mapa=Object.assign(camposDaAssinatura(),mapa);
   const zip=await JSZip.loadAsync(b64Bytes(tpl));
   let xml=await zip.file("word/document.xml").async("string");
-  for(const[k,v]of Object.entries(mapa)) xml=xml.split("{"+k+"}").join(escXml(v));
+  // Antes da troca geral: a lista precisa achar o parágrafo pelo marcador.
+  xml=listaDeColetaNoDocx(xml,mapa.locais_coleta_lista);
+  for(const[k,v]of Object.entries(mapa)){
+    if(Array.isArray(v)) continue;
+    xml=xml.split("{"+k+"}").join(escXml(v));
+  }
   if(xml.includes("{#itens}")){
     // Antes de multiplicar a linha modelo: com o marcador ainda no lugar dá pra
     // achar a tabela certa e reescrever as larguras uma vez só.
@@ -8659,6 +8921,9 @@ function mapear(){
     email:g("email"),email_nfe:g("email"),endereco_coleta:endC,endereco_coleta_local:endCLocal,cidade_uf_coleta:cuC,
     rotulo_coleta:locais.length>1?"Locais de Coleta":"Local de Coleta",
     locais_coleta:locais.join("; "),
+    // A lista inteira, pra que o documento monte um marcador por endereço
+    // quando houver mais de um (ver listaDeColetaNoDocx).
+    locais_coleta_lista:locais,
     cep_coleta:cepC,proposta_numero:g("proposalNumber"),objeto:objetoTexto(),
     dia:String(d.getDate()).padStart(2,"0"),mes:MESES[d.getMonth()],ano:String(d.getFullYear()),
     data:d.toLocaleDateString("pt-BR")}};
@@ -8670,7 +8935,7 @@ function mapear(){
 let ultimosGerados=[];
 function mostrarPronto(arquivos){
   ultimosGerados=arquivos;
-  const linhas=arquivos.map(a=>"• "+a.nome+"\n   em "+(a.pasta?("📁 "+a.pasta):"📁 Downloads do navegador"));
+  const linhas=arquivos.map(a=>"• "+a.nome+"\n   em "+(a.pasta?("pasta "+a.pasta):"Downloads do navegador"));
   document.getElementById("prontoTitulo").textContent=
     arquivos.length>1?"Documentos gerados":"Documento gerado";
   document.getElementById("prontoDetalhe").textContent=linhas.join("\n\n");
@@ -9582,10 +9847,8 @@ async function renderFotos(){
     ajustarAltura(nota);
   }
   await atualizarBadgeAtividade();
-  if(!chaves.length){
-    el.innerHTML='<span class="sub">Nenhuma foto anexada.</span>';
-    return;
-  }
+  // Sem foto, a grade fica vazia e some (:empty) — o botão já diz o que fazer.
+  if(!chaves.length) return;
   for(const k of chaves){
     const reg=await idbGet(k);
     if(!reg||!reg.blob) continue;
@@ -9672,9 +9935,9 @@ async function iniciarPasta(){
 }
 function atualizarPastaUI(){
   document.getElementById("pastaAtual").textContent=pastaHandle
-    ?("📁 "+pastaHandle.name):"Downloads do navegador (padrão)";
+    ?("pasta "+pastaHandle.name):"Downloads do navegador (padrão)";
   document.getElementById("pastaAceiteAtual").textContent=pastaAceite
-    ?("📁 "+pastaAceite.name):"Downloads do navegador (padrão)";
+    ?("pasta "+pastaAceite.name):"Downloads do navegador (padrão)";
   document.getElementById("btnLimparPasta").style.display=(pastaHandle||pastaAceite)?"block":"none";
   // As pastas escolhidas viram o rótulo do card, pra saber o destino sem abrir
   const nomes=[pastaHandle&&pastaHandle.name,pastaAceite&&pastaAceite.name].filter(Boolean);
@@ -9774,7 +10037,7 @@ function pedirTexto(titulo,ajuda,valor){
 const LS_TEMA="corpus_tema";
 function aplicarTema(t){
   document.documentElement.setAttribute("data-tema",t);
-  document.getElementById("btnTema").textContent=t==="escuro"?"☀️ Claro":"🌙 Escuro";
+  document.getElementById("btnTema").textContent=t==="escuro"?"☼ Claro":"☾ Escuro";
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta) meta.setAttribute("content",t==="escuro"?"#123322":"#1E6B3A");
 }
@@ -10830,13 +11093,13 @@ function pintarAtalhosCliente(c){
   if(zap){
     const a=document.createElement("a");
     a.className="cli-atalho"; a.href=zap; a.target="_blank"; a.rel="noopener";
-    a.textContent="💬 abrir no WhatsApp";
+    a.textContent="abrir no WhatsApp";
     el.appendChild(a);
   }
   if(String(c.email||"").includes("@")){
     const a=document.createElement("a");
     a.className="cli-atalho"; a.href="mailto:"+c.email;
-    a.textContent="✉️ escrever e-mail";
+    a.textContent="escrever e-mail";
     el.appendChild(a);
   }
 }
@@ -10865,7 +11128,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.23-01";
+const APP_VERSION="2026.09.24-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
