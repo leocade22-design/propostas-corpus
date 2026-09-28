@@ -41,6 +41,11 @@
      SVG entra no fluxo do texto (currentColor) e fica nítido em qualquer tela. */
   .botao .ic svg{width:26px;height:26px;fill:currentColor;display:block;}
   .secundarios .botao .ic svg{width:20px;height:20px;}
+  /* Ícones de traço no verde da marca (apresentação e site) — sóbrios, sem
+     emoji colorido. O do vídeo é o logo do YouTube, que é o que diz "vídeo". */
+  .secundarios .botao .ic svg.linha{fill:none;stroke:var(--verde);stroke-width:1.7;
+    stroke-linecap:round;stroke-linejoin:round;}
+  .secundarios .botao .ic svg.yt{width:24px;height:17px;}
   .botao .tx{flex:1;}
   .botao .tx small{display:block;font-weight:400;color:var(--suave);
     font-size:.76rem;margin-top:2px;}
@@ -98,14 +103,13 @@
 
   <div class="wrap secundarios">
     <a class="botao" id="btCatalogo" href="./apresentacao-corpus.pdf" target="_blank" rel="noopener" hidden>
-      <span class="ic">📄</span><span class="tx">Apresentação Grupo Corpus 2026</span>
+      <span class="ic"><svg class="linha" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span><span class="tx">Apresentação Grupo Corpus 2026</span>
     </a>
-    <a class="botao" id="btMail"><span class="ic">✉️</span><span class="tx" id="txMail"></span></a>
     <a class="botao" href="https://corpus.com.br/" target="_blank" rel="noopener">
-      <span class="ic">🌐</span><span class="tx">corpus.com.br</span>
+      <span class="ic"><svg class="linha" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></span><span class="tx">corpus.com.br</span>
     </a>
-    <a class="botao" href="https://youtu.be/4hvyR9FAvRU" target="_blank" rel="noopener">
-      <span class="ic">▶️</span><span class="tx">Vídeo institucional</span>
+    <a class="botao" href="https://youtu.be/4o-RyonZCRk" target="_blank" rel="noopener">
+      <span class="ic"><svg class="yt" viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" rx="5.5" fill="#FF0000"/><path d="M11.2 5.6v8.8l7.4-4.4z" fill="#fff"/></svg></span><span class="tx">Vídeo institucional</span>
     </a>
   </div>
 
@@ -147,15 +151,7 @@
   if(gestorTel.length<10||gestorTel.length>13) gestorTel=GESTOR.tel;
   if(gestorTel.length<=11) gestorTel="55"+gestorTel;
   var gestorNome=texto(p.get("gestor")||GESTOR.nome);
-  /* O e-mail viaja sem "@corpus.com.br": são 16 caracteres que seriam iguais em
-     todo mundo da empresa, e o QR paga por cada um deles. Quem vier só com a
-     parte antes do @ ganha o domínio de volta aqui. */
-  var email=texto(par("e","email"),80);
-  // só completa o domínio se o que veio puder mesmo ser um usuário de e-mail;
-  // qualquer outra coisa segue pro teste abaixo e cai no endereço padrão
-  if(email&&email.indexOf("@")<0&&/^[A-Za-z0-9._%+-]+$/.test(email))
-    email=email+"@corpus.com.br";
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) email="leonardo.cade@corpus.com.br";
+  // O e-mail não aparece mais na central (vai na assinatura da proposta).
 
   /* A conversa já começa sabendo do que se trata.
 
@@ -195,9 +191,7 @@
     seta.classList.toggle("aberta",abrindo);
   });
 
-  var mail=document.getElementById("btMail");
-  mail.href="mailto:"+email;
-  document.getElementById("txMail").textContent=email;
+  // O e-mail saiu da central (fica na assinatura da proposta).
 
   /* O catálogo só aparece se o arquivo existir de verdade. Link quebrado numa
      página que o cliente abre a partir de uma proposta é pior do que botão

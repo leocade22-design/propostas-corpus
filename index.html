@@ -8781,7 +8781,7 @@ async function trocarQr(zip,mapa){
   const nome="word/media/qrcode.png";
   if(!zip.files[nome]) return;   // modelo mudou e o slot não existe mais: não quebra, só não troca
   try{
-    // 900 px num slot de 3 cm dá ~760 dpi. Não é pra ficar bonito na tela: é
+    // 900 px num slot de 1,8 cm dá mais de 1.200 dpi. Não é pra ficar bonito na tela: é
     // pra que a reamostragem do Word (que joga tudo pra ~200 dpi ao exportar
     // PDF) tenha muito pixel de origem por pixel de destino e caia em cima da
     // borda de cada módulo em vez de borrá-la.
@@ -8789,72 +8789,21 @@ async function trocarQr(zip,mapa){
     if(qr) zip.file(nome,qr);
   }catch(e){ console.warn("QR: não deu pra gerar, mantendo a imagem do modelo",e); }
 }
-/* A central deixou de ser uma página só do Léo. O QR carrega quem assinou o
-   documento, e é a página que se ajusta — assim um colega gera a proposta dele
-   sem que ninguém precise publicar uma segunda central. Campo vazio não vai:
-   a página tem os valores da Corpus como padrão. */
-/* Quantos módulos o QR pode ter antes de virar um borrão.
+/* Legibilidade: o Word reamostra imagem pra ~200 dpi ao exportar PDF, e
+   pixels por módulo = (tamanho em mm / 25,4) × 200 / (módulos + 8 da zona
+   quieta) precisa ficar acima de ~2,8. Com 33 módulos a 18 mm dá 3,5. */
+/* Um QR só, igual em toda proposta.
 
-   O Word REAMOSTRA as imagens ao exportar PDF — no padrão dele, para ~200 dpi.
-   Isso manda mais do que a resolução do PNG que a gente desenha: o QR de 2 cm
-   do documento anterior entrou no PDF com 160x160 px, ou seja 2,3 pixels por
-   módulo, e abaixo de ~2,8 nenhum leitor decodifica. Era esse o QR que o Léo
-   não conseguia ler — a imagem dentro do .docx estava perfeita, quem a
-   destruiu foi a exportação.
+   Ele chegou a carregar quem assinou, o PO e o cliente no link, pra central
+   abrir o WhatsApp com a mensagem pronta — e o preço disso era um QR de 53
+   módulos, denso e grande no rodapé. Agora aponta sempre pro mesmo endereço
+   curto (c.html, que redireciona pra central): 33 módulos, dá pra imprimir
+   bem menor e continua lendo. A central abre com o contato padrão da Corpus.
+   QRs de propostas antigas continuam funcionando — a central ainda entende
+   os parâmetros. */
+const URL_QR="https://leocade22-design.github.io/propostas-corpus/c.html";
+function linkDaCentral(){ return URL_QR; }
 
-   Sobrou uma conta simples: pixels por módulo = (tamanho impresso / 25,4) *
-   200 / (módulos + 8 da zona quieta). Com o QR desenhado a 3 cm no rodapé,
-   53 módulos dão 3,9 px/módulo — folga confortável. Daí o teto aqui. */
-const QR_MAX_MODULOS=53;
-// Mede o desenho de verdade, com a mesma biblioteca que gera o QR: adivinhar
-// por número de caracteres erra, porque a densidade sobe em degraus (versões
-// do QR), não de um em um.
-function modulosDoQR(texto){
-  try{ const q=qrcode(0,"M"); q.addData(texto); q.make(); return q.getModuleCount(); }
-  catch(e){ return 99; }   // não coube em versão nenhuma: trata como grande demais
-}
-function linkDaCentral(mapa){
-  const p=new URLSearchParams();
-  if(meusDados.nome)     p.set("n",meusDados.nome);
-  if(meusDados.cargo)    p.set("c",meusDados.cargo);
-  if(meusDados.telefone) p.set("t",so(meusDados.telefone));
-  // sem "@corpus.com.br": são 16 caracteres iguais pra empresa inteira, e a
-  // central devolve o domínio na hora de montar o mailto
-  if(meusDados.email)    p.set("e",meusDados.email.replace(/@corpus\.com\.br$/i,""));
-  /* O QR de cada proposta carrega a proposta.
-
-     O cliente lê o código com o documento na mão. Chegando no WhatsApp com a
-     tela em branco, ele tem que se apresentar e ir procurar o número do PO que
-     acabou de receber — atrito bobo justo no momento em que ele decidiu falar.
-     Com a razão social e o número no link, a central escreve a mensagem e o
-     comercial recebe já sabendo qual proposta abrir.
-
-     O número da proposta entra inteiro — é curto e é o que identifica o
-     documento. Quem cede espaço é a razão social: ela é longa, varia de
-     cliente pra cliente, e é o único pedaço do link que dá pra encurtar sem
-     perder função. Em vez de um corte fixo em 60 caracteres (que às vezes
-     sobrava e às vezes ainda deixava o QR denso demais), o nome é aparado até
-     o DESENHO caber no teto de módulos — a conta é feita sobre o QR pronto,
-     que é o que de fato precisa ser legível. */
-  if(mapa){
-    const po=String(mapa.proposta_numero||"").trim().slice(0,30);
-    if(po) p.set("p",po);
-    let cli=String(mapa.razao_social||"").trim().slice(0,60);
-    const monta=()=>{
-      const q=new URLSearchParams(p);
-      if(cli) q.set("d",cli);
-      return URL_CENTRAL+"?"+q.toString();
-    };
-    while(cli && modulosDoQR(monta())>QR_MAX_MODULOS){
-      // corta na palavra anterior enquanto der, pra não terminar no meio dela
-      const corte=cli.slice(0,cli.length-1).replace(/\s+\S*$/,"");
-      cli=(corte||cli.slice(0,cli.length-4)).trim();
-    }
-    if(cli) p.set("d",cli);
-  }
-  const q=p.toString();
-  return q?URL_CENTRAL+"?"+q:URL_CENTRAL;
-}
 function camposDaAssinatura(){
   /* A assinatura voltou pro fim do texto da Proposta — o rodapé agora é
      institucional (endereço da empresa e QR, igual em toda página), e nome de
@@ -11350,7 +11299,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.28-01";
+const APP_VERSION="2026.09.28-02";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
