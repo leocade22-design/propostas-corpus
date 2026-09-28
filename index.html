@@ -3219,9 +3219,11 @@ function montarLinhasBase(){
   if(c==="LOCAÇÃO / DISPONIBILIZAÇÃO"){
     if(!sel.locs||!sel.locs.length) return [];
     return sel.locs.map(nome=>{
-      const l=listaLocacoes().find(x=>x.n===nome)||{n:nome,d:nome};
-      return {chave:"loc:"+nome, nome, descricao:quebrarTamanhoLocacao(l.d), residuo:"-",
-        unidade:"Un.", obsBase:OBS_LOC};
+      const l=listaLocacoes().find(x=>x.n===nome)||{n:nome};
+      // Sem descrição cadastrada, sai "DISPON. <nome>" — descrição em branco
+      // deixava a coluna vazia no documento.
+      return {chave:"loc:"+nome, nome, descricao:quebrarTamanhoLocacao(l.d||("DISPON. "+l.n)), residuo:"-",
+        unidade:"Un.", obsBase:l.o||OBS_LOC};
     });
   }
   if(c==="MANUTENÇÃO DE ÁREAS VERDES"||c==="LIMPEZA INDUSTRIAL"){
@@ -4448,6 +4450,21 @@ function carregarCatalogo(){
     const s=localStorage.getItem(LS_CATALOGO);
     if(s) catalogo=Object.assign(catalogo,JSON.parse(s));
   }catch(e){}
+  consertarDescricaoLocacoes();
+}
+/* O campo "Descrição que vai na proposta" do equipamento era lido como
+   observação, e a frase "Valor por unidade..." ia parar na coluna Descrição
+   do documento. O que foi cadastrado assim é consertado ao abrir: a frase vira
+   a observação do equipamento, e a descrição volta a ser "DISPON. <nome>". */
+function consertarDescricaoLocacoes(){
+  let mudou=false;
+  (catalogo.locacoes||[]).forEach(x=>{
+    if(x&&x.d&&/^valor (por|mensal)/i.test(String(x.d).trim())){
+      if(!x.o&&String(x.d).trim()!==OBS_LOC) x.o=String(x.d).trim();
+      x.d="DISPON. "+x.n; mudou=true;
+    }
+  });
+  if(mudou){ try{ localStorage.setItem(LS_CATALOGO,JSON.stringify(catalogo)); }catch(e){} }
 }
 function gravarCatalogo(){
   try{localStorage.setItem(LS_CATALOGO,JSON.stringify(catalogo));}
@@ -4481,7 +4498,9 @@ const TIPOS_CAT={
   cargos:{titulo:"Funções (mão de obra)",base:()=>CARGOS.map(n=>({n})),lista:()=>listaCargos().map(n=>({n})),
     campos:[{k:"n",r:"Nome da função"}]},
   locacoes:{titulo:"Equipamentos (locação)",base:()=>LOCACOES,lista:()=>listaLocacoes(),
-    campos:[{k:"n",r:"Nome curto (aparece no chip)"},{k:"d",r:"Descrição que vai na proposta"}]}
+    campos:[{k:"n",r:"Nome curto (aparece no chip) — ex.: IBC 1000L"},
+            {k:"d",r:"Descrição no documento, coluna Descrição — ex.: DISPON. IBC - 1000L (vazio: DISPON. + nome)"},
+            {k:"o",r:"Observação no documento, coluna Observações (vazio: "+OBS_LOC+")"}]}
 };
 let tipoCatAtual=null, editandoCat=null;
 
@@ -11331,7 +11350,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.26-02";
+const APP_VERSION="2026.09.28-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
