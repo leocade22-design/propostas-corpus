@@ -274,6 +274,10 @@
   /* Estes três são chamados de DENTRO de outro modal — o aviso pelo editor de
      catálogo, a pergunta e o campo de texto por qualquer tela. Sem subir a
      camada eles abriam atrás e o clique não chegava neles. */
+  /* Abre de dentro da ficha da proposta, então fica acima dela */
+  #modalFoto{z-index:115;}
+  .foto-caixa img{display:block;max-width:100%;max-height:70vh;margin:0 auto 10px;
+    border-radius:10px;background:var(--campo);}
   #modalPergunta,#modalTexto,#modalAviso{z-index:120;}
   /* Sem cor fixa: no escuro o branco fixo criava aquele contraste que cegava */
   .modal-caixa{background:var(--branco);color:var(--texto);width:100%;max-width:600px;
@@ -1367,6 +1371,22 @@
       <button class="btn-sec" id="propDuplicar">Duplicar</button>
       <button class="btn-rem" id="propExcluir">Excluir</button>
     </div>
+  </div>
+</div>
+
+<!-- Foto anexada, em tamanho grande. Abria numa aba nova do navegador, o que
+     tira o app da frente (e no celular vira outro aplicativo). Aqui ela abre
+     por cima, fecha com o ✕ ou clicando fora, e continua dando pra baixar.
+     PDF e os outros arquivos seguem baixando: pra esses o leitor do sistema
+     faz um trabalho melhor que qualquer visualizador feito aqui. -->
+<div class="modal-fundo oculto" id="modalFoto">
+  <div class="modal-caixa foto-caixa">
+    <div class="modal-topo">
+      <h3 id="fotoTitulo">Foto</h3>
+      <button class="modal-fechar" onclick="fecharFoto()">✕</button>
+    </div>
+    <img id="fotoGrande" alt="">
+    <button class="btn-sec btn-full" id="fotoBaixar">Baixar</button>
   </div>
 </div>
 
@@ -4803,6 +4823,7 @@ function iniciarApp(){
   renderFotos();
   iniciarCaixaFotos();
   fecharAoClicarFora("modalProposta",fecharFichaProposta);
+  fecharAoClicarFora("modalFoto",fecharFoto);
   fecharAoClicarFora("modalCliente",fecharCliente);
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
@@ -10148,6 +10169,28 @@ async function renderFotos(){
    um quadradinho com a extensão (ZIP, PDF, XLSX) e o nome, e o toque baixa o
    arquivo com o nome original. Sem `aoRemover`, sai sem o ×: é a ficha da
    proposta salva, que só mostra. */
+/* A foto aberta tem URL própria, criada na hora e solta ao fechar. A da
+   miniatura não serve: renderFotos() as recicla a cada repintura, e a imagem
+   grande ficaria em branco se alguém anexasse outra foto com esta aberta. */
+let urlFotoAberta=null;
+function abrirFoto(reg){
+  if(urlFotoAberta) URL.revokeObjectURL(urlFotoAberta);
+  urlFotoAberta=URL.createObjectURL(reg.blob);
+  document.getElementById("fotoTitulo").textContent=reg.nome||"Foto";
+  const im=document.getElementById("fotoGrande");
+  im.src=urlFotoAberta; im.alt=reg.nome||"foto da atividade";
+  document.getElementById("fotoBaixar").onclick=()=>{
+    const a=document.createElement("a");
+    a.href=urlFotoAberta; a.download=reg.nome||"foto.jpg";
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  document.getElementById("modalFoto").classList.remove("oculto");
+}
+function fecharFoto(){
+  document.getElementById("modalFoto").classList.add("oculto");
+  document.getElementById("fotoGrande").removeAttribute("src");
+  if(urlFotoAberta){ URL.revokeObjectURL(urlFotoAberta); urlFotoAberta=null; }
+}
 function desenharAnexo(reg,aoRemover){
   const u=URL.createObjectURL(reg.blob); urlsFotos.push(u);
   const img=/^image\//.test(reg.tipo||reg.blob.type||"");
@@ -10160,7 +10203,7 @@ function desenharAnexo(reg,aoRemover){
   d.title=nome;
   d.querySelector(".foto-tam").textContent=tamanhoLegivel(reg.tam||reg.blob.size||0);
   const abrir=()=>{
-    if(img){ window.open(u,"_blank"); return; }
+    if(img){ abrirFoto(reg); return; }
     const a=document.createElement("a"); a.href=u; a.download=nome; document.body.appendChild(a); a.click(); a.remove();
   };
   if(img){ const im=d.querySelector("img"); im.src=u; im.alt=nome; im.onclick=abrir; }
@@ -11439,7 +11482,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.29-08";
+const APP_VERSION="2026.09.30-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
