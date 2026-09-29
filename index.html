@@ -9297,25 +9297,38 @@ function copiarEmail(botao){
    onde estão os arquivos, que é o que dá pra fazer com honestidade. */
 // O endereço que abre o e-mail. Separado de quem navega pra ele: assim dá pra
 // conferir o que vai ser aberto sem abrir nada.
-function urlMailto(){
+/* O endereço que abre o e-mail. Separado de quem navega pra ele: assim dá pra
+   conferir o que vai ser aberto sem abrir nada.
+   `comCorpo` só é usado quando a cópia formatada falha — ver abrirNoCliente. */
+function urlMailto(comCorpo){
   const g=id=>encodeURIComponent(document.getElementById(id).value.trim());
-  return "mailto:"+g("emailPara")+"?subject="+g("emailAssunto")+"&body="+g("emailCorpo");
+  return "mailto:"+g("emailPara")+"?subject="+g("emailAssunto")+
+         (comCorpo?("&body="+g("emailCorpo")):"");
 }
 async function abrirNoCliente(){
   const st=document.getElementById("statusEmail");
-  /* O corpo vai NO mailto: o Outlook abre com a mensagem escrita, que é o que
-     poupa o passo de colar. A fonte quem decide é o Outlook (o mailto é texto
-     puro e não carrega formatação) — com o padrão dele ajustado pra Aptos 11,
-     chega certo. A cópia formatada vai junto pra área de transferência, de
-     graça: serve pra colar por cima em quem não tiver esse padrão. */
+  /* Destinatário e assunto pelo mailto; o texto pela área de transferência.
+
+     O mailto é texto puro — não existe jeito de mandar fonte, tamanho ou cor
+     por ele. Quando o texto ia no próprio link, o Outlook escrevia a mensagem
+     com a fonte que ELE escolhe (Segoe UI 12), e não há ajuste do lado do
+     Outlook que mude isso: a preferência de fonte vale pro que se digita, não
+     pro texto que chega pronto de fora. Sobrava reformatar à mão toda vez.
+
+     Agora o texto vai copiado, já em HTML com Aptos 11 preto: o e-mail abre
+     com o corpo vazio (a assinatura do Outlook entra sozinha, como sempre) e
+     um Ctrl+V põe a mensagem formatada. Um toque a mais, nenhum acerto de
+     fonte. Não dando pra copiar, o texto volta pro mailto — mensagem com a
+     fonte errada ainda é melhor que mensagem em branco. */
   const copiou=await copiarEmailFormatado(document.getElementById("emailCorpo").value);
   const onde=ultimosGerados.length
     ? (ultimosGerados[0].pasta?("na pasta "+ultimosGerados[0].pasta):"nos Downloads")
     : "";
-  st.textContent="Abrindo o e-mail com a mensagem escrita."+
-    (copiou?" Ela também está copiada em Aptos 11, se quiser colar por cima.":"")+
+  st.textContent=(copiou
+      ? "Abrindo o e-mail. Clique no corpo da mensagem e cole (Ctrl+V) — o texto entra em Aptos 11 preto."
+      : "Abrindo o e-mail com a mensagem escrita (não deu pra copiar a formatação).")+
     " Os arquivos estão "+(onde||"onde você salvou")+", é só arrastar pra mensagem.";
-  window.location.href=urlMailto();
+  window.location.href=urlMailto(!copiou);
 }
 
 
@@ -11426,7 +11439,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.29-05";
+const APP_VERSION="2026.09.29-06";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
