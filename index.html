@@ -276,8 +276,25 @@
      camada eles abriam atrás e o clique não chegava neles. */
   /* Abre de dentro da ficha da proposta, então fica acima dela */
   #modalFoto{z-index:115;}
-  .foto-caixa img{display:block;max-width:100%;max-height:70vh;margin:0 auto 10px;
-    border-radius:10px;background:var(--campo);}
+  .foto-caixa{width:min(920px,96vw);}
+  .foto-palco{position:relative;overflow:hidden;background:var(--campo);border-radius:10px;
+    height:min(68vh,620px);touch-action:none;user-select:none;}
+  .foto-palco img{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;
+    max-width:none;max-height:none;}
+  .foto-palco.arrastavel{cursor:grab;}
+  .foto-palco.arrastando{cursor:grabbing;}
+  .foto-seta{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:56px;
+    border:none;border-radius:9px;background:rgba(8,14,10,.5);color:#fff;font-size:1.6rem;
+    line-height:1;display:flex;align-items:center;justify-content:center;}
+  .foto-seta.ant{left:8px;} .foto-seta.prox{right:8px;}
+  .foto-seta[hidden]{display:none;}
+  .foto-barra{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .foto-conta{font-size:.78rem;color:var(--suave);flex:1;}
+  .foto-zoom{display:inline-flex;gap:4px;}
+  .foto-zoom button{width:34px;height:30px;padding:0;border:1.5px solid var(--campo-borda);
+    background:var(--campo);color:var(--texto);border-radius:9px;font-size:1rem;line-height:1;}
+  .foto-zoom #fotoAjusta{width:auto;padding:0 10px;font-size:.78rem;}
+  .foto-dica{margin-top:7px;font-size:.72rem;}
   #modalPergunta,#modalTexto,#modalAviso{z-index:120;}
   /* Sem cor fixa: no escuro o branco fixo criava aquele contraste que cegava */
   .modal-caixa{background:var(--branco);color:var(--texto);width:100%;max-width:600px;
@@ -1385,8 +1402,23 @@
       <h3 id="fotoTitulo">Foto</h3>
       <button class="modal-fechar" onclick="fecharFoto()">✕</button>
     </div>
-    <img id="fotoGrande" alt="">
-    <button class="btn-sec btn-full" id="fotoBaixar">Baixar</button>
+    <!-- O palco recorta; quem se move e cresce é a imagem, por transform —
+         é o que o navegador resolve na placa de vídeo, sem redesenhar. -->
+    <div class="foto-palco" id="fotoPalco">
+      <img id="fotoGrande" alt="" draggable="false">
+      <button class="foto-seta ant" id="fotoAnt" aria-label="Foto anterior">‹</button>
+      <button class="foto-seta prox" id="fotoProx" aria-label="Próxima foto">›</button>
+    </div>
+    <div class="foto-barra">
+      <span class="foto-conta" id="fotoConta"></span>
+      <span class="foto-zoom">
+        <button id="fotoMenos" aria-label="Diminuir">−</button>
+        <button id="fotoAjusta">ajustar</button>
+        <button id="fotoMais" aria-label="Ampliar">+</button>
+      </span>
+      <button class="btn-mini" id="fotoBaixar">Baixar</button>
+    </div>
+    <div class="sub foto-dica" id="fotoDica"></div>
   </div>
 </div>
 
@@ -4824,6 +4856,7 @@ function iniciarApp(){
   iniciarCaixaFotos();
   fecharAoClicarFora("modalProposta",fecharFichaProposta);
   fecharAoClicarFora("modalFoto",fecharFoto);
+  ligarVisorFoto();
   fecharAoClicarFora("modalCliente",fecharCliente);
   renderResumoEndereco("");renderResumoEndereco("Coleta");
   medirBarraAbas();
@@ -7223,9 +7256,10 @@ async function pintarAtividadeFicha(id){
   const n=document.getElementById("propNota");
   n.textContent=nota; n.classList.toggle("oculto",!nota);
   const g=document.getElementById("propAnexos"); g.innerHTML="";
+  const galeriaFicha=[];
   for(const k of chaves){
     const reg=await idbGet(k);
-    if(reg&&reg.blob) g.appendChild(desenharAnexo(reg,null));
+    if(reg&&reg.blob) g.appendChild(desenharAnexo(reg,null,galeriaFicha));
   }
 }
 /* Clicar no fundo escuro fecha — além do ✕. Só o fundo: clicar dentro da
@@ -10155,6 +10189,7 @@ async function renderFotos(){
   await atualizarBadgeAtividade();
   // Sem foto, a grade fica vazia e some (:empty) — o botão já diz o que fazer.
   if(!chaves.length) return;
+  const galeria=[];
   for(const k of chaves){
     const reg=await idbGet(k);
     if(!reg||!reg.blob) continue;
@@ -10162,36 +10197,180 @@ async function renderFotos(){
       if(!await perguntar("Remover este anexo?","Ele sai desta proposta e não dá pra desfazer.",
         {emoji:"🗑️",sim:"Remover",nao:"Cancelar",perigo:true})) return;
       await idbApagar(k); await renderFotos();
-    }));
+    },galeria));
   }
 }
 /* Um anexo na grade. Imagem: miniatura, e o toque abre inteira. Outro tipo:
    um quadradinho com a extensão (ZIP, PDF, XLSX) e o nome, e o toque baixa o
    arquivo com o nome original. Sem `aoRemover`, sai sem o ×: é a ficha da
    proposta salva, que só mostra. */
-/* A foto aberta tem URL própria, criada na hora e solta ao fechar. A da
-   miniatura não serve: renderFotos() as recicla a cada repintura, e a imagem
-   grande ficaria em branco se alguém anexasse outra foto com esta aberta. */
-let urlFotoAberta=null;
-function abrirFoto(reg){
+/* ---- Ver a foto: ampliar e passar pras outras ----
+
+   Print de rota é o caso que manda aqui: a letra do mapa é pequena e sem
+   ampliar não se lê nada. Então o palco recorta e a imagem anda por dentro,
+   movida por transform — roda do mouse e pinça ampliam no ponto onde o dedo
+   está (e não no centro, que jogaria fora justo o que se quer ver), arrastar
+   move, duplo toque alterna entre a tela cheia e 2,5×.
+
+   A URL da imagem grande é própria e é solta ao trocar ou fechar: as das
+   miniaturas são recicladas a cada repintura de renderFotos(), e a foto
+   aberta ficaria em branco se alguém anexasse outra enquanto ela está aqui. */
+let fotoLista=[], fotoIdx=0, urlFotoAberta=null;
+let fotoZoom=1, fotoBase=1, fotoX=0, fotoY=0;
+const fotoDedos=new Map();
+let fotoPinca=null, fotoArrasto=null;
+
+function abrirFoto(lista,i){
+  fotoLista=Array.isArray(lista)?lista:[lista];
+  fotoIdx=Math.max(0,Math.min(i||0,fotoLista.length-1));
+  document.getElementById("modalFoto").classList.remove("oculto");
+  mostrarFotoAtual();
+}
+function mostrarFotoAtual(){
+  const reg=fotoLista[fotoIdx];
+  if(!reg) return;
   if(urlFotoAberta) URL.revokeObjectURL(urlFotoAberta);
   urlFotoAberta=URL.createObjectURL(reg.blob);
   document.getElementById("fotoTitulo").textContent=reg.nome||"Foto";
   const im=document.getElementById("fotoGrande");
   im.src=urlFotoAberta; im.alt=reg.nome||"foto da atividade";
+  // onload: só depois de carregada é que a imagem tem tamanho pra caber na tela
+  im.onload=ajustarFoto;
+  if(im.complete&&im.naturalWidth) ajustarFoto();
+  const n=fotoLista.length;
+  document.getElementById("fotoConta").textContent=n>1?(fotoIdx+1)+" de "+n+" fotos":"";
+  document.getElementById("fotoAnt").hidden=n<2;
+  document.getElementById("fotoProx").hidden=n<2;
+  // A dica não fala de passar foto quando só existe uma
+  document.getElementById("fotoDica").textContent=
+    "Rolar ou pinçar amplia · arrastar move · duplo toque alterna"+
+    (n>1?" · setas do teclado trocam de foto":"");
   document.getElementById("fotoBaixar").onclick=()=>{
     const a=document.createElement("a");
     a.href=urlFotoAberta; a.download=reg.nome||"foto.jpg";
     document.body.appendChild(a); a.click(); a.remove();
   };
-  document.getElementById("modalFoto").classList.remove("oculto");
+}
+function passarFoto(passo){
+  if(fotoLista.length<2) return;
+  fotoIdx=(fotoIdx+passo+fotoLista.length)%fotoLista.length;   // dá a volta
+  mostrarFotoAtual();
 }
 function fecharFoto(){
   document.getElementById("modalFoto").classList.add("oculto");
   document.getElementById("fotoGrande").removeAttribute("src");
   if(urlFotoAberta){ URL.revokeObjectURL(urlFotoAberta); urlFotoAberta=null; }
+  fotoLista=[]; fotoDedos.clear(); fotoPinca=null; fotoArrasto=null;
 }
-function desenharAnexo(reg,aoRemover){
+function fotoAberta(){ return !document.getElementById("modalFoto").classList.contains("oculto"); }
+function palcoFoto(){ return document.getElementById("fotoPalco"); }
+// Cabendo inteira na tela. Imagem pequena não é esticada: ampliar quem já
+// está no tamanho natural só mostra os pontos maiores, não mais detalhe.
+function ajustarFoto(){
+  const im=document.getElementById("fotoGrande"), p=palcoFoto();
+  if(!im.naturalWidth||!p.clientWidth) return;
+  fotoBase=Math.min(p.clientWidth/im.naturalWidth,p.clientHeight/im.naturalHeight,1);
+  fotoZoom=fotoBase;
+  fotoX=(p.clientWidth-im.naturalWidth*fotoZoom)/2;
+  fotoY=(p.clientHeight-im.naturalHeight*fotoZoom)/2;
+  pintarFoto();
+}
+/* Imagem menor que o palco fica centrada; maior, presa pelas bordas — sem
+   isso um arrasto forte joga a foto pra fora e sobra tela vazia. */
+function prenderFoto(){
+  const im=document.getElementById("fotoGrande"), p=palcoFoto();
+  const lg=im.naturalWidth*fotoZoom, al=im.naturalHeight*fotoZoom;
+  fotoX=(lg<=p.clientWidth)?(p.clientWidth-lg)/2:Math.min(0,Math.max(p.clientWidth-lg,fotoX));
+  fotoY=(al<=p.clientHeight)?(p.clientHeight-al)/2:Math.min(0,Math.max(p.clientHeight-al,fotoY));
+}
+function pintarFoto(){
+  const im=document.getElementById("fotoGrande");
+  prenderFoto();
+  im.style.transform="translate("+fotoX+"px,"+fotoY+"px) scale("+fotoZoom+")";
+  palcoFoto().classList.toggle("arrastavel",fotoZoom>fotoBase*1.01);
+}
+// Amplia mantendo parado o ponto (cx,cy) do palco — o que está sob o cursor
+// ou entre os dedos continua onde está.
+function zoomFoto(novo,cx,cy){
+  const p=palcoFoto();
+  if(cx===undefined){ cx=p.clientWidth/2; cy=p.clientHeight/2; }
+  novo=Math.max(fotoBase,Math.min(novo,Math.max(fotoBase,1)*8));
+  if(!isFinite(novo)||novo<=0) return;
+  fotoX=cx-(cx-fotoX)*(novo/fotoZoom);
+  fotoY=cy-(cy-fotoY)*(novo/fotoZoom);
+  fotoZoom=novo;
+  pintarFoto();
+}
+function noPalco(ev){
+  const r=palcoFoto().getBoundingClientRect();
+  return {x:ev.clientX-r.left,y:ev.clientY-r.top};
+}
+function ligarVisorFoto(){
+  const p=palcoFoto();
+  if(!p) return;
+  document.getElementById("fotoAnt").onclick=()=>passarFoto(-1);
+  document.getElementById("fotoProx").onclick=()=>passarFoto(1);
+  document.getElementById("fotoMais").onclick=()=>zoomFoto(fotoZoom*1.4);
+  document.getElementById("fotoMenos").onclick=()=>zoomFoto(fotoZoom/1.4);
+  document.getElementById("fotoAjusta").onclick=ajustarFoto;
+  p.addEventListener("wheel",ev=>{
+    ev.preventDefault();
+    const c=noPalco(ev);
+    zoomFoto(fotoZoom*(ev.deltaY<0?1.18:1/1.18),c.x,c.y);
+  },{passive:false});
+  p.addEventListener("dblclick",ev=>{
+    const c=noPalco(ev);
+    zoomFoto(fotoZoom>fotoBase*1.01?fotoBase:fotoBase*2.5,c.x,c.y);
+  });
+  p.addEventListener("pointerdown",ev=>{
+    if(ev.target.closest(".foto-seta")) return;
+    p.setPointerCapture(ev.pointerId);
+    fotoDedos.set(ev.pointerId,noPalco(ev));
+    if(fotoDedos.size===2){
+      const [a,b]=[...fotoDedos.values()];
+      fotoPinca={d:Math.hypot(a.x-b.x,a.y-b.y),z:fotoZoom};
+      fotoArrasto=null;
+    }else if(fotoDedos.size===1){
+      const c=noPalco(ev);
+      fotoArrasto={x:c.x-fotoX,y:c.y-fotoY};
+      p.classList.add("arrastando");
+    }
+  });
+  p.addEventListener("pointermove",ev=>{
+    if(!fotoDedos.has(ev.pointerId)) return;
+    fotoDedos.set(ev.pointerId,noPalco(ev));
+    if(fotoPinca&&fotoDedos.size===2){
+      const [a,b]=[...fotoDedos.values()];
+      const d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(fotoPinca.d>0) zoomFoto(fotoPinca.z*(d/fotoPinca.d),(a.x+b.x)/2,(a.y+b.y)/2);
+    }else if(fotoArrasto&&fotoDedos.size===1){
+      const c=noPalco(ev);
+      fotoX=c.x-fotoArrasto.x; fotoY=c.y-fotoArrasto.y;
+      pintarFoto();
+    }
+  });
+  const soltar=ev=>{
+    fotoDedos.delete(ev.pointerId);
+    if(fotoDedos.size<2) fotoPinca=null;
+    if(!fotoDedos.size){ fotoArrasto=null; p.classList.remove("arrastando"); }
+  };
+  p.addEventListener("pointerup",soltar);
+  p.addEventListener("pointercancel",soltar);
+  // Teclado: setas passam de foto, + e − ampliam, Esc fecha.
+  document.addEventListener("keydown",ev=>{
+    if(!fotoAberta()) return;
+    if(ev.key==="ArrowRight") passarFoto(1);
+    else if(ev.key==="ArrowLeft") passarFoto(-1);
+    else if(ev.key==="Escape") fecharFoto();
+    else if(ev.key==="+"||ev.key==="=") zoomFoto(fotoZoom*1.4);
+    else if(ev.key==="-") zoomFoto(fotoZoom/1.4);
+    else return;
+    ev.preventDefault();
+  });
+  // Virar o celular muda o tamanho do palco: reenquadra o que está aberto
+  window.addEventListener("resize",()=>{ if(fotoAberta()) ajustarFoto(); });
+}
+function desenharAnexo(reg,aoRemover,galeria){
   const u=URL.createObjectURL(reg.blob); urlsFotos.push(u);
   const img=/^image\//.test(reg.tipo||reg.blob.type||"");
   const d=document.createElement("div");
@@ -10203,10 +10382,13 @@ function desenharAnexo(reg,aoRemover){
   d.title=nome;
   d.querySelector(".foto-tam").textContent=tamanhoLegivel(reg.tam||reg.blob.size||0);
   const abrir=()=>{
-    if(img){ abrirFoto(reg); return; }
+    // A galeria é preenchida enquanto a grade é montada; quando alguém clica,
+    // ela já está completa — dá pra passar de uma foto pra outra.
+    if(img){ const g=galeria&&galeria.length?galeria:[reg]; abrirFoto(g,g.indexOf(reg)); return; }
     const a=document.createElement("a"); a.href=u; a.download=nome; document.body.appendChild(a); a.click(); a.remove();
   };
-  if(img){ const im=d.querySelector("img"); im.src=u; im.alt=nome; im.onclick=abrir; }
+  if(img){ const im=d.querySelector("img"); im.src=u; im.alt=nome; im.onclick=abrir;
+           if(galeria) galeria.push(reg); }
   else{
     const ext=(nome.match(/\.([a-z0-9]{1,5})$/i)||[,"arq"])[1].toUpperCase();
     d.querySelector(".arq-ext").textContent=ext;
@@ -11482,7 +11664,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.30-01";
+const APP_VERSION="2026.09.30-03";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
