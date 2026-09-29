@@ -8905,7 +8905,10 @@ function camposDaAssinatura(){
     assinaturaTelefone: meusDados.telefone||"",
     assinaturaEmail:    meusDados.email||"",
     linkWhatsAssinatura: zap,
-    linkEmailAssinatura: meusDados.email?("mailto:"+meusDados.email.trim()):SITE_CORPUS
+    linkEmailAssinatura: meusDados.email?("mailto:"+meusDados.email.trim()):SITE_CORPUS,
+    // A legenda do QR leva pro mesmo lugar que o QR: quem lê na tela não tem
+    // como escanear o próprio monitor.
+    linkCentral: URL_QR
   };
 }
 /* Locais de Coleta, um por linha.
@@ -11423,7 +11426,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.29-02";
+const APP_VERSION="2026.09.29-03";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
