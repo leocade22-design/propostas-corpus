@@ -8881,6 +8881,7 @@ async function trocarQr(zip,mapa){
    QRs de propostas antigas continuam funcionando — a central ainda entende
    os parâmetros. */
 const URL_QR="https://leocade22-design.github.io/propostas-corpus/c.html";
+const SITE_CORPUS="https://corpus.com.br/";
 function linkDaCentral(){ return URL_QR; }
 
 function camposDaAssinatura(){
@@ -8888,11 +8889,23 @@ function camposDaAssinatura(){
      institucional (endereço da empresa e QR, igual em toda página), e nome de
      pessoa não é isso: fecha o documento uma vez, no fim. Telefone e e-mail
      entram junto porque é o que o cliente procura ali. */
+  /* Telefone e e-mail do rodapé são clicáveis: o número abre a conversa no
+     WhatsApp e o e-mail abre o cliente de e-mail. O destino não cabe no texto
+     (ele mora no .rels do rodapé, ver ligarLinks), mas entra pelo mesmo
+     caminho dos outros campos — são dois {placeholders} a mais.
+
+     Sem telefone ou sem e-mail preenchido, o link cai no site da Corpus: o
+     .rels não aceita alvo vazio, e um link pra "mailto:" sem endereço abriria
+     uma mensagem em branco. */
+  const fone=so(meusDados.telefone||"");
+  const zap=fone?("https://wa.me/"+(fone.length<=11?"55":"")+fone):SITE_CORPUS;
   return {
     assinaturaNome:     meusDados.nome||"",
     assinaturaCargo:    meusDados.cargo||"",
     assinaturaTelefone: meusDados.telefone||"",
-    assinaturaEmail:    meusDados.email||""
+    assinaturaEmail:    meusDados.email||"",
+    linkWhatsAssinatura: zap,
+    linkEmailAssinatura: meusDados.email?("mailto:"+meusDados.email.trim()):SITE_CORPUS
   };
 }
 /* Locais de Coleta, um por linha.
@@ -8975,8 +8988,12 @@ async function preencherDocx(tpl,mapa,loop,opts){
      no meio. Só que rodapé mora em outra parte do zip, e o preenchimento só
      olhava word/document.xml: os {campos} de lá sairiam impressos como estão.
      Aqui a mesma troca passa por header*.xml e footer*.xml. */
+  /* O .rels entra na mesma volta: o destino de um link não fica no texto do
+     rodapé, fica no arquivo de relacionamentos ao lado dele — e é lá que
+     {linkWhatsAssinatura} e {linkEmailAssinatura} precisam ser trocados. */
   for(const nome of Object.keys(zip.files)){
-    if(!/^word\/(header|footer)\d*\.xml$/.test(nome)) continue;
+    if(!/^word\/(header|footer)\d*\.xml$/.test(nome)&&
+       !/^word\/_rels\/(header|footer)\d*\.xml\.rels$/.test(nome)) continue;
     let parte=await zip.file(nome).async("string");
     const antes=parte;
     for(const[k,v]of Object.entries(mapa)) parte=parte.split("{"+k+"}").join(escXml(v));
@@ -11406,7 +11423,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.29-01";
+const APP_VERSION="2026.09.29-02";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
