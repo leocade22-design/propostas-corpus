@@ -276,6 +276,15 @@
      camada eles abriam atrás e o clique não chegava neles. */
   /* Abre de dentro da ficha da proposta, então fica acima dela */
   #modalFoto{z-index:115;}
+  /* Linha fina acima dos botões de gerar: informa e oferece, sem competir. */
+  .barra-editando{display:flex;align-items:baseline;gap:10px;margin-bottom:6px;
+    font-size:.76rem;color:var(--suave);}
+  .barra-editando #editandoTexto{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .barra-editando .link-acao{margin:0;flex:0 0 auto;}
+  /* A marca de "alterada sem arquivo novo": discreta, do tamanho de um rótulo */
+  .prop-linha .pend,.ficha-pend{font-size:.7rem;color:var(--suave);
+    border:1px solid var(--card-borda);border-radius:6px;padding:1px 6px;}
+  .ficha-pend{display:inline-block;margin-top:6px;}
   .aviso-colar{margin-top:8px;background:var(--verde-claro);border:1px solid var(--verde-borda);
     border-radius:10px;padding:10px 12px;font-size:.84rem;color:var(--texto);}
   .foto-caixa{width:min(920px,96vw);}
@@ -1327,6 +1336,13 @@
 <!-- Só faz sentido na aba Proposta: nas abas de catálogo não há o que gerar. -->
 <div class="rodape" id="rodapeGerar">
   <div class="wrap">
+    <!-- Só aparece quando o que está na tela é uma proposta JÁ SALVA. Diz qual
+         é (fácil de perder de vista depois de mexer um tempo) e deixa guardar o
+         ajuste sem gerar arquivo — que era o único jeito de salvar até aqui. -->
+    <div class="barra-editando oculto" id="barraEditando">
+      <span id="editandoTexto"></span>
+      <button class="link-acao" onclick="salvarAlteracoes()">salvar alterações</button>
+    </div>
     <div class="row2" style="margin-bottom:6px">
       <button class="btn-principal" onclick="pedirConfirmacao('proposta')">Gerar Proposta</button>
       <button class="btn-principal" onclick="pedirConfirmacao('aceite')">Gerar Aceite</button>
@@ -1362,6 +1378,7 @@
       <button class="modal-fechar" onclick="fecharFichaProposta()">✕</button>
     </div>
     <div class="sub" id="propSub"></div>
+    <div class="ficha-pend oculto" id="propPend"></div>
 
     <div class="titulinho-ficha">Linhas de custo</div>
     <div class="prop-itens" id="propItens"></div>
@@ -4317,6 +4334,7 @@ function removerItemEditado(){
 }
 
 function render(){
+  pintarBarraEditando();
   document.getElementById("contagemItens").textContent=itens.length;
   document.getElementById("contagemNaProposta").textContent=itens.length;
   document.getElementById("listaVazia").classList.toggle("oculto",!!itens.length);
@@ -6982,9 +7000,46 @@ function toggleHistorico(){
 
 // Chamado depois de gerar os arquivos: grava ou atualiza a proposta em edição.
 function salvarPropostaAtual(){
+  // Gerou: o que está salvo virou documento, então a marca de "alterada sem
+  // arquivo novo" deixa de valer.
+  const registro=gravarRegistroDaProposta({semArquivoNovo:false});
+  // Só aqui a sequência anda: esta função roda depois de gerar os arquivos, e é
+  // o único momento em que o número virou documento de verdade.
+  registrarNumeroUsado(registro.numero);
+  gravarPropostas(); atualizarBadgeHistorico();
+  renderHistorico(); pintarBarraEditando();
+}
+
+/* ---- Salvar o ajuste sem gerar arquivo ----
+
+   Até aqui a proposta só era gravada ao gerar os documentos. Quem abria uma
+   antiga pra corrigir um valor e fechava o app perdia a correção — ou era
+   obrigado a gerar um .docx que não queria só pra não perder.
+
+   O que este botão NÃO faz é tão importante quanto o que ele faz: não mexe na
+   sequência de numeração. Número só é "usado" quando virou documento; gravar
+   um rascunho de ajuste não pode empurrar o contador da próxima proposta.
+
+   E marca o registro: tem alteração que ainda não saiu em arquivo nenhum. É a
+   sinalização que o Léo pediu — some sozinha quando os documentos são gerados,
+   e dá pra dispensar à mão na ficha, pro caso do ajuste ser só interno. */
+function salvarAlteracoes(){
+  if(!propostaAtualId) return;
+  const st=document.getElementById("statusGeracao");
+  const {rs}=mapear();
+  if(!rs){ avisar(tipoPessoa==="PF"?"Sem o Nome não dá pra salvar.":"Sem a Razão Social não dá pra salvar."); return; }
+  gravarRegistroDaProposta({semArquivoNovo:true});
+  if(!gravarPropostas()){ return; }              // cota cheia: gravarPropostas já avisa
+  atualizarBadgeHistorico(); renderHistorico(); pintarBarraEditando();
+  st.textContent="Alterações salvas na proposta "+(document.getElementById("proposalNumber").value||"")+".";
+  setTimeout(()=>{ if(st.textContent.startsWith("Alterações salvas")) st.textContent=""; },4000);
+}
+/* O registro da proposta a partir do que está na tela. Nasceu de dentro de
+   salvarPropostaAtual() pra poder ser usado também pelo salvar sem gerar. */
+function gravarRegistroDaProposta(extra){
   const g=id=>document.getElementById(id).value;
   const form={}; CAMPOS_FORM.forEach(id=>form[id]=g(id));
-  const registro={
+  const registro=Object.assign({
     id: idDaPropostaAtual(),
     numero: form.proposalNumber,
     cliente: form.razaoSocial.toUpperCase(),
@@ -6995,20 +7050,24 @@ function salvarPropostaAtual(){
     contatosExtras: JSON.parse(JSON.stringify(contatosExtras)),
     pontosColeta: pontosColeta.slice(),
     itens: JSON.parse(JSON.stringify(itens))
-  };
+  },extra||{});
   const i=propostas.findIndex(p=>p.id===registro.id);
   if(i>=0) propostas[i]=registro; else propostas.unshift(registro);
   propostaAtualId=registro.id;
-  // Só aqui a sequência anda: esta função roda depois de gerar os arquivos, e é
-  // o único momento em que o número virou documento de verdade.
-  registrarNumeroUsado(registro.numero);
   registrarClienteRapido();
-  // Teto pra não estourar a cota do navegador com o tempo
   if(propostas.length>300) propostas=propostas.slice(0,300);
-  gravarPropostas(); atualizarBadgeHistorico();
-  renderHistorico();
+  return registro;
 }
-
+// A barra só existe enquanto o que está na tela é uma proposta salva.
+function pintarBarraEditando(){
+  const barra=document.getElementById("barraEditando");
+  if(!barra) return;
+  const p=propostaAtualId?propostas.find(x=>x.id===propostaAtualId):null;
+  barra.classList.toggle("oculto",!p);
+  if(!p) return;
+  document.getElementById("editandoTexto").textContent=
+    "Editando "+(p.numero||"proposta salva")+(p.semArquivoNovo?" · alterada, sem arquivo novo":"");
+}
 /* A lista traz o que se procura ao varrer: o número do PO, que é como a
    proposta é chamada no telefone e no e-mail. Antes ele vinha em cinza na
    segunda linha, atrás da razão social, e cada item carregava três botões —
@@ -7136,6 +7195,12 @@ function renderHistorico(){
     comTermosMarcados(div.querySelector(".cli"),p.cliente||"Sem cliente",termos);
     const qtd=(p.itens||[]).length;
     div.querySelector(".qtd").textContent=qtd+" "+(qtd===1?"linha":"linhas")+" de serviço";
+    if(p.semArquivoNovo){
+      const m=document.createElement("span");
+      m.className="pend"; m.textContent="alterada"; m.title="Alterada depois do último arquivo gerado";
+      m.style.marginLeft="6px";
+      div.querySelector(".qtd").appendChild(m);
+    }
     if(onde.length){
       const o=document.createElement("div");
       o.className="onde";
@@ -7232,6 +7297,17 @@ function abrirFichaProposta(id){
 
   // abrirProposta já pergunta sozinho quando há coisa preenchida no formulário,
   // e excluirProposta já confirma — nada de uma segunda confirmação por cima.
+  const pend=document.getElementById("propPend");
+  pend.classList.toggle("oculto",!p.semArquivoNovo);
+  if(p.semArquivoNovo){
+    pend.innerHTML='<span></span> · <button type="button" class="link-acao" style="margin:0">dispensar</button>';
+    pend.querySelector("span").textContent="Alterada depois do último arquivo gerado";
+    pend.querySelector("button").onclick=()=>{
+      delete p.semArquivoNovo;
+      gravarPropostas(); renderHistorico(); pintarBarraEditando();
+      pend.classList.add("oculto");
+    };
+  }
   document.getElementById("propEmail").onclick=()=>abrirEmailDaProposta(id);
   document.getElementById("propEditar").onclick=()=>{fecharFichaProposta();abrirProposta(id,false);};
   document.getElementById("propDuplicar").onclick=()=>{fecharFichaProposta();abrirProposta(id,true);};
@@ -11706,7 +11782,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.30-05";
+const APP_VERSION="2026.09.30-06";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
