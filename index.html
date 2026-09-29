@@ -276,6 +276,8 @@
      camada eles abriam atrás e o clique não chegava neles. */
   /* Abre de dentro da ficha da proposta, então fica acima dela */
   #modalFoto{z-index:115;}
+  .aviso-colar{margin-top:8px;background:var(--verde-claro);border:1px solid var(--verde-borda);
+    border-radius:10px;padding:10px 12px;font-size:.84rem;color:var(--texto);}
   .foto-caixa{width:min(920px,96vw);}
   .foto-palco{position:relative;overflow:hidden;background:var(--campo);border-radius:10px;
     height:min(68vh,620px);touch-action:none;user-select:none;}
@@ -1555,11 +1557,21 @@
     <textarea id="emailCorpo" rows="11" oninput="ajustarAltura(this)"
               style="font-family:Aptos,Calibri,sans-serif;font-size:11px;line-height:1.4"></textarea>
     <div class="sub" id="emailAnexos"></div>
-    <div class="row2" style="margin-top:10px">
+    <!-- Os dois jeitos de abrir, com a escolha à vista e guardada. O mailto só
+         transporta texto puro: mandando o texto por ele, quem escolhe a fonte é
+         o Outlook; indo pela área de transferência, a fonte é a nossa mas
+         precisa de um Ctrl+V. Nenhum dos dois é "o certo" pra todo mundo. -->
+    <div class="etapa-titulo" style="margin-top:12px">Ao abrir o e-mail</div>
+    <div class="chips" id="emailModo"></div>
+    <div class="row2" style="margin-top:6px">
       <button class="btn-sec" onclick="copiarEmail(this)">Copiar texto</button>
       <button class="btn-sec" onclick="abrirNoCliente()">Abrir no e-mail</button>
     </div>
     <div class="status" id="statusEmail"></div>
+    <div class="aviso-colar oculto" id="avisoColar">
+      Texto copiado. No e-mail que abriu, clique no corpo da mensagem e aperte
+      <strong>Ctrl+V</strong> — ele entra em Aptos 11 preto.
+    </div>
   </div>
 </div>
 
@@ -9244,6 +9256,28 @@ function tipoGerado(){
    que está no formulário; nesse caso o contexto vem com ela, e é isso que
    `emailCtxFixo` guarda enquanto a janela está aberta. */
 let emailCtxFixo=null;
+/* Como o e-mail abre. "colar": o texto vai pra área de transferência em Aptos
+   11 preto e o e-mail abre vazio, pra um Ctrl+V. "escrito": o texto vai no
+   próprio link e o e-mail já abre escrito, na fonte que o Outlook escolher.
+   A preferência fica neste aparelho. */
+const LS_EMAIL_MODO="corpus_email_modo_v1";
+const MODOS_EMAIL=[{id:"colar",rot:"Colar o texto (Aptos 11)"},
+                   {id:"escrito",rot:"Já escrito (fonte do Outlook)"}];
+function modoEmail(){
+  try{ return localStorage.getItem(LS_EMAIL_MODO)==="escrito"?"escrito":"colar"; }
+  catch(e){ return "colar"; }
+}
+function montarModoEmail(){
+  chips("emailModo",MODOS_EMAIL.map(m=>m.rot),
+    (MODOS_EMAIL.find(m=>m.id===modoEmail())||MODOS_EMAIL[0]).rot,
+    rot=>{
+      const m=MODOS_EMAIL.find(x=>x.rot===rot);
+      try{ localStorage.setItem(LS_EMAIL_MODO,m.id); }catch(e){}
+      montarModoEmail();
+      document.getElementById("statusEmail").textContent="";
+      document.getElementById("avisoColar").classList.add("oculto");
+    });
+}
 function ctxEmail(){
   if(emailCtxFixo) return emailCtxFixo;
   return {nome:nomeParaSaudacao(),
@@ -9270,6 +9304,8 @@ function abrirEmail(paraFixo){
     (typeof paraFixo==="string"?paraFixo:((document.getElementById("email")||{}).value||""));
   // Mostra ANTES de preencher: a mensagem se ajusta à própria altura, e altura
   // só existe pra quem está na tela (ver ajustarAltura).
+  document.getElementById("avisoColar").classList.add("oculto");
+  montarModoEmail();
   document.getElementById("modalEmail").classList.remove("oculto");
   pintarEmail(true);
 }
@@ -9362,6 +9398,13 @@ function urlMailto(comCorpo){
 }
 async function abrirNoCliente(){
   const st=document.getElementById("statusEmail");
+  const aviso=document.getElementById("avisoColar");
+  aviso.classList.add("oculto");
+  if(modoEmail()==="escrito"){
+    st.textContent="Abrindo o e-mail com a mensagem escrita. A fonte é a que o Outlook usa pra texto que chega de fora.";
+    window.location.href=urlMailto(true);
+    return;
+  }
   /* Destinatário e assunto pelo mailto; o texto pela área de transferência.
 
      O mailto é texto puro — não existe jeito de mandar fonte, tamanho ou cor
@@ -9379,10 +9422,9 @@ async function abrirNoCliente(){
   const onde=ultimosGerados.length
     ? (ultimosGerados[0].pasta?("na pasta "+ultimosGerados[0].pasta):"nos Downloads")
     : "";
-  st.textContent=(copiou
-      ? "Abrindo o e-mail. Clique no corpo da mensagem e cole (Ctrl+V) — o texto entra em Aptos 11 preto."
-      : "Abrindo o e-mail com a mensagem escrita (não deu pra copiar a formatação).")+
-    " Os arquivos estão "+(onde||"onde você salvou")+", é só arrastar pra mensagem.";
+  st.textContent="Os arquivos estão "+(onde||"onde você salvou")+", é só arrastar pra mensagem.";
+  if(copiou) aviso.classList.remove("oculto");
+  else st.textContent="Não deu pra copiar a formatação — o texto foi direto pro e-mail. "+st.textContent;
   window.location.href=urlMailto(!copiou);
 }
 
@@ -11664,7 +11706,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.30-04";
+const APP_VERSION="2026.09.30-05";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
