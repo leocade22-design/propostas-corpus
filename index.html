@@ -392,6 +392,10 @@
   .prop-dados dd{margin:0;white-space:pre-line;word-break:break-word;}
   .prop-nota{font-size:.84rem;white-space:pre-line;background:var(--campo);border:1px solid var(--campo-borda);
     border-radius:10px;padding:8px 10px;margin-top:4px;}
+  /* Cartão da frequência: mesmo desenho dos passos, um pouco menor */
+  .linha-valor .passo-card.freq{margin-top:8px;padding:9px 12px;font-size:.86rem;}
+  .linha-valor .passo-card.freq .val{color:var(--suave);}
+  .linha-valor .passo-card.freq.tem .val{color:var(--texto);font-weight:600;}
   .foto-item img{display:block;width:100%;height:64px;object-fit:cover;cursor:pointer;}
   .foto-item.arquivo .arq-ext{height:40px;display:flex;align-items:center;justify-content:center;
     font-size:.78rem;font-weight:700;color:var(--verde);letter-spacing:.04em;cursor:pointer;}
@@ -1357,7 +1361,8 @@
     <dl class="prop-dados" id="propDados"></dl>
     <div class="prop-form oculto" id="propForm"></div>
 
-    <div class="row3" style="margin-top:14px">
+    <button class="btn-sec btn-full" style="margin-top:14px" id="propEmail">Enviar por e-mail</button>
+    <div class="row3" style="margin-top:9px">
       <button class="btn-principal" id="propEditar">Editar</button>
       <button class="btn-sec" id="propDuplicar">Duplicar</button>
       <button class="btn-rem" id="propExcluir">Excluir</button>
@@ -3247,6 +3252,8 @@ let obsAutoPorChave={};
 // ainda tem esse número, trocar a unidade refaz a conta a partir do preço exato
 // do parceiro — e não do número já arredondado pra dois centavos.
 let valorAutoPorChave={};
+// Frequência escolhida em cada linha de coleta (por id da linha, como o resto).
+let freqPorChave={};
 
 /* ---- Ligação entre a linha da proposta e a tabela de custos ----
    Os dois vocabulários não batem: no catálogo do app o resíduo é "Não
@@ -3551,6 +3558,8 @@ function renderLinhasValores(){
          <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
        </div>
        <div class="dest-sug" data-campo="custos"></div>
+       <div class="passo-card freq oculto" data-campo="freq">
+         <span class="rot">Frequência</span><span class="val"></span><span class="abrir"></span></div>
        <!-- textarea, não input: a observação sai em mais de uma linha ("Valor por
             quilo destinado." e o tratamento embaixo) e input engole o \n -->
        <div class="obs"><label>Observações</label>
@@ -3611,10 +3620,31 @@ function renderLinhasValores(){
             :(salvo.u||l.unidade);
     const io=div.querySelector('[data-campo="obs"]');
 
+    /* Frequência: só em coleta (linha de veículo). O cartão tem o mesmo
+       desenho dos passos lá de cima — rótulo, valor e "escolher" —, e abre a
+       mesma lista de seleção do resto do app. */
+    const cf=div.querySelector('[data-campo="freq"]');
+    const ehColeta=tipoLinha(l.chave)==="veic";
+    cf.classList.toggle("oculto",!ehColeta);
+    const pintarFreq=()=>{
+      const f=freqPorChave[k]||"";
+      cf.classList.toggle("tem",!!f);
+      cf.querySelector(".val").textContent=f||"não informar";
+      cf.querySelector(".abrir").textContent=f?"alterar":"escolher";
+    };
+    if(ehColeta){
+      pintarFreq();
+      cf.onclick=()=>abrirSelecao({titulo:"Frequência de coleta",
+        opcoes:FREQUENCIAS.concat([SEM_FREQ]), escolha:freqPorChave[k]||null, multi:false,
+        onPick:f=>{
+          if(f===SEM_FREQ) delete freqPorChave[k]; else freqPorChave[k]=f;
+          pintarFreq(); aplicarObs();
+        }});
+    }
     // Refaz a observação quando a unidade muda — mas só se ela ainda for a que o
     // app escreveu. Texto ajustado à mão fica como está.
     const aplicarObs=()=>{
-      const nova=comporObs(l.chave,iu.value,l.obsBase);
+      const nova=comporObs(l.chave,iu.value,l.obsBase,freqPorChave[k]);
       const atual=obsPorChave[k];
       if(atual===undefined||atual===obsAutoPorChave[k]){
         io.value=nova; obsPorChave[k]=nova; ajustarAltura(io);
@@ -3664,11 +3694,11 @@ function adicionarItens(){
       unidade:unidadeFinal,
       valor:div?div.querySelector('[data-campo="valor"]').value.trim():"",
       observacoes:div?div.querySelector('[data-campo="obs"]').value.trim()
-                     :comporObs(l.chave,l.unidade,l.obsBase),
+                     :comporObs(l.chave,l.unidade,l.obsBase,freqPorChave[l.id||l.chave]),
       obsBase:l.obsBase||"",
       sel:JSON.parse(JSON.stringify(sel))});
   });
-  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};linkEscolhido={};
+  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};linkEscolhido={};
   esconderPassos(2);fluxo();render();
 }
 /* "DESTINAÇÃO FINAL - CLASSE II – POR KG" com a unidade trocada pra Tonelada
@@ -3854,11 +3884,20 @@ function usarValorCalc(){
    acontece, e sempre com a mesma redação. Vira um toque: a frase entra como
    primeira linha e o que já estava escrito desce. Escolher de novo troca a
    frequência em vez de empilhar duas. */
-const FREQUENCIAS=["Conforme Agendamento","Trimestral","Bimestral","Mensal",
-  "Quinzenal","Semanal","3x por Semana","2x por Semana","Diária"];
-const RE_FREQ=/^Frequência:\s*[^\n]*?\.\s*\n?/;
+const FREQUENCIAS=["Conforme agendamento","Diária","2x por semana","3x por semana",
+  "Semanal","Quinzenal","Mensal","Bimestral","Trimestral","Semestral"];
+const SEM_FREQ="Não informar";
+const PREFIXO_FREQ="Frequência de coleta: ";
+/* Reconhece as duas redações: a de hoje e a "Frequência:" que as propostas
+   antigas (e os itens já salvos) carregam — senão editar um item antigo
+   empilharia a linha nova por cima da velha. */
+const RE_FREQ=/^Frequência(?: de coleta)?:\s*[^\n]*?\.\s*\n?/;
+function linhaFrequencia(freq){
+  const f=String(freq||"").trim();
+  return (!f||f===SEM_FREQ)?"":PREFIXO_FREQ+f+".";
+}
 function frequenciaAtual(){
-  const m=String(document.getElementById("edObs").value).match(/^Frequência:\s*([^\n.]*)\./);
+  const m=String(document.getElementById("edObs").value).match(/^Frequência(?: de coleta)?:\s*([^\n.]*)\./);
   return m?m[1].trim():null;
 }
 function abrirFrequencia(){
@@ -3871,7 +3910,7 @@ function corpoObs(){
 }
 function aplicarFrequencia(f){
   const el=document.getElementById("edObs");
-  el.value=["Frequência: "+f+".",corpoObs()].filter(Boolean).join("\n");
+  el.value=[linhaFrequencia(f),corpoObs()].filter(Boolean).join("\n");
   ajustarAltura(el);
 }
 function tirarFrequencia(){
@@ -4137,11 +4176,17 @@ function fraseVeiculo(unidade,detalhe){
   }
   return "";
 }
+/* Frequência da coleta.
+
+   Vai na PRIMEIRA linha da observação do veículo, porque é a condição que o
+   cliente procura ("de quanto em quanto tempo passa?"); o valor e o detalhe do
+   veículo vêm depois. Só coleta tem isso — destinação e locação não se medem
+   por frequência. */
 // Junta a frase da unidade com o texto de fábrica do catálogo, uma por linha.
-function comporObs(chave,unidade,base){
+function comporObs(chave,unidade,base,freq){
   if(tipoLinha(chave)==="veic"){
     const detalhe=detalheVeiculo(base);
-    return [fraseVeiculo(unidade,detalhe),detalhe].filter(Boolean).join("\n");
+    return [linhaFrequencia(freq),fraseVeiculo(unidade,detalhe),detalhe].filter(Boolean).join("\n");
   }
   return [fraseDaUnidade(chave,unidade),String(base||"").trim()].filter(Boolean).join("\n");
 }
@@ -4708,9 +4753,39 @@ function cancelarEdicaoCat(){editandoCat=null;renderCamposCatalogo();document.ge
    metade da partida que já morava lá. Com o script inteiro avaliado antes,
    nenhuma declaração pode estar "ainda não existindo" — a classe de bug
    deixa de ser possível em vez de ser evitada com cuidado. */
+/* A data da proposta, e por que ela merece função própria.
+
+   Dois defeitos moravam no `new Date().toISOString().slice(0,10)` que estava
+   nos três lugares que preenchem o campo:
+
+   1. toISOString() dá a data em UTC. Das 21h em diante, no horário de
+      Brasília, ela já virou no fuso de Greenwich — e a proposta da noite saía
+      datada do dia seguinte.
+   2. Ela roda uma vez, quando o app abre. Instalado no celular, o app fica
+      aberto por dias: quem gerava a primeira proposta da manhã levava a data
+      do dia em que abriu o app pela última vez. A segunda saía certa porque
+      gerar chama novaProposta(), que preenche de novo.
+
+   Agora a data é sempre a LOCAL, e `dataAuto` guarda o que o app escreveu. Ao
+   voltar pro app (ou trocar de aba), se o campo ainda tem exatamente aquilo e
+   o dia virou, ele se atualiza sozinho. Data escolhida à mão não é tocada:
+   proposta datada de ontem de propósito continua datada de ontem. */
+let dataAuto="";
+function porHoje(){
+  dataAuto=hojeLocal();
+  const el=document.getElementById("dataProposta");
+  if(el) el.value=dataAuto;
+}
+function conferirVirouODia(){
+  const el=document.getElementById("dataProposta");
+  if(!el||!dataAuto||el.value!==dataAuto) return;   // em branco ou escolhida à mão
+  const hoje=hojeLocal();
+  if(hoje===dataAuto) return;
+  dataAuto=hoje; el.value=hoje;
+  agendarRascunho();
+}
 function iniciarApp(){
-  const h=new Date();
-  document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
+  porHoje();
   sugerirNumeroNoCampo();
   carregarCatalogo();
   carregarDest();
@@ -5738,7 +5813,7 @@ function ligarVincCustom(chave,linha,rotulo){
   const novo={
     fonte:linha.fonte, d:linha.d, n:linha.n, r:linha.r,
     rot:(rotulo||"").trim(), v:linha.v, u:linha.u,
-    em:new Date().toISOString().slice(0,10)
+    em:hojeLocal()
   };
   const j=lista.findIndex(v=>mesmoVinc(v,novo));
   if(j>=0){
@@ -6764,6 +6839,11 @@ function restaurarRascunho(){
   if(!d||!d.form) return false;
   restaurarTipoPessoa(d.tipoPessoa||"PJ");
   CAMPOS_FORM.forEach(id=>{const el=document.getElementById(id); if(el&&d.form[id]!==undefined) el.value=d.form[id];});
+  /* Rascunho de ontem, retomado hoje: se a data dele é a do dia em que o
+     rascunho foi gravado, ela foi posta pelo app e não escolhida — vira hoje.
+     Data diferente disso é escolha de quem preencheu, e fica. */
+  if(d.quando&&d.form.dataProposta===hojeLocal(new Date(d.quando))) porHoje();
+  else dataAuto="";
   itens=Array.isArray(d.itens)?d.itens:[];
   objetoSel=d.objetoSel||OBJETO_PADRAO;
   subObjetoSel=d.subObjetoSel||SUBOBJETO_PADRAO;
@@ -7086,6 +7166,7 @@ function abrirFichaProposta(id){
 
   // abrirProposta já pergunta sozinho quando há coisa preenchida no formulário,
   // e excluirProposta já confirma — nada de uma segunda confirmação por cima.
+  document.getElementById("propEmail").onclick=()=>abrirEmailDaProposta(id);
   document.getElementById("propEditar").onclick=()=>{fecharFichaProposta();abrirProposta(id,false);};
   document.getElementById("propDuplicar").onclick=()=>{fecharFichaProposta();abrirProposta(id,true);};
   document.getElementById("propExcluir").onclick=async()=>{
@@ -7171,14 +7252,13 @@ async function abrirProposta(id,comoCopia){
   pontosColeta=Array.isArray(p.pontosColeta)?p.pontosColeta.slice():[];
   renderContatosExtras();
   renderPontosColeta();
-  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; valorAutoPorChave={};unidadePorChave={}; linkEscolhido={}; 
+  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};unidadePorChave={}; linkEscolhido={}; 
   limparResultado();
 
   if(comoCopia){
     // Cópia é proposta nova: número e data de hoje, e não sobrescreve a original
     propostaAtualId=null;
-    const h=new Date();
-    document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
+    porHoje();
     sugerirNumeroNoCampo();
   } else {
     propostaAtualId=p.id;
@@ -8475,7 +8555,7 @@ async function novaProposta(silencioso){
   }
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;
-  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};linkEscolhido={};
+  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};linkEscolhido={};
   restaurarTipoPessoa("PJ");
   enderecoInformado="";
   contatosExtras=[];renderContatosExtras();
@@ -8502,8 +8582,7 @@ async function novaProposta(silencioso){
   document.getElementById("blocoColeta").classList.add("oculto");
   document.getElementById("statusGeracao").textContent="";
 
-  const h=new Date();
-  document.getElementById("dataProposta").value=h.toISOString().slice(0,10);
+  porHoje();
   sugerirNumeroNoCampo();
 
   abrirQuebra("",false);abrirQuebra("Coleta",false);
@@ -9083,16 +9162,37 @@ function tipoGerado(){
   if(n===1&&/^Aceite/i.test(ultimosGerados[0].nome)) return "aceite";
   return "proposta";
 }
+/* De onde saem nome, número e cliente do e-mail.
+
+   Normalmente do formulário — é a proposta que acabou de ser gerada. Mas o
+   e-mail também se abre pela ficha de uma proposta SALVA, que pode não ser a
+   que está no formulário; nesse caso o contexto vem com ela, e é isso que
+   `emailCtxFixo` guarda enquanto a janela está aberta. */
+let emailCtxFixo=null;
 function ctxEmail(){
+  if(emailCtxFixo) return emailCtxFixo;
   return {nome:nomeParaSaudacao(),
           numero:(document.getElementById("proposalNumber")||{}).value||"",
           cliente:(document.getElementById("razaoSocial")||{}).value||""};
 }
-function abrirEmail(){
+// Abre o e-mail de uma proposta já salva, sem precisar reabrir ela no formulário.
+function abrirEmailDaProposta(id){
+  const p=propostas.find(x=>x.id===id);
+  if(!p) return;
+  const f=p.form||{};
+  const contato=(f.solicitante||"").trim();
+  emailCtxFixo={nome:contato?primeiroNome(contato):(p.cliente||"").trim(),
+                numero:f.proposalNumber||p.numero||"",
+                cliente:f.razaoSocial||p.cliente||""};
+  fecharFichaProposta();
+  abrirEmail(f.email||"");
+}
+function abrirEmail(paraFixo){
   const tipo=tipoGerado();
   // Abre já no modelo que corresponde ao que acabou de sair
   emailModeloId=(MODELOS_EMAIL.find(m=>m.id===tipo)||MODELOS_EMAIL[0]).id;
-  document.getElementById("emailPara").value=(document.getElementById("email")||{}).value||"";
+  document.getElementById("emailPara").value=
+    (typeof paraFixo==="string"?paraFixo:((document.getElementById("email")||{}).value||""));
   // Mostra ANTES de preencher: a mensagem se ajusta à própria altura, e altura
   // só existe pra quem está na tela (ver ajustarAltura).
   document.getElementById("modalEmail").classList.remove("oculto");
@@ -9101,6 +9201,7 @@ function abrirEmail(){
 function fecharEmail(){
   document.getElementById("modalEmail").classList.add("oculto");
   document.getElementById("statusEmail").textContent="";
+  emailCtxFixo=null;
 }
 function escolherModeloEmail(id){
   emailModeloId=id;
@@ -9174,21 +9275,27 @@ function copiarEmail(botao){
 }
 /* mailto não leva anexo — nunca levou. Abre o Outlook com tudo escrito e diz
    onde estão os arquivos, que é o que dá pra fazer com honestidade. */
+// O endereço que abre o e-mail. Separado de quem navega pra ele: assim dá pra
+// conferir o que vai ser aberto sem abrir nada.
+function urlMailto(){
+  const g=id=>encodeURIComponent(document.getElementById(id).value.trim());
+  return "mailto:"+g("emailPara")+"?subject="+g("emailAssunto")+"&body="+g("emailCorpo");
+}
 async function abrirNoCliente(){
-  const para=encodeURIComponent(document.getElementById("emailPara").value.trim());
-  const ass=encodeURIComponent(document.getElementById("emailAssunto").value);
   const st=document.getElementById("statusEmail");
+  /* O corpo vai NO mailto: o Outlook abre com a mensagem escrita, que é o que
+     poupa o passo de colar. A fonte quem decide é o Outlook (o mailto é texto
+     puro e não carrega formatação) — com o padrão dele ajustado pra Aptos 11,
+     chega certo. A cópia formatada vai junto pra área de transferência, de
+     graça: serve pra colar por cima em quem não tiver esse padrão. */
   const copiou=await copiarEmailFormatado(document.getElementById("emailCorpo").value);
-  // Sem conseguir copiar, o corpo vai no próprio mailto (sem a formatação)
-  const corpo=copiou?"":encodeURIComponent(document.getElementById("emailCorpo").value);
   const onde=ultimosGerados.length
     ? (ultimosGerados[0].pasta?("na pasta "+ultimosGerados[0].pasta):"nos Downloads")
     : "";
-  st.textContent=(copiou
-      ?"Mensagem copiada em Aptos 11: clique no corpo do e-mail e cole (Ctrl+V). "
-      :"Não deu pra copiar a formatação — o texto foi direto pro e-mail. ")+
-    "Os arquivos estão "+(onde||"onde você salvou")+", é só arrastar pra mensagem.";
-  window.location.href="mailto:"+para+"?subject="+ass+(corpo?"&body="+corpo:"");
+  st.textContent="Abrindo o e-mail com a mensagem escrita."+
+    (copiou?" Ela também está copiada em Aptos 11, se quiser colar por cima.":"")+
+    " Os arquivos estão "+(onde||"onde você salvou")+", é só arrastar pra mensagem.";
+  window.location.href=urlMailto();
 }
 
 
@@ -11299,7 +11406,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.09.28-02";
+const APP_VERSION="2026.09.29-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
@@ -11380,7 +11487,10 @@ iniciarApp();
 // Grava enquanto digita e, principalmente, na hora em que o app sai da frente —
 // que é o momento em que o navegador pode descartar a página.
 document.addEventListener("input",agendarRascunho);
-document.addEventListener("visibilitychange",()=>{ if(document.hidden) salvarRascunho(); });
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden) salvarRascunho(); else conferirVirouODia();
+});
+window.addEventListener("focus",conferirVirouODia);
 window.addEventListener("pagehide",salvarRascunho);
 restaurarRascunho();
 
