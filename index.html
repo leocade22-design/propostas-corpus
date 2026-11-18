@@ -8906,7 +8906,7 @@ const ABAS_DE_CONSULTA=[ABA_COMPARATIVO,ABA_IBAMA];
    CARTEIRA: clientes e propostas (com anotação e, no .zip, os anexos). É o
    arquivo do dia a dia, e o que a macro da planilha de controle lê.
    MATRIZ DE CUSTOS: tudo que é custo e catálogo, sem dado de cliente — pode
-   ir pro Felipe e pro Rafael.
+   ir pra quem cuida dos custos.
    BACKUP COMPLETO: tudo, como sempre foi.
 
    Cada um leva na aba escondida só as bases que carrega. Vindo de outro
@@ -9830,9 +9830,12 @@ async function preencherDocx(tpl,mapa,loop,opts){
   /* O .rels entra na mesma volta: o destino de um link não fica no texto do
      rodapé, fica no arquivo de relacionamentos ao lado dele — e é lá que
      {linkWhatsAssinatura} e {linkEmailAssinatura} precisam ser trocados. */
+  /* E o .rels do próprio documento: na Proposta a assinatura saiu do rodapé
+     (que se repete em toda página) e foi pra uma caixa no fim do corpo, que
+     só aparece na última — os links do WhatsApp e do e-mail foram junto. */
   for(const nome of Object.keys(zip.files)){
     if(!/^word\/(header|footer)\d*\.xml$/.test(nome)&&
-       !/^word\/_rels\/(header|footer)\d*\.xml\.rels$/.test(nome)) continue;
+       !/^word\/_rels\/(header\d*|footer\d*|document)\.xml\.rels$/.test(nome)) continue;
     let parte=await zip.file(nome).async("string");
     const antes=parte;
     for(const[k,v]of Object.entries(mapa)) parte=parte.split("{"+k+"}").join(escXml(v));
@@ -12577,7 +12580,7 @@ function carregarClienteRapido(c){
 
 
 /* ============ APP INSTALADO ============ */
-const APP_VERSION="2026.10.06-02";
+const APP_VERSION="2026.11.18-01";
 document.getElementById("verApp").textContent=APP_VERSION;
 async function buscarAtualizacao(){
   const st=document.getElementById("statusApp");
