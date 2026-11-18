@@ -254,6 +254,12 @@
   html[data-tema="escuro"] .badge{color:#0B1710;}
   .sub{font-size:.72rem;color:var(--suave);margin-top:3px;}
   .sub.ruim{color:var(--alerta);font-weight:600;}
+  /* Aviso da Carteira automática no "Documento gerado": discreto, mas não
+     some no meio do texto — é a única pista de que a pasta perdeu a permissão. */
+  .aviso-carteira{margin:4px 0 12px;padding:8px 10px;border-radius:8px;text-align:left;
+    background:var(--alerta-bg);color:var(--alerta);}
+  .aviso-carteira .btn-mini{display:block;margin-top:6px;}
+  .aviso-carteira .btn-mini.oculto{display:none;}
 
   /* --alt-visivel é a altura da área visível (descontado o teclado), medida no
      JS pela visualViewport. Serve pro iOS, que ignora interactive-widget: lá o
@@ -709,6 +715,10 @@
     border-radius:10px;padding:10px 12px;margin-bottom:8px;}
   .linha-valor .nome{font-size:.85rem;font-weight:600;margin-bottom:6px;}
   .linha-valor .campos{display:grid;grid-template-columns:1.2fr 1fr;gap:8px;}
+  /* Km e tempo da rota: dado interno, então mais apagado que valor e unidade */
+  .linha-valor .rota{margin-top:6px;}
+  .linha-valor .rota label, #edRota label{color:var(--suave);}
+  .rota-nota{font-size:.72rem;margin-top:2px;}
   .linha-valor input{padding:8px 10px;font-size:.9rem;}
   .linha-valor .obs{margin-top:6px;}
   .linha-valor .obs textarea{font-size:.8rem;min-height:0;padding:8px 10px;}
@@ -1245,34 +1255,49 @@
     <h2 class="clicavel" onclick="toggleBackup()">Backup e planilha
       <span class="badge" id="badgeBackup">0</span><span class="seta" id="setaBackup">▾</span></h2>
     <div id="backupCorpo" class="oculto">
+      <!-- Três arquivos, cada um pra um uso. A Carteira e a Matriz saíram de
+           dentro do "Exportar tudo" porque têm destinos diferentes: a Matriz
+           vai pra quem cuida dos custos e não pode levar cliente junto; a
+           Carteira é o dia a dia, e é ela que a planilha de controle lê. -->
       <div class="sub" style="margin-bottom:10px">
-        <strong>Um arquivo do Excel com tudo</strong>: uma aba por base —
-        clientes, destinadores, recicláveis, equipamentos, mão de obra, frota,
-        catálogo, observações e propostas — e, escondido, o backup completo do app.
+        <strong>Carteira</strong>: clientes e propostas, com a anotação de cada
+        uma — em .zip, com as fotos e anexos numa pasta por proposta.<br>
+        <strong>Matriz de custos</strong>: destinadores, recicláveis,
+        equipamentos, mão de obra, frota, catálogo e parâmetros, com o
+        comparativo de custos. Sem dado de cliente: pode ir pra quem cuida dos custos.
       </div>
       <div class="row2">
-        <button class="btn-principal" onclick="exportarTudo()">Exportar tudo</button>
+        <button class="btn-principal" onclick="exportarCarteira()">Exportar Carteira</button>
+        <button class="btn-sec" onclick="exportarMatriz()">Exportar Matriz</button>
+      </div>
+      <div class="row2" style="margin-top:8px">
+        <button class="btn-sec" onclick="exportarTudo()">Backup completo</button>
         <button class="btn-sec" onclick="document.getElementById('arqTudo').click()">Importar</button>
       </div>
-      <input type="file" id="arqTudo" accept=".xlsx,.csv,.json" class="oculto" onchange="importarArquivo(this)">
+      <input type="file" id="arqTudo" accept=".xlsx,.zip,.csv,.json" class="oculto" onchange="importarArquivo(this)">
       <div class="status" id="statusBackup"></div>
       <div class="sub" style="margin-top:10px">
         <strong>Pra atualizar valores:</strong> exporte, mude o que precisar no
         Excel e importe de volta. Entra só o que você mudou na planilha; antes de
-        gravar o app mostra o que vai mudar. Apagar a linha da planilha
+        gravar o app mostra o que vai mudar. Cabeçalho verde volta pro app,
+        cinza é só consulta. Apagar a linha da planilha
         <strong>não</strong> apaga do app — pra excluir, escreva SIM na coluna EXCLUIR.
       </div>
       <div class="sub" style="margin-top:8px">
-        <strong>Pra levar pro celular:</strong> importe o mesmo arquivo lá. Vindo
-        de outro aparelho, ele deixa o celular igual ao arquivo.
+        <strong>Pra levar pro celular ou pra outro computador:</strong> importe o
+        mesmo arquivo lá. Vindo de outro aparelho, ele deixa o outro igual ao
+        arquivo — a Carteira só nos clientes e propostas, a Matriz só nos custos,
+        o Backup completo em tudo.
       </div>
       <div class="sub" style="margin-top:8px">
-        O Importar também aceita a planilha de preços que o parceiro manda
-        (.xlsx ou .csv) e backups antigos (.json).
+        O Importar aceita os três (a Carteira em .zip ou .xlsx), a planilha de
+        preços que o parceiro manda (.xlsx ou .csv) e backups antigos (.json).
+        A Carteira também pode ser gravada sozinha numa pasta a cada proposta
+        gerada — em Downloads, logo abaixo.
       </div>
-      <div class="sub aviso-sigilo">Fora do arquivo: os <strong>dados de
-        apoio</strong> (têm CPF — dado pessoal não viaja em arquivo), a anotação e
-        as fotos da atividade, e os arquivos da aba Apoio.</div>
+      <div class="sub aviso-sigilo">Fora de qualquer arquivo: os <strong>dados de
+        apoio</strong> (têm CPF — dado pessoal não viaja em arquivo) e os arquivos
+        da aba Apoio. Fotos e anexos das propostas só vão no .zip da Carteira.</div>
     </div>
   </div>
   <!-- O card "Observações padrão" foi removido daqui. Ele juntava num lugar só
@@ -1297,6 +1322,21 @@
       </div>
       <div class="sub" id="avisoPasta">Cada um escolhe as próprias pastas uma vez; os próximos arquivos vão direto pra lá. Recurso do Chrome/Edge — no Firefox e Safari os arquivos caem nos Downloads normalmente.</div>
       <button class="btn-mini" id="btnLimparPasta" onclick="limparPasta()" style="margin-top:8px;display:none">Voltar para Downloads padrão</button>
+      <!-- A Carteira automática: escolhida uma vez, regravada a cada proposta
+           gerada, sempre com o mesmo nome — é o que a macro da planilha de
+           controle procura. -->
+      <label style="margin-top:16px">Pasta da Carteira (automática)</label>
+      <div class="row2">
+        <div class="sub" id="pastaCarteiraAtual" style="align-self:center">Desligada</div>
+        <button class="btn-sec" id="btnEscolherPastaCarteira" onclick="escolherPasta('carteira')">Escolher</button>
+      </div>
+      <div class="sub" id="statusCarteira">A cada proposta gerada ou salva, o app regrava nesta pasta
+        <strong>corpus-carteira.zip</strong> (planilha + fotos) e <strong>corpus-carteira.xlsx</strong>
+        (só a planilha, pra macro) — sempre com o mesmo nome, por cima do anterior.</div>
+      <div class="row2 oculto" id="acoesCarteira" style="margin-top:8px">
+        <button class="btn-mini" onclick="gravarCarteiraAgora()">Gravar agora</button>
+        <button class="btn-mini" onclick="desligarCarteira()">Desligar</button>
+      </div>
     </div>
   </div>
 
@@ -1548,6 +1588,9 @@
     <div class="emoji">✅</div>
     <div class="zoeira" id="prontoTitulo">Documento gerado</div>
     <div class="motivo" id="prontoDetalhe"></div>
+    <!-- Aviso da Carteira automática: só aparece quando ela não conseguiu gravar -->
+    <div class="sub aviso-carteira oculto" id="prontoCarteira"><span class="texto"></span>
+      <button class="btn-mini oculto" onclick="gravarCarteiraAgora()">Liberar a pasta e gravar</button></div>
     <button class="btn-sec btn-full" style="margin-bottom:8px" onclick="abrirEmail()">Enviar por e-mail</button>
     <button class="btn-principal" onclick="fecharPronto()">OK</button>
   </div>
@@ -1617,6 +1660,14 @@
         </div>
       </div>
       <div><label>Unidade</label><input type="text" id="edUnidade" placeholder="Viagem, KG, Hora…"></div>
+    </div>
+    <!-- Só em linha de veículo. Uso interno: não sai no documento. -->
+    <div id="edRota" class="oculto">
+      <div class="row2">
+        <div><label>Km da rota</label><input type="text" id="edKm" inputmode="decimal" placeholder="opcional"></div>
+        <div><label>Tempo da rota (h)</label><input type="text" id="edTempo" inputmode="decimal" placeholder="ex.: 1,5"></div>
+      </div>
+      <div class="sub rota-nota">Uso interno — não sai na proposta.</div>
     </div>
     <!-- O atalho ao lado do rótulo muda conforme a linha: frequência só faz
          sentido em coleta e transporte, NR só em mão de obra. Ver atalhoDaLinha() -->
@@ -3335,6 +3386,8 @@ let obsAutoPorChave={};
 let valorAutoPorChave={};
 // Frequência escolhida em cada linha de coleta (por id da linha, como o resto).
 let freqPorChave={};
+// Km e tempo da rota de cada linha de veículo (uso interno, não sai no .docx)
+let kmPorChave={}, tempoPorChave={};
 
 /* ---- Ligação entre a linha da proposta e a tabela de custos ----
    Os dois vocabulários não batem: no catálogo do app o resíduo é "Não
@@ -3638,6 +3691,11 @@ function renderLinhasValores(){
            </div></div>
          <div><label>Unidade</label><input type="text" data-campo="unidade"></div>
        </div>
+       <div class="campos rota oculto" data-campo="rota">
+         <div><label>Km da rota</label><input type="text" inputmode="decimal" placeholder="opcional" data-campo="km"></div>
+         <div><label>Tempo da rota (h)</label><input type="text" inputmode="decimal" placeholder="ex.: 1,5" data-campo="tempo"></div>
+       </div>
+       <div class="sub rota-nota oculto" data-campo="rotaNota">Km e tempo são só pra uso interno — não saem na proposta.</div>
        <div class="dest-sug" data-campo="custos"></div>
        <div class="passo-card freq oculto" data-campo="freq">
          <span class="rot">Frequência</span><span class="val"></span><span class="abrir"></span></div>
@@ -3713,6 +3771,19 @@ function renderLinhasValores(){
       cf.querySelector(".val").textContent=f||"não informar";
       cf.querySelector(".abrir").textContent=f?"alterar":"escolher";
     };
+    /* Km e tempo da rota: só em linha de veículo, e opcionais. Ficam por id
+       da linha, como o valor — cópias do mesmo veículo têm rota própria. */
+    const rota=div.querySelector('[data-campo="rota"]');
+    rota.classList.toggle("oculto",!ehColeta);
+    div.querySelector('[data-campo="rotaNota"]').classList.toggle("oculto",!ehColeta);
+    if(ehColeta){
+      const ik=rota.querySelector('[data-campo="km"]'), it=rota.querySelector('[data-campo="tempo"]');
+      ik.value=kmPorChave[k]||""; it.value=tempoPorChave[k]||"";
+      ik.oninput=()=>{ kmPorChave[k]=ik.value; };
+      it.oninput=()=>{ tempoPorChave[k]=it.value; };
+      ik.onchange=()=>{ ik.value=numeroDaRota(ik.value,false); kmPorChave[k]=ik.value; };
+      it.onchange=()=>{ it.value=numeroDaRota(it.value,true); tempoPorChave[k]=it.value; };
+    }
     if(ehColeta){
       pintarFreq();
       cf.onclick=()=>abrirSelecao({titulo:"Frequência de coleta",
@@ -3778,13 +3849,36 @@ function adicionarItens(){
                      :comporObs(l.chave,l.unidade,l.obsBase,freqPorChave[l.id||l.chave]),
       obsBase:l.obsBase||"",
       sel:JSON.parse(JSON.stringify(sel))});
+    const km=div?numeroDaRota(div.querySelector('[data-campo="km"]').value,false):"";
+    const tempo=div?numeroDaRota(div.querySelector('[data-campo="tempo"]').value,true):"";
+    if(tipoLinha(l.chave)==="veic"){
+      if(km) itens[itens.length-1].kmRota=km;
+      if(tempo) itens[itens.length-1].tempoRota=tempo;
+    }
   });
-  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};linkEscolhido={};
+  sel={};valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};kmPorChave={};tempoPorChave={};linkEscolhido={};
   esconderPassos(2);fluxo();render();
 }
 /* "DESTINAÇÃO FINAL - CLASSE II – POR KG" com a unidade trocada pra Tonelada
    na linha saía dizendo POR KG ao lado de um preço por tonelada. O título
    segue a unidade que ficou — só massa, que é o par que se troca. */
+/* Km e tempo como número no jeito brasileiro (vírgula). Tempo aceita também
+   "1:30" e "1h30", que é como se lê no mapa — vira 1,5. Qualquer outra coisa
+   fica como foi digitada: melhor um texto estranho na planilha do que um
+   número inventado. */
+function numeroDaRota(v,ehTempo){
+  const t=String(v??"").trim().toLowerCase().replace(/\s+/g,"");
+  if(!t) return "";
+  if(ehTempo){
+    const m=/^(\d{1,3})(?::|h)(\d{1,2})?(?:min)?$/.exec(t);
+    if(m){
+      const h=Number(m[1])+(Number(m[2]||0)/60);
+      return String(Math.round(h*100)/100).replace(".",",");
+    }
+  }
+  const n=numeroPlanilha(t.replace(/(km|h)$/,""));
+  return isFinite(n)?String(Math.round(n*100)/100).replace(".",","):String(v).trim();
+}
 function descricaoNaUnidade(desc,unidade){
   const f=fatorMassa(unidade);
   if(!f) return desc;
@@ -3812,6 +3906,10 @@ function abrirEdicaoItem(i){
   document.getElementById("edValor").value=it.valor||"";
   document.getElementById("edUnidade").value=it.unidade||"";
   document.getElementById("edObs").value=it.observacoes||"";
+  const ehVeic=tipoLinha(it.chave)==="veic";
+  document.getElementById("edRota").classList.toggle("oculto",!ehVeic);
+  document.getElementById("edKm").value=it.kmRota||"";
+  document.getElementById("edTempo").value=it.tempoRota||"";
   obsAutoModal=comporObs(it.chave,it.unidade,it.obsBase);
   document.getElementById("modalItem").classList.remove("oculto");
   montarSugestoesUnidade();
@@ -4324,6 +4422,12 @@ function salvarEdicaoItem(){
   it.valor=document.getElementById("edValor").value.trim();
   it.unidade=document.getElementById("edUnidade").value.trim();
   it.observacoes=document.getElementById("edObs").value.trim();
+  if(tipoLinha(it.chave)==="veic"){
+    const km=numeroDaRota(document.getElementById("edKm").value,false);
+    const tempo=numeroDaRota(document.getElementById("edTempo").value,true);
+    if(km) it.kmRota=km; else delete it.kmRota;
+    if(tempo) it.tempoRota=tempo; else delete it.tempoRota;
+  }
   fecharEdicaoItem(); render();
 }
 function removerItemEditado(){
@@ -4352,7 +4456,8 @@ function render(){
        <div class="alca" title="Segure e arraste para reordenar">☰</div>`;
     div.querySelector(".desc").textContent=it.descricao.replace(/\n/g," ");
     div.querySelector(".meta").textContent=
-      [it.residuo&&it.residuo!=="-"?it.residuo.replace(/\n/g," "):null,it.unidade].filter(Boolean).join(" • ");
+      [it.residuo&&it.residuo!=="-"?it.residuo.replace(/\n/g," "):null,it.unidade,
+       it.kmRota?it.kmRota+" km":null, it.tempoRota?it.tempoRota+" h":null].filter(Boolean).join(" • ");
     div.querySelector(".valor").textContent=it.valor?("R$ "+it.valor):"sem valor — toque para preencher";
     div.querySelector(".corpo").onclick=()=>abrirEdicaoItem(i);
     div.querySelector(".alca").addEventListener("pointerdown",ev=>iniciarArrasto(ev,i));
@@ -4553,6 +4658,9 @@ let snapshots={};
    apareceu neste arquivo — na quinta ele derrubou o script inteiro em silêncio. */
 const IDB_NOME="corpus_fs", IDB_LOJA="alcas";
 const IDB_FOTO="foto:", IDB_NOTA="nota:";
+// As anotações lidas do IndexedDB, por id da proposta — é o que a planilha lê
+// (a leitura das bases é síncrona; o banco não é). Ver carregarNotasCache().
+let notasCache={};
 const FOTO_LADO_MAX=1600, FOTO_QUALIDADE=0.82;
 let urlsFotos=[];
 /* E as propostas salvas junto — renderFotos() precisa saber de qual proposta são
@@ -7008,6 +7116,7 @@ function salvarPropostaAtual(){
   registrarNumeroUsado(registro.numero);
   gravarPropostas(); atualizarBadgeHistorico();
   renderHistorico(); pintarBarraEditando();
+  agendarCarteira();     // em segundo plano: não segura a tela de "pronto"
 }
 
 /* ---- Salvar o ajuste sem gerar arquivo ----
@@ -7031,6 +7140,7 @@ function salvarAlteracoes(){
   gravarRegistroDaProposta({semArquivoNovo:true});
   if(!gravarPropostas()){ return; }              // cota cheia: gravarPropostas já avisa
   atualizarBadgeHistorico(); renderHistorico(); pintarBarraEditando();
+  agendarCarteira();
   st.textContent="Alterações salvas na proposta "+(document.getElementById("proposalNumber").value||"")+".";
   setTimeout(()=>{ if(st.textContent.startsWith("Alterações salvas")) st.textContent=""; },4000);
 }
@@ -7395,7 +7505,7 @@ async function abrirProposta(id,comoCopia){
   pontosColeta=Array.isArray(p.pontosColeta)?p.pontosColeta.slice():[];
   renderContatosExtras();
   renderPontosColeta();
-  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};unidadePorChave={}; linkEscolhido={}; 
+  sel={}; valorPorChave={}; obsPorChave={}; obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};kmPorChave={};tempoPorChave={};unidadePorChave={}; linkEscolhido={}; 
   limparResultado();
 
   if(comoCopia){
@@ -7560,6 +7670,7 @@ function dataDaPlanilha(v){
    são o mesmo preço, e o teste de ida e volta ("reimportar o próprio arquivo
    não muda nada") cairia na primeira casa decimal. */
 function mesmoValor(col,a,b){
+  if(col.unid) return unidadePadrao(a).toUpperCase()===unidadePadrao(b).toUpperCase();
   if(col.num||col.dinheiro||col.numTexto){
     const x=numeroPlanilha(a), y=numeroPlanilha(b);
     if(isFinite(x)&&isFinite(y)) return Math.abs(x-y)<0.0001;
@@ -7617,7 +7728,8 @@ function planoPlanilha(parte,linhas,foto){
     const campos={}; let erro=null, trouxe=false;
     parte.colunas.forEach(c=>{
       const letra=cab.mapa[c.k];
-      if(letra===undefined) return;
+      // Coluna de cabeçalho cinza é só pra ler: o que se escreve nela não volta
+      if(letra===undefined||c.info) return;
       const v=celulaDeEntrada(c,bruta[letra]);
       if(v===null){ erro=erro||('"'+txt(bruta[letra])+'" não é um número, na coluna '+c.t); return; }
       if(v!==""){ campos[c.k]=v; trouxe=true; }
@@ -7700,8 +7812,15 @@ function aplicarPlano(parte,plano){
    importação DEPOIS que o dado já foi gravado. */
 function repintarDepoisDaPlanilha(){
   [atualizarBadgesPrecos,renderLinhasValores,renderDest,pintarBadgeFrota,
-   atualizarBadgeHistorico,renderHistorico,listarClientes,contarBackup]
+   atualizarBadgeHistorico,renderHistorico,listarClientes,contarBackup,
+   pintarParametros,renderFotos]
     .forEach(f=>{ try{ f(); }catch(e){} });
+}
+// BDI e repasse vêm pela aba Parâmetros: os campos de Ajustes acompanham.
+function pintarParametros(){
+  const b=document.getElementById("bdiDest"); if(b) b.value=dest.bdi;
+  const r=document.getElementById("repasseReci"); if(r) r.value=repassePadrao();
+  renderExemploBDI(); renderExemploRepasse();
 }
 
 /* ============ AS BASES ============ */
@@ -7742,7 +7861,7 @@ const BASES_PLANILHA=[
       {t:"CLASSE", k:"cl"},
       {t:"TIPO DE RESÍDUO", k:"r", exigida:true, apelidos:["RESÍDUO"], prefixos:["TIPO DE RESÍDUO"]},
       {t:"VALOR UNIT. (R$)", k:"v", exigida:true, num:true, apelidos:["VALOR UNIT","VALOR"], prefixos:["VALOR UNIT"]},
-      {t:"UNID.", k:"u", apelidos:["UNID","UNIDADE"]}
+      {t:"UNID.", k:"u", unid:true, apelidos:["UNID","UNIDADE"]}
     ],
     chaveDe:r=>(normCol(r.d)&&normCol(r.r))?normCol(r.d)+"|"+normCol(r.r):"",
     ler:()=>(dest.precos||[]).map(p=>({d:p.d||"",cl:p.cl||"",r:p.r||"",
@@ -7754,6 +7873,50 @@ const BASES_PLANILHA=[
                                  u:String(p.u||"").toUpperCase()}));
       gravarBaseAtomico(LS_DEST,Object.assign({},dest,{precos:limpa}),
         ()=>{ dest.precos=limpa; });
+    }
+  }]
+},
+/* CNPJ, endereço e código IEMA de cada destinador. O app não guardava isso
+   em lugar nenhum — o pedido era uma aba de consulta, e consulta sem dado
+   seria uma lista de nomes com colunas vazias a cada exportação. Então é uma
+   aba de DADO: preenchida uma vez no Excel, volta pro app e passa a sair
+   preenchida. Mora dentro da tabela de custos (dest.cadastro), e por isso
+   viaja junto com ela no backup e na Matriz sem chave nova. */
+{
+  id:"cadastroDest", rotulo:"Cadastro de destinadores", dono:"consulta: CNPJ, endereço e código IEMA",
+  dica:"Uma linha por destinador. A lista sai com todos os que têm custo na tabela.",
+  partes:[{
+    aba:"Cadastro de destinadores", rotuloChave:"DESTINADOR",
+    colunas:[
+      {t:"DESTINADOR", k:"d", exigida:true},
+      {t:"CNPJ", k:"cnpj", apelidos:["CNPJ / CPF","CPF"]},
+      {t:"ENDEREÇO", k:"end", apelidos:["ENDERECO"]},
+      {t:"CÓDIGO IEMA", k:"iema", apelidos:["IEMA","CODIGO IEMA","CÓDIGO NO IEMA"]},
+      {t:"RESÍDUOS NA TABELA", k:"n", info:true, num:true, geral:true}
+    ],
+    chaveDe:r=>normCol(r.d),
+    ler(){
+      const cad=dest.cadastro||{};
+      const nomes=[...new Set(parceirosOrdenados().concat(Object.keys(cad)))];
+      return nomes.map(d=>{
+        const c=cad[d]||{};
+        return {d, cnpj:c.cnpj||"", end:c.end||"", iema:c.iema||"",
+                n:(dest.precos||[]).filter(p=>p.d===d).length};
+      });
+    },
+    gravar(lista){
+      const canon={};
+      parceirosOrdenados().forEach(d=>{ canon[normCol(d)]=d; });
+      Object.keys(dest.cadastro||{}).forEach(d=>{ canon[normCol(d)]=d; });
+      const novo={};
+      lista.forEach(l=>{
+        const nome=canon[normCol(l.d)]||txt(l.d);
+        if(!nome) return;
+        const o={};
+        ["cnpj","end","iema"].forEach(k=>{ if(txt(l[k])) o[k]=txt(l[k]); });
+        if(Object.keys(o).length) novo[nome]=o;
+      });
+      gravarBaseAtomico(LS_DEST,Object.assign({},dest,{cadastro:novo}),()=>{ dest.cadastro=novo; });
     }
   }]
 },
@@ -7769,7 +7932,7 @@ const BASES_PLANILHA=[
       {t:"COMPRADOR", k:"parceiro", apelidos:["PARCEIRO"]},
       {t:"CONTATO", k:"contato"},
       {t:"VENDA (R$)", k:"v", dinheiro:true, apelidos:["VENDA","VALOR"]},
-      {t:"UNID.", k:"u", apelidos:["UNID","UNIDADE"]},
+      {t:"UNID.", k:"u", unid:true, apelidos:["UNID","UNIDADE"]},
       {t:"REPASSE (%)", k:"rep", numTexto:true, apelidos:["REPASSE"]},
       {t:"OBSERVAÇÃO DO MATERIAL", k:"o", apelidos:["OBSERVAÇÃO","OBS"]}
     ],
@@ -7819,7 +7982,7 @@ const BASES_PLANILHA=[
     colunas:[
       {t:"EQUIPAMENTO", k:"nome", exigida:true, apelidos:["NOME"]},
       {t:"VALOR (R$)", k:"v", dinheiro:true, apelidos:["VALOR"]},
-      {t:"UNID.", k:"u", apelidos:["UNID","UNIDADE"]},
+      {t:"UNID.", k:"u", unid:true, apelidos:["UNID","UNIDADE"]},
       {t:"MENSAL (R$)", k:"mensal", dinheiro:true, apelidos:["MENSAL"]},
       {t:"OBSERVAÇÃO (PROPOSTA)", k:"o", apelidos:["OBSERVAÇÃO","OBS"]},
       {t:"MEDIDAS", k:"med"},
@@ -8037,7 +8200,10 @@ const BASES_PLANILHA=[
       {t:"ENDEREÇO", k:"endereco", apelidos:["ENDEREÇO DO CLIENTE"]},
       {t:"OBJETO", k:"objetoSel"},
       {t:"SUBOBJETO", k:"subObjetoSel"},
-      {t:"SALVO EM", k:"salvoEm"}
+      {t:"SALVO EM", k:"salvoEm"},
+      /* A anotação da atividade, em texto limpo numa célula só. É a coluna que
+         vai pra "Comentários" da planilha de controle — o título não muda. */
+      {t:"ANOTAÇÃO", k:"anotacao", apelidos:["ANOTACAO","COMENTÁRIOS","COMENTARIOS"]}
     ],
     chaveDe:r=>txt(r.id),
     ler:()=>propostas.map(p=>({
@@ -8046,7 +8212,8 @@ const BASES_PLANILHA=[
       data:(p.form&&p.form.dataProposta)||p.data||"", tipoPessoa:p.tipoPessoa||"PJ",
       solicitante:(p.form&&p.form.solicitante)||"", telefone:(p.form&&p.form.telefone)||"",
       email:(p.form&&p.form.email)||"", endereco:(p.form&&p.form.enderecoUnico)||"",
-      objetoSel:p.objetoSel||"", subObjetoSel:p.subObjetoSel||"", salvoEm:p.salvoEm||""
+      objetoSel:p.objetoSel||"", subObjetoSel:p.subObjetoSel||"", salvoEm:p.salvoEm||"",
+      anotacao:limparAnotacao(notasCache[String(p.id)]||"")
     })),
     novo:campos=>Object.assign({numero:"",cliente:"",cnpj:"",data:"",tipoPessoa:"PJ",
       solicitante:"",telefone:"",email:"",endereco:"",objetoSel:"",subObjetoSel:"",
@@ -8077,6 +8244,16 @@ const BASES_PLANILHA=[
       });
       nova.sort((a,b)=>String(b.salvoEm||"").localeCompare(String(a.salvoEm||"")));
       gravarBaseAtomico(LS_PROPOSTAS,nova,()=>{ propostas=nova; });
+      /* A anotação mora no IndexedDB, não junto da proposta. Só a que mudou é
+         regravada; célula vazia é "não mexi", como em todo o resto. */
+      lista.forEach(l=>{
+        if(l.anotacao===undefined) return;
+        const id=String(/^\d+$/.test(txt(l.id))?Number(txt(l.id)):txt(l.id));
+        const texto=limparAnotacao(l.anotacao);
+        if(texto&&texto!==limparAnotacao(notasCache[id]||"")){
+          notasCache[id]=texto; gravarNotaDepois(id,texto);
+        }
+      });
     }
   },
   {
@@ -8084,14 +8261,19 @@ const BASES_PLANILHA=[
     colunas:[
       {t:"ID DA PROPOSTA", k:"idp", exigida:true, apelidos:["ID_PROPOSTA","ID"]},
       {t:"Nº", k:"n", exigida:true, apelidos:["N","ITEM","ORDEM"]},
-      {t:"NÚMERO DA PROPOSTA", k:"numero", apelidos:["PO"]},
-      {t:"CLIENTE", k:"cliente"},
+      // Número e cliente vêm da capa: aqui são só pra ler (cabeçalho cinza)
+      {t:"NÚMERO DA PROPOSTA", k:"numero", info:true, apelidos:["PO"]},
+      {t:"CLIENTE", k:"cliente", info:true},
       {t:"CHAVE", k:"chave"},
       {t:"DESCRIÇÃO", k:"descricao"},
       {t:"RESÍDUO", k:"residuo"},
-      {t:"UNIDADE", k:"unidade"},
+      {t:"UNIDADE", k:"unidade", unid:true},
       {t:"VALOR", k:"valor", dinheiro:true},
-      {t:"OBSERVAÇÕES", k:"observacoes", apelidos:["OBS"]}
+      {t:"OBSERVAÇÕES", k:"observacoes", apelidos:["OBS"]},
+      /* Uso interno, só em linha de veículo: é o dado que vai calibrar o preço
+         de viagem (fixo + km) contra o Visa Price. Não sai no .docx. */
+      {t:"KM DA ROTA", k:"kmRota", numTexto:true, apelidos:["KM"]},
+      {t:"TEMPO DA ROTA (H)", k:"tempoRota", numTexto:true, apelidos:["TEMPO DA ROTA","TEMPO (H)"]}
     ],
     chaveDe:r=>(txt(r.idp)&&txt(r.n))?txt(r.idp)+"|"+txt(r.n):"",
     // Item solto, de uma proposta que não existe aqui, não tem onde entrar.
@@ -8103,7 +8285,8 @@ const BASES_PLANILHA=[
         idp:String(p.id||""), n:String(i+1),
         numero:(p.form&&p.form.proposalNumber)||p.numero||"", cliente:p.cliente||"",
         chave:it.chave||"", descricao:it.descricao||"", residuo:it.residuo||"",
-        unidade:it.unidade||"", valor:it.valor||"", observacoes:it.observacoes||""
+        unidade:it.unidade||"", valor:it.valor||"", observacoes:it.observacoes||"",
+        kmRota:it.kmRota||"", tempoRota:it.tempoRota||""
       })));
       return fora;
     },
@@ -8130,17 +8313,55 @@ const BASES_PLANILHA=[
              planilha (é objeto aninhado, não cabe em célula) e por isso tem que
              voltar intacto daqui — sem ele, reabrir a proposta perderia o
              caminho que levou até o item. */
-          return {chave:l.chave||velho.chave||"", descricao:l.descricao||"",
+          const item={chave:l.chave||velho.chave||"", descricao:l.descricao||"",
                   residuo:l.residuo||"", unidade:l.unidade||"", valor:l.valor||"",
                   observacoes:l.observacoes||"", obsBase:velho.obsBase||"",
                   sel:velho.sel?JSON.parse(JSON.stringify(velho.sel)):{}};
+          if(txt(l.kmRota)) item.kmRota=txt(l.kmRota);
+          if(txt(l.tempoRota)) item.tempoRota=txt(l.tempoRota);
+          return item;
         });
         return copia;
       });
       gravarBaseAtomico(LS_PROPOSTAS,nova,()=>{ propostas=nova; });
     }
   }]
+},
+/* BDI e repasse, os dois números que viram preço. Na Matriz, as fórmulas do
+   Comparativo leem o BDI desta aba (célula B2) — por isso a ordem é fixa. */
+{
+  id:"parametros", rotulo:"Parâmetros (BDI e repasse)", dono:"uso interno",
+  dica:"Uma linha por parâmetro. Só a coluna VALOR volta pro app.",
+  partes:[{
+    aba:"Parâmetros", rotuloChave:"PARÂMETRO",
+    colunas:[
+      {t:"PARÂMETRO", k:"p", exigida:true, apelidos:["PARAMETRO"]},
+      {t:"VALOR", k:"v", exigida:true, num:true, geral:true},
+      {t:"O QUE É", k:"o", info:true}
+    ],
+    chaveDe:r=>{ const t=normCol(r.p); const p=PARAMETROS.find(x=>t.startsWith(x.id)); return p?p.id:""; },
+    valida:()=>"parâmetro que o app não conhece — os que existem são "+PARAMETROS.map(p=>p.t).join(" e "),
+    ler:()=>PARAMETROS.map(p=>({p:p.t, v:p.ler(), o:p.o})),
+    gravar(lista){
+      const valor=id=>{
+        const l=lista.find(x=>normCol(x.p).startsWith(id));
+        const n=l?Number(l.v):NaN;
+        return (isFinite(n)&&n>=0)?n:null;
+      };
+      const bdi=valor("bdi"), rep=valor("repasse");
+      if(bdi!==null&&bdi!==Number(dest.bdi))
+        gravarBaseAtomico(LS_DEST,Object.assign({},dest,{bdi}),()=>{ dest.bdi=bdi; });
+      if(rep!==null&&rep!==Number(precos.repasse))
+        gravarBaseAtomico(LS_PRECOS,Object.assign({},precos,{repasse:rep}),()=>{ precos.repasse=rep; });
+    }
+  }]
 }
+];
+const PARAMETROS=[
+  {id:"bdi", t:"BDI (%)", ler:()=>Number(dest.bdi)||0,
+   o:"Margem sobre o custo do destinador: preço = custo × (1 + BDI/100). O Comparativo usa este valor."},
+  {id:"repasse", t:"REPASSE DOS RECICLÁVEIS (%)", ler:()=>Number(precos.repasse)||0,
+   o:"Parte do valor de venda do reciclável que volta pro cliente (preço ao cliente = venda × repasse)."}
 ];
 function tipoCatDoRotulo(rotulo){
   const t=normCol(rotulo);
@@ -8194,7 +8415,10 @@ function hojeLocal(d){
    parte.ler() lê as variáveis do app. Pra ler a FOTO, as variáveis são trocadas
    pelas dela só durante a conta e voltam no finally — tudo síncrono, nenhuma
    tela chega a ver o estado trocado. */
-function chavesDasBases(){ return [LS_RAPIDOS,LS_DEST,LS_PRECOS,LS_FICHAS,LS_CATALOGO,LS_OBSP,LS_PROPOSTAS]; }
+/* As anotações entram como uma "base" a mais (CHAVE_NOTAS): não moram no
+   localStorage, mas a coluna ANOTAÇÃO precisa da foto delas pra saber o que
+   foi mudado na planilha e o que mudou no aparelho, igual às outras. */
+function chavesDasBases(){ return [LS_RAPIDOS,LS_DEST,LS_PRECOS,LS_FICHAS,LS_CATALOGO,LS_OBSP,LS_PROPOSTAS,CHAVE_NOTAS]; }
 function estadoPadrao(k){
   if(k===LS_RAPIDOS||k===LS_PROPOSTAS) return [];
   if(k===LS_DEST) return {bdi:63,precos:[],juntas:[],separadas:[],ordem:[],rotulos:{},bdiOculto:false};
@@ -8211,6 +8435,7 @@ function lerVariavel(k){
   if(k===LS_CATALOGO) return catalogo;
   if(k===LS_OBSP) return obsPadraoCustom;
   if(k===LS_PROPOSTAS) return propostas;
+  if(k===CHAVE_NOTAS) return notasCache;
 }
 function porVariavel(k,v){
   if(k===LS_RAPIDOS) clientesRapidos=v;
@@ -8220,6 +8445,42 @@ function porVariavel(k,v){
   else if(k===LS_CATALOGO) catalogo=v;
   else if(k===LS_OBSP) obsPadraoCustom=v;
   else if(k===LS_PROPOSTAS) propostas=v;
+  else if(k===CHAVE_NOTAS) notasCache=v;
+}
+
+/* ---- Anotações pra planilha ----
+   O banco é assíncrono e a leitura das bases não: antes de exportar ou
+   importar, as anotações são carregadas pra memória (notasCache), e a volta
+   grava em fila — uma de cada vez, na ordem em que foram pedidas. */
+async function carregarNotasCache(){
+  if(notaPendente) await salvarNotaAtividade();
+  const novo={};
+  try{
+    const chaves=await idbListarPrefixo(IDB_NOTA);
+    for(const k of chaves){
+      const r=await idbGet(k);
+      if(r&&r.texto) novo[String(k).slice(IDB_NOTA.length)]=r.texto;
+    }
+  }catch(e){ console.warn("anotações: não deu pra ler do banco",e); }
+  notasCache=novo;
+  return novo;
+}
+let filaNotas=Promise.resolve();
+function gravarNotaDepois(id,texto){
+  filaNotas=filaNotas
+    .then(()=>texto?idbSet(chaveNota(id),{texto,em:Date.now()}):idbApagar(chaveNota(id)))
+    .catch(e=>console.warn("anotação "+id+": não deu pra gravar",e));
+  return filaNotas;
+}
+/* Texto limpo numa célula: sem caractere de controle, sem espaço sobrando no
+   fim das linhas, no máximo uma linha em branco seguida, e dentro do limite
+   de uma célula do Excel (32.767). As quebras de linha ficam — são parte do
+   que foi escrito. */
+function limparAnotacao(t){
+  return String(t??"").replace(/\r\n?/g,"\n").replace(/\t/g," ")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g,"")
+    .split("\n").map(l=>l.replace(/\s+$/,"")).join("\n")
+    .replace(/\n{3,}/g,"\n\n").trim().slice(0,32000);
 }
 function valorGuardado(k,texto){
   const padrao=estadoPadrao(k);
@@ -8284,27 +8545,55 @@ function lerAbaBackup(linhas){
 /* ---- Escrever .xlsx ----
    O mínimo que o Excel, o LibreOffice e o Google Planilhas abrem sem pedir pra
    "reparar": texto como inlineStr (sem tabela de texto compartilhado), número
-   como número. Estilos: 0 geral · 1 cabeçalho · 2 dinheiro 0,00 · 3 texto (@)
-   · 4 texto com quebra de linha. Coluna de texto vai formatada como "@" inteira,
-   não só nas células escritas: assim o CNPJ ou o CEP que a pessoa digitar numa
-   linha nova também não perde o zero da frente. */
+   como número. Coluna de texto vai formatada como "@" inteira, não só nas
+   células escritas: assim o CNPJ ou o CEP que a pessoa digitar numa linha nova
+   também não perde o zero da frente.
+
+   Estilos (o número é o índice em cellXfs):
+   0 geral · 1 cabeçalho VERDE — coluna que o app lê na volta · 2 dinheiro 0,00
+   3 texto (@) · 4 texto com quebra · 5 cabeçalho CINZA — o app ignora
+   6 data dd/mm/aaaa · 7 título · 8 nota em itálico · 9 dinheiro em negrito
+
+   A cor do cabeçalho é a regra da planilha inteira: verde volta pro app,
+   cinza é só pra ler. A linha 1 nasce cinza depois da última coluna, então a
+   coluna que a pessoa criar por conta própria já aparece como "o app ignora". */
 const XLSX_ESTILOS='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
   '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
-  '<fonts count="2"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font>'+
-  '<font><b/><sz val="11"/><color rgb="FF1E6B3A"/><name val="Calibri"/><family val="2"/></font></fonts>'+
-  '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
-  '<fill><patternFill patternType="solid"><fgColor rgb="FFE2EFD9"/><bgColor indexed="64"/></patternFill></fill></fills>'+
-  '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'+
+  '<numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts>'+
+  '<fonts count="6">'+
+  '<font><sz val="11"/><name val="Calibri"/><family val="2"/></font>'+
+  '<font><b/><sz val="11"/><color rgb="FF1E6B3A"/><name val="Calibri"/><family val="2"/></font>'+
+  '<font><b/><sz val="11"/><color rgb="FF595959"/><name val="Calibri"/><family val="2"/></font>'+
+  '<font><b/><sz val="14"/><color rgb="FF1E6B3A"/><name val="Calibri"/><family val="2"/></font>'+
+  '<font><i/><sz val="10"/><color rgb="FF7F7F7F"/><name val="Calibri"/><family val="2"/></font>'+
+  '<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font>'+
+  '</fonts>'+
+  '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFE2EFD9"/><bgColor indexed="64"/></patternFill></fill>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFEDEDED"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+  '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>'+
+  '<border><left/><right/><top/><bottom style="thin"><color rgb="FF1E6B3A"/></bottom><diagonal/></border>'+
+  '<border><left/><right/><top/><bottom style="thin"><color rgb="FFA6A6A6"/></bottom><diagonal/></border></borders>'+
   '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
-  '<cellXfs count="5">'+
+  '<cellXfs count="10">'+
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
-  '<xf numFmtId="49" fontId="1" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>'+
+  '<xf numFmtId="49" fontId="1" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
   '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
   '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1">'+
   '<alignment vertical="top" wrapText="1"/></xf>'+
+  '<xf numFmtId="49" fontId="2" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
+  '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'+
+  '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>'+
+  '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'+
+  '<xf numFmtId="4" fontId="5" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>'+
   '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
+  // dxf 0: o destaque do menor custo no Comparativo
+  '<dxfs count="1"><dxf><font><b/><color rgb="FF1E6B3A"/></font>'+
+  '<fill><patternFill patternType="solid"><fgColor rgb="FFC6E0B4"/><bgColor rgb="FFC6E0B4"/></patternFill></fill></dxf></dxfs>'+
   '</styleSheet>';
+const ESTILO={geral:0,cabVerde:1,dinheiro:2,texto:3,quebra:4,cabCinza:5,data:6,titulo:7,nota:8,dinheiroForte:9};
+const COR_ABA_DADO="1E6B3A", COR_ABA_CONSULTA="8C8C8C";
 function xmlTexto(t){
   return String(t??"").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,"")
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -8314,28 +8603,71 @@ function letraDaColuna(i){
   for(let n=i+1;n>0;n=Math.floor((n-1)/26)) s=String.fromCharCode(65+(n-1)%26)+s;
   return s;
 }
+/* Célula com fórmula leva o resultado já calculado junto (<v>). O Excel
+   recalcula ao abrir de qualquer jeito (fullCalcOnLoad), mas quem só olha —
+   a prévia do WhatsApp, o visualizador do celular — mostra o <v>, e sem ele
+   a coluna apareceria vazia. */
 function celulaXml(ref,c){
-  if(!c||c.v===""||c.v===null||c.v===undefined) return "";
+  if(!c) return "";
+  if(c.f){
+    const s=' s="'+(c.s||0)+'"', f='<f>'+xmlTexto(c.f)+'</f>';
+    if(c.v===undefined||c.v===null) return '<c r="'+ref+'"'+s+'>'+f+'</c>';
+    if(typeof c.v==="number") return '<c r="'+ref+'"'+s+'>'+f+'<v>'+c.v+'</v></c>';
+    return '<c r="'+ref+'"'+s+' t="str">'+f+'<v>'+xmlTexto(c.v)+'</v></c>';
+  }
+  if(c.v===""||c.v===null||c.v===undefined) return "";
   if(c.num) return '<c r="'+ref+'" s="'+(c.s||0)+'"><v>'+c.v+'</v></c>';
   return '<c r="'+ref+'" t="inlineStr" s="'+(c.s||0)+'"><is><t xml:space="preserve">'+xmlTexto(c.v)+'</t></is></c>';
 }
+/* Uma aba. Opções:
+   larguras, estilos (estilo padrão de cada coluna) · congelar (linhas fixas no
+   topo) e congelarCols · filtro (liga o filtro do Excel no cabeçalho) · cor da
+   guia · estiloCabecalho (estilo das células vazias da linha 1) · condicionais
+   [{sqref, formula}] · selecionada · paisagem (impressão em uma página de largura). */
 function abaXml(linhas,o){
   o=o||{};
+  const nCols=Math.max(1,...linhas.map(l=>l.length));
   const cols=(o.larguras||[]).map((w,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"'+
     ((o.estilos&&o.estilos[i]!==undefined)?' style="'+o.estilos[i]+'"':'')+'/>').join("");
-  const rows=linhas.map((l,r)=>'<row r="'+(r+1)+'">'+
-    l.map((c,i)=>celulaXml(letraDaColuna(i)+(r+1),c)).join("")+'</row>').join("");
-  const pane=o.congelar
-    ?'<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>'
-    :'';
+  const rows=linhas.map((l,r)=>{
+    const estilo=(r===0&&o.estiloCabecalho!==undefined)?' s="'+o.estiloCabecalho+'" customFormat="1"':'';
+    return '<row r="'+(r+1)+'"'+estilo+'>'+l.map((c,i)=>celulaXml(letraDaColuna(i)+(r+1),c)).join("")+'</row>';
+  }).join("");
+  const fl=o.congelar||0, fc=o.congelarCols||0;
+  let pane="";
+  if(fl||fc){
+    const canto=letraDaColuna(fc)+(fl+1);
+    const ativo=(fl&&fc)?"bottomRight":(fl?"bottomLeft":"topRight");
+    pane='<pane'+(fc?' xSplit="'+fc+'"':'')+(fl?' ySplit="'+fl+'"':'')+' topLeftCell="'+canto+'" activePane="'+ativo+'" state="frozen"/>'+
+         '<selection pane="'+ativo+'" activeCell="'+canto+'" sqref="'+canto+'"/>';
+  }
+  const pr=(o.cor||o.paisagem)
+    ?'<sheetPr>'+(o.cor?'<tabColor rgb="FF'+o.cor+'"/>':'')+(o.paisagem?'<pageSetUpPr fitToPage="1"/>':'')+'</sheetPr>':'';
+  const filtro=o.filtro?'<autoFilter ref="A1:'+letraDaColuna(nCols-1)+Math.max(1,linhas.length)+'"/>':'';
+  const cond=(o.condicionais||[]).map((c,i)=>'<conditionalFormatting sqref="'+c.sqref+'">'+
+    '<cfRule type="expression" dxfId="0" priority="'+(i+1)+'"><formula>'+xmlTexto(c.formula)+'</formula></cfRule>'+
+    '</conditionalFormatting>').join("");
+  const pagina=o.paisagem
+    ?'<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'+
+     '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>':'';
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
-    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+pr+
     '<sheetViews><sheetView workbookViewId="0"'+(o.selecionada?' tabSelected="1"':'')+'>'+pane+'</sheetView></sheetViews>'+
     '<sheetFormatPr defaultRowHeight="15"/>'+(cols?'<cols>'+cols+'</cols>':'')+
-    '<sheetData>'+rows+'</sheetData></worksheet>';
+    '<sheetData>'+rows+'</sheetData>'+filtro+cond+pagina+'</worksheet>';
 }
-async function montarXlsx(abas){
+// A aba pronta pra entrar no arquivo. O filtro precisa de um nome definido no
+// workbook (_FilterDatabase), e é por isso que o intervalo dele viaja junto.
+function montarAba(nome,linhas,o){
+  o=o||{};
+  const nCols=Math.max(1,...linhas.map(l=>l.length));
+  return {nome, xml:abaXml(linhas,o), oculta:!!o.oculta,
+          filtro:o.filtro?("$A$1:$"+letraDaColuna(nCols-1)+"$"+Math.max(1,linhas.length)):null};
+}
+function nomeDeAbaNaFormula(nome){ return "'"+String(nome).replace(/'/g,"''")+"'"; }
+async function montarXlsx(abas,opc){
+  opc=opc||{};
   const zip=new JSZip();
   const tipoAba="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
   zip.file("[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
@@ -8350,13 +8682,17 @@ async function montarXlsx(abas){
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+
     '</Relationships>');
+  const nomes=abas.map((a,i)=>a.filtro
+    ?'<definedName name="_xlnm._FilterDatabase" localSheetId="'+i+'" hidden="1">'+
+      xmlTexto(nomeDeAbaNaFormula(a.nome)+"!"+a.filtro)+'</definedName>':'').join("");
   zip.file("xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
     '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
     'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
-    '<bookViews><workbookView activeTab="0"/></bookViews><sheets>'+
+    '<bookViews><workbookView activeTab="'+(opc.ativa||0)+'"/></bookViews><sheets>'+
     abas.map((a,i)=>'<sheet name="'+xmlTexto(a.nome)+'" sheetId="'+(i+1)+'"'+
       (a.oculta?' state="hidden"':'')+' r:id="rId'+(i+1)+'"/>').join("")+
-    '</sheets></workbook>');
+    '</sheets>'+(nomes?'<definedNames>'+nomes+'</definedNames>':'')+
+    '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>');
   zip.file("xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
     abas.map((a,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+
@@ -8370,56 +8706,118 @@ async function montarXlsx(abas){
 
 /* ---- As abas ---- */
 function ehNumerica(c){ return !!(c.num||c.dinheiro||c.numTexto); }
+/* Data como data de verdade do Excel (número de série), e não texto
+   AAAA-MM-DD: dá pra filtrar por mês, ordenar e fazer conta. Na volta,
+   dataDaPlanilha() já entende o número de série. */
+function serialDaData(v){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v??"").trim());
+  if(!m) return null;
+  return (Date.UTC(+m[1],+m[2]-1,+m[3])-Date.UTC(1899,11,30))/86400000;
+}
+function celulaDeSaida(c,v,larg,i){
+  if(v===undefined||v===null||v==="") return null;
+  if(c.data){ const n=serialDaData(v); if(n!==null) return {v:n,num:true,s:ESTILO.data}; }
+  if(ehNumerica(c)){
+    // Preço vai como NÚMERO: dá pra somar, ordenar e aplicar reajuste com
+    // fórmula no Excel. O que não for número (raro) segue como texto.
+    const n=c.num?Number(v):(/\d/.test(String(v))?numeroPlanilha(v):NaN);
+    if(isFinite(n)) return {v:n,num:true,s:(c.numTexto||c.geral)?ESTILO.geral:ESTILO.dinheiro};
+  }
+  let t=String(v);
+  if(c.unid) t=unidadePadrao(t);
+  larg[i]=Math.min(60,Math.max(larg[i],...t.split("\n").map(x=>x.length+2)));
+  return {v:t,s:t.includes("\n")?ESTILO.quebra:ESTILO.texto};
+}
+function estiloDaColuna(c){
+  if(c.data) return ESTILO.data;
+  return ehNumerica(c)?((c.numTexto||c.geral)?ESTILO.geral:ESTILO.dinheiro):ESTILO.texto;
+}
 function abaDaParte(parte){
   const titulos=parte.colunas.map(c=>c.t).concat([COL_EXCLUIR]);
   // cabeçalho vai em negrito, que ocupa mais que o texto comum
   const larg=titulos.map(t=>Math.max(12,Math.ceil(t.length*1.25)+3));
-  const linhas=[titulos.map(t=>({v:t,s:1}))];
+  const linhas=[titulos.map((t,i)=>({v:t,s:(parte.colunas[i]&&parte.colunas[i].info)?ESTILO.cabCinza:ESTILO.cabVerde}))];
   parte.ler().forEach(r=>{
-    linhas.push(parte.colunas.map((c,i)=>{
-      const v=r[c.k];
-      if(v===undefined||v===null||v==="") return null;
-      if(ehNumerica(c)){
-        // Preço vai como NÚMERO: dá pra somar, ordenar e aplicar reajuste com
-        // fórmula no Excel. O que não for número (raro) segue como texto.
-        const n=c.num?Number(v):(/\d/.test(String(v))?numeroPlanilha(v):NaN);
-        if(isFinite(n)) return {v:n,num:true,s:c.numTexto?0:2};
-      }
-      const t=String(v);
-      larg[i]=Math.min(60,Math.max(larg[i],...t.split("\n").map(x=>x.length+2)));
-      return {v:t,s:t.includes("\n")?4:3};
-    }).concat([null]));
+    linhas.push(parte.colunas.map((c,i)=>celulaDeSaida(c,r[c.k],larg,i)).concat([null]));
   });
-  return abaXml(linhas,{larguras:larg,congelar:true,
-    estilos:parte.colunas.map(c=>ehNumerica(c)?(c.numTexto?0:2):3).concat([3])});
+  return montarAba(parte.aba,linhas,{larguras:larg,congelar:1,congelarCols:parte.congelarCols||0,
+    filtro:true,cor:COR_ABA_DADO,estiloCabecalho:ESTILO.cabCinza,paisagem:true,
+    estilos:parte.colunas.map(estiloDaColuna).concat([ESTILO.texto])});
 }
-function abaLeiaMe(quando){
-  const t=[
-    ["PROPOSTAS CORPUS — dados do app",1],
-    ["Exportado em "+quando.toLocaleString("pt-BR")+" · versão "+APP_VERSION,0],
+/* ---- Unidade padrão ----
+   "ton", "Tonelada", "T" e "TON" são a mesma coisa, e numa planilha que se
+   filtra e se compara isso vira quatro grupos. Nas planilhas sai sempre TON,
+   KG, UN ou M³; o que não for nenhuma delas (Viagem, Diária, Mês) sai como
+   está. A volta compara pela unidade padrão também — o "Tonelada" gravado no
+   app não é trocado só porque a planilha mostrou TON. */
+const UNIDADES_PADRAO=["TON","KG","UN","M³"];
+function unidadePadrao(u){
+  const t=txt(u);
+  if(!t) return t;
+  const n=normUnid(t);
+  return UNIDADES_PADRAO.includes(n)?n:t;
+}
+
+/* ---- Texto de cada tipo de arquivo ---- */
+const TEXTO_LEIAME={
+  carteira:[
+    ["CARTEIRA — clientes e propostas",ESTILO.titulo],
+    ["",0],
+    ["O QUE TEM AQUI",1],
+    ["• Clientes: quem já recebeu proposta.",0],
+    ["• Propostas: uma linha por proposta, com a ANOTAÇÃO da atividade.",0],
+    ["• Itens das propostas: uma linha por item, com km e tempo da rota dos veículos (uso interno).",0],
+    ["• No .zip, a pasta fotos/ traz os anexos de cada proposta, numa pasta com o número dela.",0],
+    ["",0],
+    ["PRA A PLANILHA DE CONTROLE",1],
+    ["O nome do arquivo (corpus-carteira) e os títulos NÚMERO, CLIENTE, DATA, SOLICITANTE, TELEFONE e",0],
+    ["ANOTAÇÃO não mudam de uma versão pra outra — uma macro pode procurar por eles.",0]
+  ],
+  matriz:[
+    ["MATRIZ DE CUSTOS",ESTILO.titulo],
+    ["",0],
+    ["O QUE TEM AQUI",1],
+    ["• Comparativo: cada resíduo com o custo de cada destinador lado a lado, o menor custo, onde ele está e o preço com BDI.",0],
+    ["• Destinadores, Recicláveis, Equipamentos, Mão de obra, Frota, Catálogo e Observações padrão: as bases do app.",0],
+    ["• Cadastro de destinadores: CNPJ, endereço e código IEMA de cada destinador.",0],
+    ["• Códigos IBAMA: código, classe, nº ONU, classe de risco e tecnologia de cada resíduo",0],
+    ["  (IN IBAMA 13/2012 e RDC ANVISA 222/18 — confira o enquadramento antes de emitir o MTR).",0],
+    ["• Parâmetros: BDI e repasse. As fórmulas do Comparativo usam o BDI daqui.",0],
+    ["",0],
+    ["Não tem dado de cliente neste arquivo: pode ir pra quem cuida dos custos.",0]
+  ],
+  completo:[
+    ["PROPOSTAS CORPUS — backup completo",ESTILO.titulo],
+    ["",0],
+    ["Este arquivo tem TODOS os dados: clientes, propostas e o custo de todos os parceiros — e uma aba",0],
+    ["escondida com o backup completo do app. Pra mandar só os custos, use a Matriz de custos.",0]
+  ]
+};
+function abaLeiaMe(quando,tipo){
+  const t=(TEXTO_LEIAME[tipo]||TEXTO_LEIAME.completo).concat([
+    ["",0],
+    ["Exportado em "+quando.toLocaleString("pt-BR")+" · versão "+APP_VERSION,ESTILO.nota],
     ["",0],
     ["COMO ATUALIZAR VALORES",1],
-    ["1. Cada aba é uma base do app. Mude o que precisar e salve o arquivo (continua .xlsx).",0],
-    ["2. No app: Ajustes › Backup e planilha › Importar, e escolha este arquivo.",0],
+    ["1. Mude o que precisar e salve o arquivo (continua .xlsx).",0],
+    ["2. No app: Ajustes › Backup e planilha › Importar, e escolha este arquivo"+(tipo==="carteira"?" (ou o .zip)":"")+".",0],
     ["3. O app mostra o que vai mudar e só grava depois que você confirma.",0],
     ["",0],
     ["REGRAS",1],
+    ["• Cabeçalho VERDE: o app lê essa coluna na volta. Cabeçalho CINZA: só pra consulta, o app ignora.",0],
+    ["• Abas de consulta (guia cinza) são refeitas a cada exportação — o que for mudado nelas não volta pro app.",0],
     ["• Entra só o que você mudou na planilha. O resto fica como está no app.",0],
     ["• Apagar a linha da planilha NÃO apaga do app. Pra excluir, escreva SIM na coluna EXCLUIR.",0],
     ["• Célula vazia quer dizer \"não mexi\" — não apaga o que já está no app.",0],
-    ["• Pode filtrar, ordenar, mudar a ordem das colunas e criar colunas suas: o app ignora o que não conhece.",0],
+    ["• Pode filtrar, ordenar, mudar a ordem das colunas e criar colunas suas (ficam cinza): o app ignora o que não conhece.",0],
     ["• Não mude o título das colunas: é por ele que o app sabe o que é cada uma.",0],
-    ["• Linha nova: preencha pelo menos a primeira coluna (e a VARIAÇÃO/CAPACIDADE, onde houver).",0],
+    ["• Unidades saem padronizadas: TON, KG, UN e M³.",0],
     ["",0],
-    ["LEVAR PRO CELULAR",1],
-    ["Importe este mesmo arquivo no celular. Vindo de outro aparelho, ele deixa o celular igual ao arquivo.",0],
-    ["",0],
-    ["CUIDADO AO ENVIAR",1],
-    ["Este arquivo tem TODOS os dados: clientes, propostas e o custo de todos os parceiros — e uma aba",0],
-    ["escondida com o backup completo do app. Pra mandar só uma parte pra alguém, copie a aba pra um",0],
-    ["arquivo novo (botão direito na aba › Mover ou copiar › (novo livro)). A cópia volta pelo mesmo Importar.",0]
-  ];
-  return abaXml(t.map(([v,s])=>[{v,s:s?1:0}]),{larguras:[110],selecionada:true});
+    ["LEVAR PRO CELULAR OU PRA OUTRO COMPUTADOR",1],
+    ["Importe o mesmo arquivo lá. Vindo de outro aparelho, ele deixa o outro aparelho igual ao arquivo"+
+      (tipo==="completo"?".":" — só nas bases que este arquivo carrega."),0]
+  ]);
+  return montarAba("LEIA-ME",t.map(([v,s])=>[{v,s:s===1?ESTILO.cabVerde:s}]),{larguras:[120]});
 }
 function abaDoBackup(pacote){
   const b64=paraBase64(JSON.stringify(pacote));
@@ -8427,33 +8825,219 @@ function abaDoBackup(pacote){
   for(let i=0;i<b64.length;i+=TAM) pedacos.push(b64.slice(i,i+TAM));
   const linhas=[[{v:MARCA_BACKUP+" "+pedacos.length+" "+b64.length}]]
     .concat(pedacos.map(p=>[{v:p}]));
-  return abaXml(linhas,{larguras:[40]});
+  return montarAba(ABA_BACKUP,linhas,{larguras:[40],oculta:true});
 }
 
-/* ============ EXPORTAR TUDO ============ */
-async function exportarTudo(){
+/* ---- Comparativo: a matriz de custos que se usa no dia a dia ----
+   Uma linha por resíduo e unidade — o mesmo agrupamento da tela de
+   destinadores, então o que o Léo juntou à mão ("ÁGUA PLUVIAL" com "ÁGUA DE
+   CHUVA") sai junto aqui também. Unidade separa linha: R$/TON e R$/M³ não se
+   comparam, e pô-los na mesma linha faria o MÍNIMO escolher pela unidade.
+   As três colunas do fim são fórmula, ligadas à aba Parâmetros: mudar o BDI lá
+   refaz o preço aqui, sem reexportar. */
+const ABA_COMPARATIVO="Comparativo", ABA_IBAMA="Códigos IBAMA", ABA_PARAMETROS="Parâmetros";
+function abaComparativo(){
+  const parceiros=parceirosOrdenados();
+  const P=parceiros.length;
+  const cab=["RESÍDUO","CLASSE","UNID."].concat(parceiros)
+    .concat(["MENOR CUSTO","MAIS BARATO EM","PREÇO COM BDI","NOMES NA TABELA"]);
+  const larg=cab.map((t,i)=>i===0?34:Math.max(12,Math.ceil(t.length*1.15)+3));
+  const linhas=[cab.map(t=>({v:t,s:ESTILO.cabCinza}))];
+  const c0=3, cMin=c0+P, cOnde=cMin+1, cBdi=cMin+2, cNomes=cMin+3;
+  const L=i=>letraDaColuna(i);
+  const bdiRef=nomeDeAbaNaFormula(ABA_PARAMETROS)+"!$B$2";
+  gruposResiduos().forEach(g=>{
+    const doGrupo=(dest.precos||[]).filter(p=>g.nomes.includes(p.r));
+    const unidades=[...new Set(doGrupo.map(p=>unidadePadrao(p.u)||"—"))];
+    unidades.forEach(u=>{
+      const daqui=doGrupo.filter(p=>(unidadePadrao(p.u)||"—")===u);
+      const r=linhas.length+1;   // linha no Excel
+      const custos=parceiros.map(d=>{
+        const vs=daqui.filter(p=>p.d===d).map(p=>Number(p.v)).filter(v=>isFinite(v)&&v>0);
+        return vs.length?Math.min(...vs):null;
+      });
+      const validos=custos.filter(v=>v!==null);
+      const menor=validos.length?Math.min(...validos):null;
+      const onde=menor===null?"":parceiros[custos.indexOf(menor)];
+      const faixa=L(c0)+r+":"+L(cMin-1)+r;
+      const linha=[{v:g.rotulo,s:ESTILO.texto},
+                   {v:(daqui.find(p=>txt(p.cl))||{}).cl||"",s:ESTILO.texto},
+                   {v:u,s:ESTILO.texto}];
+      custos.forEach(v=>linha.push(v===null?null:{v,num:true,s:ESTILO.dinheiro}));
+      if(P){
+        linha.push({f:'IF(COUNT('+faixa+')=0,"",MIN('+faixa+'))',v:menor===null?"":menor,s:ESTILO.dinheiroForte});
+        linha.push({f:'IF('+L(cMin)+r+'="","",INDEX($'+L(c0)+'$1:$'+L(cMin-1)+'$1,MATCH('+L(cMin)+r+','+faixa+',0)))',
+                    v:onde,s:ESTILO.texto});
+        linha.push({f:'IF('+L(cMin)+r+'="","",'+L(cMin)+r+'*(1+'+bdiRef+'/100))',
+                    v:menor===null?"":comBDI(menor),s:ESTILO.dinheiro});
+      }else linha.push(null,null,null);
+      linha.push(g.nomes.length>1?{v:g.nomes.join(" · "),s:ESTILO.texto}:null);
+      linhas.push(linha);
+    });
+  });
+  if(linhas.length===1) linhas.push([{v:"Nenhum custo de destinador cadastrado ainda.",s:ESTILO.nota}]);
+  larg[cNomes]=60;
+  const ultima=linhas.length;
+  return montarAba(ABA_COMPARATIVO,linhas,{larguras:larg,congelar:1,congelarCols:1,filtro:true,
+    cor:COR_ABA_CONSULTA,estiloCabecalho:ESTILO.cabCinza,paisagem:true,selecionada:true,
+    condicionais:(P&&ultima>1)?[{sqref:L(c0)+"2:"+L(cMin-1)+ultima,
+      formula:"AND(ISNUMBER("+L(c0)+"2),"+L(c0)+"2=MIN($"+L(c0)+"2:$"+L(cMin-1)+"2))"}]:[]});
+}
+/* ---- Códigos IBAMA: a mesma tabela da aba Apoio, pra consulta ---- */
+function abaIbama(){
+  const cab=["RESÍDUO","CÓDIGO IBAMA","DESCRIÇÃO","CLASSE","Nº ONU","CLASSE DE RISCO",
+             "GRUPO DE EMBALAGEM","TECNOLOGIA","REVISÃO"];
+  const larg=[34,14,60,9,10,16,20,34,60];
+  const linhas=[cab.map(t=>({v:t,s:ESTILO.cabCinza}))];
+  RESIDUOS_MTR.forEach(r=>linhas.push([
+    {v:r.n,s:ESTILO.texto},{v:r.c,s:ESTILO.texto},{v:r.d,s:ESTILO.quebra},{v:r.cl,s:ESTILO.texto},
+    r.onu?{v:r.onu,s:ESTILO.texto}:null, r.risco?{v:r.risco,s:ESTILO.texto}:null,
+    r.emb?{v:r.emb,s:ESTILO.texto}:null, {v:r.tec,s:ESTILO.texto},
+    {v:r.ok?"conferido":(r.nota||"revisado"),s:ESTILO.quebra}
+  ]));
+  return montarAba(ABA_IBAMA,linhas,{larguras:larg,congelar:1,congelarCols:1,filtro:true,
+    cor:COR_ABA_CONSULTA,paisagem:true,estilos:larg.map(()=>ESTILO.texto)});
+}
+// Abas que só existem pra ler: refeitas a cada exportação, ignoradas na volta.
+const ABAS_DE_CONSULTA=[ABA_COMPARATIVO,ABA_IBAMA];
+
+/* ============ OS TRÊS ARQUIVOS ============
+
+   CARTEIRA: clientes e propostas (com anotação e, no .zip, os anexos). É o
+   arquivo do dia a dia, e o que a macro da planilha de controle lê.
+   MATRIZ DE CUSTOS: tudo que é custo e catálogo, sem dado de cliente — pode
+   ir pro Felipe e pro Rafael.
+   BACKUP COMPLETO: tudo, como sempre foi.
+
+   Cada um leva na aba escondida só as bases que carrega. Vindo de outro
+   aparelho, o arquivo substitui só essas — a Matriz não encosta nas propostas
+   e a Carteira não encosta nos custos. */
+const CHAVE_NOTAS="#notas";   // as anotações no pacote — não é chave do localStorage
+const ARQUIVOS={
+  carteira:{rotulo:"Carteira", nome:"corpus-carteira",
+    abas:["Clientes","Propostas","Itens das propostas"],
+    chaves:()=>[LS_RAPIDOS,LS_PROPOSTAS,LS_NUMERO], notas:true},
+  matriz:{rotulo:"Matriz de custos", nome:"corpus-matriz",
+    abas:[ABA_COMPARATIVO,"Destinadores","Cadastro de destinadores","Recicláveis","Equipamentos",
+          "Mão de obra","Frota","Catálogo","Observações padrão",ABA_IBAMA,ABA_PARAMETROS],
+    chaves:()=>[LS_DEST,LS_PRECOS,LS_FICHAS,LS_CATALOGO,LS_OBSP,LS_VINC,LS_VINCC], notas:false},
+  completo:{rotulo:"Backup completo", nome:"corpus", notas:true}
+};
+// O que cada chave é, em palavras — pra prévia dizer o que vai ser substituído.
+function rotuloDaChave(k){
+  return ({[LS_RAPIDOS]:"clientes",[LS_PROPOSTAS]:"propostas",[LS_NUMERO]:"numeração das propostas",
+    [LS_DEST]:"custos dos destinadores, BDI e cadastro",[LS_PRECOS]:"recicláveis, equipamentos, mão de obra e repasse",
+    [LS_FICHAS]:"frota",[LS_CATALOGO]:"catálogo",[LS_OBSP]:"observações padrão",
+    [LS_VINC]:"vínculos de custo",[LS_VINCC]:"vínculos de custo",[CHAVE_NOTAS]:"anotações"})[k]||null;
+}
+async function pacoteDoArquivo(tipo,agora){
+  const dados={};
+  if(tipo==="completo"){
+    chavesDoApp().forEach(k=>{ if(!FORA_DO_ARQUIVO.includes(k)) dados[k]=localStorage.getItem(k); });
+  }else{
+    ARQUIVOS[tipo].chaves().forEach(k=>{ const v=localStorage.getItem(k); if(v!==null) dados[k]=v; });
+  }
+  if(ARQUIVOS[tipo].notas) dados[CHAVE_NOTAS]=JSON.stringify(notasCache);
+  return {app:"propostas-corpus",versao:APP_VERSION,tipo,em:agora.toISOString(),
+          origem:idDoAparelho(),chaves:Object.keys(dados).length,dados};
+}
+function partePelaAba(nome){ return todasAsPartes().find(p=>normCol(p.aba)===normCol(nome)); }
+function abasDoTipo(tipo){
+  if(tipo==="completo") return todasAsPartes().map(abaDaParte);
+  return ARQUIVOS[tipo].abas.map(nome=>{
+    if(nome===ABA_COMPARATIVO) return abaComparativo();
+    if(nome===ABA_IBAMA) return abaIbama();
+    return abaDaParte(partePelaAba(nome));
+  });
+}
+async function planilhaDoTipo(tipo,agora,extra){
+  await carregarNotasCache();
+  const pacote=Object.assign(await pacoteDoArquivo(tipo,agora),extra||{});
+  const abas=[abaLeiaMe(agora,tipo)].concat(abasDoTipo(tipo)).concat([abaDoBackup(pacote)]);
+  const ativa=abas.findIndex(a=>a.nome===ABA_COMPARATIVO);
+  // Só uma aba pode estar selecionada: sem o Comparativo, é o LEIA-ME
+  if(ativa<0) abas[0].xml=abas[0].xml.replace('<sheetView workbookViewId="0"','<sheetView workbookViewId="0" tabSelected="1"');
+  return montarXlsx(abas,{ativa:ativa<0?0:ativa});
+}
+
+/* ---- Os anexos da carteira ----
+   Cada proposta ganha uma pasta com o número dela (fotos/100925-2026/). Duas
+   propostas com o mesmo número não se misturam: a segunda vira "(2)". O
+   caminho de cada arquivo e a chave dele no app vão no pacote escondido — é
+   por ali que a importação devolve cada anexo à proposta certa. */
+function nomeDeArquivoSeguro(s){
+  return String(s||"").replace(/[\\/:*?"<>|\u0000-\u001F]/g,"-").replace(/\s+/g," ").trim().slice(0,120);
+}
+async function anexosDasPropostas(){
+  let chaves=[];
+  try{ chaves=await idbListarPrefixo(IDB_FOTO); }catch(e){ return []; }
+  const porId=new Map(propostas.map(p=>[String(p.id),p]));
+  const pastaDe=new Map(), usadas=new Set(), saida=[];
+  for(const chave of chaves){
+    const id=String(chave).slice(IDB_FOTO.length).split(":")[0];
+    const p=porId.get(id);
+    if(!p) continue;                       // anexo de rascunho que não virou proposta
+    if(!pastaDe.has(id)){
+      const base=nomeDeArquivoSeguro((p.form&&p.form.proposalNumber)||p.numero||("sem-numero-"+id));
+      let nome=base, n=2;
+      while(usadas.has(nome.toLowerCase())) nome=base+" ("+(n++)+")";
+      usadas.add(nome.toLowerCase());
+      pastaDe.set(id,{nome,arquivos:new Set()});
+    }
+    let reg;
+    try{ reg=await idbGet(chave); }catch(e){ continue; }
+    if(!reg||!reg.blob) continue;
+    const pasta=pastaDe.get(id);
+    const original=nomeDeArquivoSeguro(reg.nome)||"anexo";
+    const m=/^(.*?)(\.[^.]{1,6})?$/.exec(original);
+    let arq=original, n=2;
+    while(pasta.arquivos.has(arq.toLowerCase())) arq=m[1]+" ("+(n++)+")"+(m[2]||"");
+    pasta.arquivos.add(arq.toLowerCase());
+    saida.push({caminho:"fotos/"+pasta.nome+"/"+arq, chave:String(chave), id,
+                nome:reg.nome||arq, tipo:reg.tipo||reg.blob.type||"", em:reg.em||0, blob:reg.blob});
+  }
+  return saida;
+}
+const NOME_CARTEIRA="corpus-carteira";
+async function montarCarteira(agora){
+  const anexos=await anexosDasPropostas();
+  const indice=anexos.map(a=>({caminho:a.caminho,chave:a.chave,nome:a.nome,tipo:a.tipo,em:a.em}));
+  const xlsx=await planilhaDoTipo("carteira",agora,{anexos:indice});
+  const zip=new JSZip();
+  zip.file(NOME_CARTEIRA+".xlsx",xlsx);
+  // Foto e PDF já vêm comprimidos: comprimir de novo só gasta tempo.
+  anexos.forEach(a=>zip.file(a.caminho,a.blob,{compression:"STORE",date:a.em?new Date(a.em):agora}));
+  const blobZip=await zip.generateAsync({type:"blob",compression:"DEFLATE",mimeType:"application/zip"});
+  return {xlsx,zip:blobZip,nAnexos:anexos.length,nPropostas:propostas.length};
+}
+
+/* ============ EXPORTAR ============ */
+async function exportarArquivo(tipo){
   const st=document.getElementById("statusBackup");
-  st.textContent="Montando a planilha...";
+  st.textContent="Montando "+ARQUIVOS[tipo].rotulo.toLowerCase()+"...";
   try{
     const agora=new Date();
-    const dados={};
-    chavesDoApp().forEach(k=>{ if(!FORA_DO_ARQUIVO.includes(k)) dados[k]=localStorage.getItem(k); });
-    const pacote={app:"propostas-corpus",versao:APP_VERSION,em:agora.toISOString(),
-                  origem:idDoAparelho(),chaves:Object.keys(dados).length,dados};
-    const abas=[{nome:"LEIA-ME",xml:abaLeiaMe(agora)}]
-      .concat(todasAsPartes().map(p=>({nome:p.aba,xml:abaDaParte(p)})))
-      .concat([{nome:ABA_BACKUP,xml:abaDoBackup(pacote),oculta:true}]);
-    const blob=await montarXlsx(abas);
-    const nome="corpus-"+hojeLocal(agora)+".xlsx";
+    let blob,nome,detalhe;
+    if(tipo==="carteira"){
+      const c=await montarCarteira(agora);
+      blob=c.zip; nome=NOME_CARTEIRA+".zip";
+      detalhe=c.nPropostas+" propostas e "+c.nAnexos+" anexo(s)";
+    }else{
+      blob=await planilhaDoTipo(tipo,agora);
+      nome=ARQUIVOS[tipo].nome+"-"+hojeLocal(agora)+".xlsx";
+      detalhe=tipo==="matriz"?"custos, catálogo e consultas":(todasAsPartes().length+" abas + o backup completo");
+    }
     // "arquivo": vai pro download do navegador, não pra pasta dos documentos
     const pasta=await baixar(blob,nome,"arquivo");
-    st.textContent="Exportado: "+nome+" — "+todasAsPartes().length+" abas + o backup completo"
-      +(pasta?(" (pasta "+pasta+")."):". Procure em Downloads.");
+    st.textContent="Exportado: "+nome+" — "+detalhe+(pasta?(" (pasta "+pasta+")."):". Procure em Downloads.");
   }catch(e){
     console.error(e);
     st.textContent="Não deu pra exportar: "+(e.message||e);
   }
 }
+function exportarTudo(){ return exportarArquivo("completo"); }
+function exportarCarteira(){ return exportarArquivo("carteira"); }
+function exportarMatriz(){ return exportarArquivo("matriz"); }
 
 /* ============ IMPORTAR ============ */
 async function importarArquivo(input){
@@ -8463,16 +9047,94 @@ async function importarArquivo(input){
   const st=document.getElementById("statusBackup");
   st.textContent="Lendo "+arq.name+"...";
   let abas;
+  const opc={};
   try{
     if(/\.json$/i.test(arq.name)){ await importarJson(arq,st); return; }
-    abas=/\.csv$/i.test(arq.name)
+    if(/\.zip$/i.test(arq.name)){
+      // A Carteira em .zip: a planilha e, ao lado dela, a pasta fotos/
+      const zip=await JSZip.loadAsync(arq);
+      const plan=Object.values(zip.files).find(f=>!f.dir&&/\.xlsx$/i.test(f.name)
+        &&!/^fotos\//i.test(f.name)&&!/(^|\/)(__MACOSX\/|~\$)/.test(f.name));
+      if(!plan) throw new Error("esse .zip não tem a planilha da Carteira dentro");
+      abas=await lerXlsxAbas(await plan.async("blob"));
+      opc.zip=zip;
+    }else abas=/\.csv$/i.test(arq.name)
       ? [{nome:arq.name,oculta:false,linhas:lerCsv(await arq.text())}]
       : await lerXlsxAbas(arq);
   }catch(e){
     st.textContent="Não deu pra ler "+arq.name+": "+(e.message||e); return;
   }
-  try{ await importarAbas(abas,arq.name,st); }
+  try{ await importarAbas(abas,arq.name,st,opc); }
   catch(e){ console.error(e); st.textContent="Não deu pra importar: "+(e.message||e); }
+}
+/* ---- Os anexos que voltam com a Carteira (.zip) ----
+   O índice da aba escondida diz de qual proposta é cada arquivo e com que
+   chave ele morava no app: volta exatamente pro mesmo lugar, e o que já
+   existe aqui não é gravado de novo. Arquivo fora do índice (a aba veio
+   estragada, ou alguém pôs uma foto na pasta à mão) vai pela pasta, que tem o
+   número da proposta. */
+const TIPO_POR_EXTENSAO={jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",gif:"image/gif",
+  heic:"image/heic",pdf:"application/pdf",zip:"application/zip",txt:"text/plain",csv:"text/csv",
+  xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"};
+function tipoPelaExtensao(nome){
+  const m=/\.([a-z0-9]{1,5})$/i.exec(String(nome||""));
+  return (m&&TIPO_POR_EXTENSAO[m[1].toLowerCase()])||"";
+}
+async function nomesDosAnexos(id){
+  const nomes=new Set();
+  try{
+    for(const k of await idbListarPrefixo(prefixoFotos(id))){
+      const r=await idbGet(k);
+      if(r&&r.nome) nomes.add(nomeDeArquivoSeguro(r.nome).toLowerCase());
+    }
+  }catch(e){}
+  return nomes;
+}
+async function anexosParaVoltar(zip,foto,propostasDepois){
+  const lista=[], cobertos=new Set();
+  const indice=(foto&&Array.isArray(foto.anexos))?foto.anexos:[];
+  for(const a of indice){
+    const f=a&&a.caminho?zip.file(a.caminho):null;
+    if(!f||!String(a.chave||"").startsWith(IDB_FOTO)) continue;
+    cobertos.add(a.caminho);
+    let existe=null;
+    try{ existe=await idbGet(a.chave); }catch(e){}
+    if(!existe) lista.push({f,chave:a.chave,nome:a.nome||a.caminho.split("/").pop(),
+                            tipo:a.tipo||tipoPelaExtensao(a.caminho),em:a.em||Date.now()});
+  }
+  const porNumero=new Map();
+  (propostasDepois||[]).forEach(p=>{
+    const n=nomeDeArquivoSeguro((p.form&&p.form.proposalNumber)||p.numero||"").toLowerCase();
+    if(n&&!porNumero.has(n)) porNumero.set(n,p);
+  });
+  const jaTem=new Map();
+  let i=0;
+  for(const f of Object.values(zip.files)){
+    if(f.dir||cobertos.has(f.name)) continue;
+    const m=/^fotos\/([^/]+)\/([^/]+)$/.exec(f.name);
+    if(!m) continue;
+    const p=porNumero.get(m[1].toLowerCase());
+    if(!p) continue;
+    if(!jaTem.has(p.id)) jaTem.set(p.id,await nomesDosAnexos(p.id));
+    if(jaTem.get(p.id).has(m[2].toLowerCase())) continue;
+    jaTem.get(p.id).add(m[2].toLowerCase());
+    lista.push({f,chave:prefixoFotos(p.id)+Date.now()+"-z"+(i++)+"-"+m[2],nome:m[2],
+                tipo:tipoPelaExtensao(m[2]),em:Date.now()});
+  }
+  return lista;
+}
+async function devolverAnexos(lista){
+  let n=0;
+  for(const a of lista){
+    try{
+      const bruto=await a.f.async("blob");
+      const blob=new Blob([bruto],{type:a.tipo||""});
+      await idbSet(a.chave,{nome:a.nome,tipo:blob.type,tam:blob.size,blob,em:a.em});
+      n++;
+    }catch(e){ console.warn("anexo "+a.nome+": não voltou",e); }
+  }
+  return n;
 }
 function resumoCurto(p){
   const l=[];
@@ -8484,8 +9146,12 @@ function resumoCurto(p){
   return l.length?l.join(", "):"nada mudou";
 }
 function nomeDaParte(p){ return p.base.rotulo+(p.nome?" ("+p.nome+")":""); }
-async function importarAbas(abas,nomeArq,st){
-  // 1. A foto escondida, se o arquivo for do Exportar tudo
+async function importarAbas(abas,nomeArq,st,opc){
+  opc=opc||{};
+  // As anotações entram na conta da coluna ANOTAÇÃO: carregadas antes de tudo.
+  await carregarNotasCache();
+  const notasAntes=Object.assign({},notasCache);
+  // 1. A foto escondida, se o arquivo for um dos exportados pelo app
   let foto=null, avisoFoto="";
   const abaB=abas.find(a=>a.nome===ABA_BACKUP);
   if(abaB){
@@ -8493,11 +9159,16 @@ async function importarAbas(abas,nomeArq,st){
     catch(e){ avisoFoto="A aba escondida de backup veio estragada ("+e.message+"): vale só o que está nas abas, comparado com este aparelho."; }
   }
   const deOutro=!!(foto&&foto.origem&&foto.origem!==idDoAparelho());
+  // Arquivo de antes desta versão não diz o tipo: era sempre o completo.
+  const tipoArq=(foto&&ARQUIVOS[foto.tipo])?foto.tipo:"completo";
 
-  // 2. Cada aba com a sua base: pelo nome da aba e, se não bater, pelas colunas
+  // 2. Cada aba com a sua base: pelo nome da aba e, se não bater, pelas colunas.
+  //    Aba de consulta (Comparativo, Códigos IBAMA) é refeita a cada exportação
+  //    e não volta: fica de fora em silêncio, sem aparecer como "não reconheci".
   const entradas=[], naoReconhecidas=[], problemas=[];
   abas.forEach(a=>{
     if(a.nome===ABA_BACKUP||normCol(a.nome)==="leiame") return;
+    if(ABAS_DE_CONSULTA.some(n=>normCol(n)===normCol(a.nome))) return;
     if(!a.linhas.some(l=>Object.values(l).some(v=>String(v).trim()))) return;
     let parte=todasAsPartes().find(p=>normCol(p.aba)===normCol(a.nome));
     if(parte){
@@ -8532,21 +9203,32 @@ async function importarAbas(abas,nomeArq,st){
   const calcular=()=>entradas.map(e=>({e,plano:planoPlanilha(e.parte,e.linhas,
     fotoEstado?linhasDaFoto(e.parte,fotoEstado):null)}));
   const planos=deOutro?comEstado(estadoFinal,calcular):calcular();
+  // Os anexos que o .zip traz e este aparelho ainda não tem
+  const anexosNovos=opc.zip
+    ?await anexosParaVoltar(opc.zip,foto,deOutro?estadoFinal[LS_PROPOSTAS]:propostas):[];
 
   // 4. A prévia
   const comMudanca=planos.filter(x=>!planoVazio(x.plano));
   const txt=[];
   if(deOutro){
     const quando=foto.em?new Date(foto.em).toLocaleString("pt-BR"):"data desconhecida";
-    txt.push("Este arquivo veio de OUTRO aparelho (exportado em "+quando+").",
-      "Importar deixa este aparelho igual a ele: propostas, clientes, preços, catálogos — "+
-      "o que está aqui é substituído pelo que está no arquivo.");
+    if(tipoArq==="completo")
+      txt.push("Este arquivo veio de OUTRO aparelho (exportado em "+quando+").",
+        "Importar deixa este aparelho igual a ele: propostas, clientes, preços, catálogos — "+
+        "o que está aqui é substituído pelo que está no arquivo.");
+    else{
+      const oQue=[...new Set(Object.keys(foto.dados).map(rotuloDaChave).filter(Boolean))];
+      txt.push("Esta "+ARQUIVOS[tipoArq].rotulo+" veio de OUTRO aparelho (exportada em "+quando+").",
+        "Importar deixa este aparelho igual a ela em: "+oQue.join(", ")+". O resto fica como está.");
+    }
     if(comMudanca.length) txt.push("","E entra o que foi mudado nas abas:");
   }
   comMudanca.forEach(x=>txt.push("• "+nomeDaParte(x.e.parte)+": "+resumoCurto(x.plano)));
   const semMudanca=planos.filter(x=>planoVazio(x.plano)&&!x.plano.ignoradas.length);
   if(!deOutro&&semMudanca.length&&comMudanca.length)
     txt.push("Sem mudança: "+semMudanca.map(x=>x.e.parte.aba).join(", ")+".");
+  if(anexosNovos.length)
+    txt.push("","Anexos: "+anexosNovos.length+" arquivo(s) voltam para as propostas.");
   const ign=[];
   planos.forEach(x=>x.plano.ignoradas.forEach(i=>ign.push(x.e.aba+", linha "+i.n+": "+i.por)));
   if(ign.length) txt.push("","Linhas ignoradas:",...ign.slice(0,6).map(t=>"• "+t),
@@ -8565,7 +9247,7 @@ async function importarAbas(abas,nomeArq,st){
     ?"Entra só o que você mudou na planilha. O que mudou neste aparelho depois da exportação fica como está."
     :"O que não está na planilha continua aqui. Célula vazia não apaga nada.");
 
-  if(!deOutro&&!comMudanca.length){
+  if(!deOutro&&!comMudanca.length&&!anexosNovos.length){
     st.textContent="Conferido: nada mudou em relação ao que já está aqui."+
       (ign.length?(" "+ign.length+" linha(s) ignorada(s) — a primeira: "+ign[0]+"."):"")+
       (naoReconhecidas.length?(" Abas que não reconheci: "+naoReconhecidas.join(", ")+"."):"");
@@ -8587,6 +9269,14 @@ async function importarAbas(abas,nomeArq,st){
     // da prévia e a gravação não dividam os mesmos objetos.
     chavesDasBases().forEach(k=>porVariavel(k,(typeof foto.dados[k]==="string")
       ?valorGuardado(k,foto.dados[k]):estadoFinal[k]));
+    /* As anotações não moram no localStorage, então substituirPelaFoto não
+       as alcança: ficam iguais às do arquivo aqui, em fila — a das abas, se
+       houver, entra depois e vence. */
+    if(typeof foto.dados[CHAVE_NOTAS]==="string"){
+      const doArquivo=valorGuardado(CHAVE_NOTAS,foto.dados[CHAVE_NOTAS]);
+      Object.keys(notasAntes).forEach(id=>{ if(!doArquivo[id]) gravarNotaDepois(id,""); });
+      Object.entries(doArquivo).forEach(([id,t])=>{ if(t&&t!==notasAntes[id]) gravarNotaDepois(id,t); });
+    }
   }
   const feitos=[];
   let erro=null;
@@ -8594,15 +9284,18 @@ async function importarAbas(abas,nomeArq,st){
     try{ aplicarPlano(e.parte,plano); feitos.push(nomeDaParte(e.parte)+" ("+resumoCurto(plano)+")"); }
     catch(err){ erro=nomeDaParte(e.parte)+": "+(err.message||err); break; }
   }
+  await filaNotas;
+  const nAnexos=anexosNovos.length?await devolverAnexos(anexosNovos):0;
+  const deAnexos=nAnexos?(" "+nAnexos+" anexo(s) de volta às propostas."):"";
   if(deOutro){
-    st.textContent=(erro?("Substituído, mas as mudanças das abas pararam em "+erro+". "):"Pronto. ")+"Recarregando...";
+    st.textContent=(erro?("Substituído, mas as mudanças das abas pararam em "+erro+". "):"Pronto. ")+deAnexos+" Recarregando...";
     setTimeout(()=>location.reload(),erro?2500:700);
     return;
   }
   repintarDepoisDaPlanilha();
-  st.textContent=erro
+  st.textContent=(erro
     ?((feitos.length?"Gravado: "+feitos.join("; ")+". ":"")+"Parou em "+erro+" — o que faltava não foi alterado.")
-    :"Importado: "+feitos.join("; ")+".";
+    :(feitos.length?"Importado: "+feitos.join("; ")+".":"Importado."))+deAnexos;
 }
 /* Grava a foto no lugar do que está aqui — tudo ou nada. Se o armazenamento
    encher no meio, o que já tinha sido trocado volta ao que era. */
@@ -8698,7 +9391,7 @@ async function novaProposta(silencioso){
   }
 
   itens=[];sel={};objetoSel=OBJETO_PADRAO;subObjetoSel=SUBOBJETO_PADRAO;
-  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};linkEscolhido={};
+  mesmoEnd=true;valorPorChave={};obsPorChave={};unidadePorChave={};obsAutoPorChave={}; valorAutoPorChave={};freqPorChave={};kmPorChave={};tempoPorChave={};linkEscolhido={};
   restaurarTipoPessoa("PJ");
   enderecoInformado="";
   contatosExtras=[];renderContatosExtras();
@@ -9303,6 +9996,7 @@ function mapear(){
 let ultimosGerados=[];
 function mostrarPronto(arquivos){
   ultimosGerados=arquivos;
+  const pc=document.getElementById("prontoCarteira"); if(pc) pc.classList.add("oculto");
   const linhas=arquivos.map(a=>"• "+a.nome+"\n   em "+(a.pasta?("pasta "+a.pasta):"Downloads do navegador"));
   document.getElementById("prontoTitulo").textContent=
     arquivos.length>1?"Documentos gerados":"Documento gerado";
@@ -10563,10 +11257,10 @@ async function idbSet(chave,valor){
     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);
   });
 }
-let pastaHandle=null, pastaAceite=null;
+let pastaHandle=null, pastaAceite=null, pastaCarteira=null;
 async function iniciarPasta(){
   if(!("showDirectoryPicker" in window)){
-    ["btnEscolherPasta","btnEscolherPastaAceite"].forEach(id=>{
+    ["btnEscolherPasta","btnEscolherPastaAceite","btnEscolherPastaCarteira"].forEach(id=>{
       const b=document.getElementById(id);
       if(b){b.disabled=true;b.textContent="Sem suporte";}
     });
@@ -10577,6 +11271,8 @@ async function iniciarPasta(){
     if(h) pastaHandle=h;
     const ha=await idbGet("pastaAceite");
     if(ha) pastaAceite=ha;
+    const hc=await idbGet("pastaCarteira");
+    if(hc) pastaCarteira=hc;
     atualizarPastaUI();
   }catch(e){}
 }
@@ -10589,6 +11285,10 @@ function atualizarPastaUI(){
   // As pastas escolhidas viram o rótulo do card, pra saber o destino sem abrir
   const nomes=[pastaHandle&&pastaHandle.name,pastaAceite&&pastaAceite.name].filter(Boolean);
   document.getElementById("badgePasta").textContent=nomes.length?nomes.join(" · "):"padrão";
+  const pc=document.getElementById("pastaCarteiraAtual");
+  if(pc) pc.textContent=pastaCarteira?("pasta "+pastaCarteira.name):"Desligada";
+  const ac=document.getElementById("acoesCarteira");
+  if(ac) ac.classList.toggle("oculto",!pastaCarteira);
 }
 let downloadsAberto=false, sobreAberto=false;
 function toggleDownloads(){
@@ -10608,11 +11308,106 @@ async function escolherPasta(tipo){
   }
   try{
     const h=await window.showDirectoryPicker({mode:"readwrite"});
+    if(tipo==="carteira"){
+      pastaCarteira=h; await idbSet("pastaCarteira",h);
+      atualizarPastaUI();
+      // Grava já: a pasta escolhida não fica vazia esperando a próxima proposta
+      gravarCarteiraNaPasta();
+      return;
+    }
     if(tipo==="aceite"){ pastaAceite=h; await idbSet("pastaAceite",h); }
     else { pastaHandle=h; await idbSet("pasta",h); }
     atualizarPastaUI();
     document.getElementById("avisoPasta").textContent="Pronto — os próximos arquivos vão direto pra essa pasta, sem passar pelos Downloads.";
   }catch(e){ /* usuário cancelou a escolha */ }
+}
+
+/* ============ CARTEIRA AUTOMÁTICA ============
+   A pasta é escolhida uma vez; a cada proposta gerada (ou salva sem gerar)
+   a Carteira é regravada lá com nome fixo — corpus-carteira.zip, com as
+   fotos, e corpus-carteira.xlsx solto, que é o que uma macro do Excel abre
+   sem precisar descompactar nada.
+
+   Nunca atrapalha a proposta: roda depois que os documentos já saíram, e
+   qualquer problema vira aviso, não erro. O caso comum é o navegador pedir
+   de novo a permissão da pasta (depois de fechado, o Chrome às vezes
+   esquece) — fora de um toque, não dá pra pedir, então o aviso traz o botão
+   que pede. O outro é o .xlsx estar aberto no Excel, que trava o arquivo. */
+let carteiraOcupada=false, carteiraDeNovo=false;
+function agendarCarteira(){
+  if(!pastaCarteira) return;
+  gravarCarteiraNaPasta().catch(e=>console.warn("carteira automática:",e));
+}
+async function gravarNaPasta(alca,nome,blob){
+  const fh=await alca.getFileHandle(nome,{create:true});
+  const ws=await fh.createWritable();
+  try{ await ws.write(blob); await ws.close(); }
+  catch(e){ try{ await ws.abort(); }catch(_){} throw e; }
+}
+function avisoCarteira(texto,comBotao){
+  const st=document.getElementById("statusCarteira");
+  if(st) st.textContent=texto;
+  const el=document.getElementById("prontoCarteira");
+  if(el){
+    // No "Documento gerado" só aparece o problema — e, depois de um toque no
+    // botão dele, o resultado. Carteira gravada sem problema não faz barulho.
+    const mostrar=!!texto&&(comBotao||!el.classList.contains("oculto"));
+    el.classList.toggle("oculto",!mostrar);
+    el.querySelector(".texto").textContent=texto;
+    el.querySelector("button").classList.toggle("oculto",!comBotao);
+  }
+}
+async function gravarCarteiraNaPasta(){
+  if(!pastaCarteira) return false;
+  if(carteiraOcupada){ carteiraDeNovo=true; return false; }
+  carteiraOcupada=true;
+  try{
+    let perm="prompt";
+    try{ perm=await pastaCarteira.queryPermission({mode:"readwrite"}); }catch(e){}
+    if(perm!=="granted"){
+      // Só funciona logo depois de um toque; fora disso o navegador recusa.
+      try{ perm=await pastaCarteira.requestPermission({mode:"readwrite"}); }catch(e){}
+    }
+    if(perm!=="granted"){
+      avisoCarteira("A Carteira não foi atualizada: o navegador pediu de novo a permissão da pasta "+
+        pastaCarteira.name+". A proposta saiu normalmente.",true);
+      return false;
+    }
+    const c=await montarCarteira(new Date());
+    const falhas=[];
+    for(const [nome,blob] of [[NOME_CARTEIRA+".zip",c.zip],[NOME_CARTEIRA+".xlsx",c.xlsx]]){
+      try{ await gravarNaPasta(pastaCarteira,nome,blob); }
+      catch(e){ console.warn("carteira: "+nome,e); falhas.push(nome); }
+    }
+    const quando=new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+    if(falhas.length){
+      avisoCarteira("A Carteira não foi atualizada em "+falhas.join(" e ")+
+        " — o arquivo está aberto no Excel? Feche e toque em Gravar agora.",true);
+      return false;
+    }
+    avisoCarteira("Carteira atualizada às "+quando+" na pasta "+pastaCarteira.name+": "+
+      c.nPropostas+" propostas, "+c.nAnexos+" anexo(s).",false);
+    return true;
+  }catch(e){
+    console.warn("carteira automática:",e);
+    avisoCarteira("A Carteira não foi atualizada: "+(e.message||e)+". A proposta saiu normalmente.",true);
+    return false;
+  }finally{
+    carteiraOcupada=false;
+    if(carteiraDeNovo){ carteiraDeNovo=false; agendarCarteira(); }
+  }
+}
+// O botão do aviso e o de Ajustes: é um toque, então dá pra pedir permissão.
+async function gravarCarteiraAgora(){
+  if(!pastaCarteira){ escolherPasta("carteira"); return; }
+  avisoCarteira("Gravando a Carteira...",false);
+  await gravarCarteiraNaPasta();
+}
+async function desligarCarteira(){
+  pastaCarteira=null;
+  try{ await idbSet("pastaCarteira",null); }catch(e){}
+  atualizarPastaUI();
+  avisoCarteira("Carteira automática desligada. Dá pra exportar à mão em Backup e planilha.",false);
 }
 function limparPasta(){
   pastaHandle=null; pastaAceite=null;
